@@ -1,0 +1,52 @@
+---
+title: "Exploratory Analysis"
+author: "Jared Martin"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(tigris)
+library(gridExtra)
+
+```
+
+```{r}
+
+denver_tree <- read_rds("../data_raw/tree_inventory_denver_20250911.rds")
+
+```
+
+
+```{r}
+
+denver_tree %>%
+  mutate(
+    species_common = if_else(
+      str_detect(species_common, ","),
+      str_replace(species_common, "^(.*),\\s*(.*)$", "\\2 \\1"),
+      species_common
+    ),
+    botanic_common = paste(species_botanic, "(", species_common, ")"),
+    desease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
+                               "N/A", disease_pest_def)) %>% 
+  filter(species_botanic != "Tree requested")-> denver_tree
+
+denver_tree %>% 
+  group_by(botanic_common, species_botanic, species_common) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  filter(!str_detect(species_botanic, "Vacant Site"),
+         !str_detect(species_botanic, "Vacant site"),
+         !str_detect(species_botanic, "Stump")) %>% 
+  arrange(desc(n)) %>% 
+  mutate(rank = row_number()) -> top_denver_trees
+
+top_denver <- top_denver_trees$species_botanic
+
+top_denver_common <- top_denver_trees$species_common
+
+```
+
