@@ -21,18 +21,35 @@ denver_tree <- read_rds("../data_raw/tree_inventory_denver_20250911.rds")
 ```
 
 ```{r}
-
 denver_tree %>%
+  # Fix formatting of common names: convert "last, first" to "first last"
   mutate(
     species_common = if_else(
-      str_detect(species_common, ","),
-      str_replace(species_common, "^(.*),\\s*(.*)$", "\\2 \\1"),
-      species_common
+      str_detect(species_common, ","),# check if a comma exists
+      str_replace(species_common, "^(.*),\\s*(.*)$", "\\2 \\1"), # swap parts around
+      species_common  # leave unchanged if no comma
     ),
+    # Combine scientific and common names into one column
     botanic_common = paste(species_botanic, "(", species_common, ")"),
-    desease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
-                               "N/A", disease_pest_def)) %>% 
-  filter(species_botanic != "Tree requested")-> denver_tree
+    # Standardize disease/pest field: anything containing "N/A" becomes exactly "N/A"
+    disease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
+                               "N/A", disease_pest_def)
+    ) %>%
+  filter(species_botanic != "Tree requested") %>% # Remove rows with placeholder species
+  # Extract the Genus + species (binomial name) from species_botanic
+  mutate(
+    species_sci = str_extract(species_botanic, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+"),
+    # Extract anything remaining after the binomial (e.g., variety, subspecies)
+    Extra = str_trim(str_remove(species_botanic, species_sci))
+  ) %>%
+  select(-Extra) %>% # Drop the Extra column as it's no longer needed
+  filter(!is.na(species_sci)) # Keep only rows with a valid species_sci
+
+```
+
+
+
+```{r}
 
 denver_tree %>% 
   group_by(botanic_common, species_botanic, species_common) %>% 

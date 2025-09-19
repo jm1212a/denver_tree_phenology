@@ -68,7 +68,7 @@ digraph WBS_Overview {
 
   // Connect root to Level 2 nodes
   A -> A1;
-  A -> A2;
+  A1 -> A2;
   A2 -> B;
 }
 
@@ -113,8 +113,6 @@ digraph WBS_Overview {
 
 ```
 
-
-
 ```{dot}
 
 digraph WBS_Overview {
@@ -138,10 +136,10 @@ digraph WBS_Overview {
   // Level 2 nodes
   A1 [label="3.1 Combine all PlanetScope daily images", fontsize=14, fillcolor=lightyellow];
   A2 [label="3.2 Add cloud, snow, and haze masks", fontsize=14, fillcolor=lightyellow];
-  A3 [label="3.3 Filter poorly georegistered images by regressing each pixel against a chosen high-quality image", fontsize=14, fillcolor=lightyellow];
-  A4 [label="3.4 Radiometric normalization in NIR to a reference image", fontsize=14, fillcolor=lightyellow];
+  A3 [label="3.3 Filter poorly georegistered images by regressing each pixel against a chosen high-quality image", fontsize=14, fillcolor=lightyellow]; #wont be doing
+  A4 [label="3.4 Radiometric normalization in NIR to a reference image", fontsize=14, fillcolor=lightyellow]; # wont be doing 
   A5 [label="3.5 Calculate NDVI values for each pixel in the combined images", fontsize=12, fillcolor=lightyellow];
-  A6 [label="3.6 Classify individual tree canopies using geolocated sample information", fontsize=12, fillcolor=lightyellow];
+  A6 [label="3.6 Extracting NDVI Data from the geolocated sample data", fontsize=12, fillcolor=lightyellow];
   A7 [label="3.7 Filter top 25th percentile of NDVI pixels for a given tree location", fontsize=12, fillcolor=lightyellow];
   A8 [label="3.8 Average pixel values for each tree canopy", fontsize=12, fillcolor=lightyellow];
   
@@ -159,8 +157,6 @@ digraph WBS_Overview {
 }
 
 ```
-
-
 
 ```{dot}
 
@@ -195,7 +191,6 @@ digraph WBS_Overview {
   A4 -> B;
 }
 ```
-
 
 ```{dot}
 
@@ -305,5 +300,3 @@ digraph WBS_Overview {
 }
 
 ```
-
-
