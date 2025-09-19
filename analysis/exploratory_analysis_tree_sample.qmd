@@ -20,7 +20,6 @@ denver_tree <- read_rds("../data_raw/tree_inventory_denver_20250911.rds")
 
 ```
 
-
 ```{r}
 
 denver_tree %>%
@@ -49,4 +48,3 @@ top_denver <- top_denver_trees$species_botanic
 top_denver_common <- top_denver_trees$species_common
 
 ```
-
