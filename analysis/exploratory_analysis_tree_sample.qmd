@@ -50,11 +50,8 @@ denver_tree %>%
   filter(species_botanic != "Tree requested") %>% # Remove rows with placeholder species
   # Extract the Genus + species (binomial name) from species_botanic
   mutate(
-    species_sci = str_extract(species_botanic, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+"),
-    # Extract anything remaining after the binomial (e.g., variety, subspecies)
-    Extra = str_trim(str_remove(species_botanic, species_sci))
-  ) %>%
-  select(-Extra) %>% # Drop the Extra column as it's no longer needed
+    species_sci = str_extract(species_botanic, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
+  ) %>% # Drop the Extra column as it's no longer needed
   filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
   st_as_sf(
     wkt = "the_geom", # column with WKT strings
@@ -63,6 +60,14 @@ denver_tree %>%
   st_filter(denver_county) -> denver_tree_sf # filtering out trees that are not with Denver County
 
 ```
+
+To-do List: 
+
+1. Add filter to exclude the 30 trees near the Denver Airport.
+2. Add in the DC Scientific data using code on 52 to 56 to extract only genus and species from DC.
+3. Calculate the % of surfaces around each tree location.
+4. leaflet_satellite backdrop
+5. shinny app
 
 ```{r}
 
@@ -76,10 +81,10 @@ leaflet(denver_tree_sf) %>%
     opacity = 0.8           # Line opacity
   ) %>% 
   addCircleMarkers(
-    radius = 1,
+    radius = .1,
     color = "forestgreen",
     stroke = FALSE,
-    fillOpacity = 0.7,
+    fillOpacity = 0.1,
     clusterOptions = markerClusterOptions()
   )
 
