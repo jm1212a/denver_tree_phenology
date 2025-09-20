@@ -11,6 +11,7 @@ library(tidyverse)
 library(sf)
 library(tigris)
 library(gridExtra)
+library(leaflet)
 
 ```
 
@@ -20,11 +21,18 @@ denver_tree <- read_rds("../data_raw/tree_inventory_denver_20250911.rds")
 
 glimpse(denver_tree)
 
-denver_tree$y_laty[1]
+```
+
+```{r}
+
+denver_county <- counties(state = "CO", cb = TRUE) %>%
+  filter(NAME == "Denver") %>%
+  st_transform(crs = 4326)
 
 ```
 
 ```{r}
+
 denver_tree %>%
   # Fix formatting of common names: convert "last, first" to "first last"
   mutate(
@@ -47,32 +55,34 @@ denver_tree %>%
     Extra = str_trim(str_remove(species_botanic, species_sci))
   ) %>%
   select(-Extra) %>% # Drop the Extra column as it's no longer needed
-  filter(!is.na(species_sci)) # Keep only rows with a valid species_sci
-
+  filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
+  st_as_sf(
+    wkt = "the_geom", # column with WKT strings
+    crs = 4326        # EPSG:4326 (lon/lat in WGS84)
+    ) %>%
+  st_filter(denver_county) -> denver_tree_sf # filtering out trees that are not with Denver County
 
 ```
 
 ```{r}
 
-denver_tree$coords[[1]]
-
-
-```
-
-
-```{r}
-
-denver_tree %>% 
-  group_by(botanic_common, species_botanic, species_common) %>% 
-  summarise(n = n(), .groups = "drop") %>% 
-  filter(!str_detect(species_botanic, "Vacant Site"),
-         !str_detect(species_botanic, "Vacant site"),
-         !str_detect(species_botanic, "Stump")) %>% 
-  arrange(desc(n)) %>% 
-  mutate(rank = row_number()) -> top_denver_trees
-
-top_denver <- top_denver_trees$species_botanic
-
-top_denver_common <- top_denver_trees$species_common
+leaflet(denver_tree_sf) %>%
+  addTiles()%>%
+  addPolygons(
+    data = denver_county,
+    fillOpacity = 0,        # Transparent fill
+    color = "red",          # Boundary color
+    weight = 2,             # Line thickness
+    opacity = 0.8           # Line opacity
+  ) %>% 
+  addCircleMarkers(
+    radius = 1,
+    color = "forestgreen",
+    stroke = FALSE,
+    fillOpacity = 0.7,
+    clusterOptions = markerClusterOptions()
+  )
 
 ```
+
+
