@@ -18,6 +18,10 @@ library(gridExtra)
 
 denver_tree <- read_rds("../data_raw/tree_inventory_denver_20250911.rds")
 
+glimpse(denver_tree)
+
+denver_tree$y_laty[1]
+
 ```
 
 ```{r}
@@ -45,8 +49,15 @@ denver_tree %>%
   select(-Extra) %>% # Drop the Extra column as it's no longer needed
   filter(!is.na(species_sci)) # Keep only rows with a valid species_sci
 
+
 ```
 
+```{r}
+
+denver_tree$coords[[1]]
+
+
+```
 
 
 ```{r}
