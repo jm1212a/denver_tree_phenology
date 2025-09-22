@@ -68,6 +68,11 @@ To-do List:
 3. Calculate the % of surfaces around each tree location.
 4. leaflet_satellite backdrop
 5. shinny app
+_ filter tree sci_name 
+- filter for cluster or points 
+- filter size 
+- variables selections (for distributions plots)
+- distribution plot (y %total / x lat or long) * maybe 3d chart
 
 ```{r}
 
