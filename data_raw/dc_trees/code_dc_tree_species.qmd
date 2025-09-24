@@ -1,0 +1,21 @@
+---
+title: "dc_tree_clean"
+format: html
+editor: visual
+---
+
+```{r}
+
+dc_tree <- read_rds("Urban_Forestry_Street_Trees.rds")
+
+```
+
+```{r}
+
+dc_tree %>% 
+   mutate(
+    dc_species_sci = str_extract(SCI_NM, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
+  )
+
+```
+
