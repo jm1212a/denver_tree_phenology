@@ -58,9 +58,73 @@ denver_tree %>%
     crs = 4326        # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
     ) %>%
   st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
-  filter(x_long < -104.7302) -> denver_tree_sf # filtering trees near denver airport 
+  filter(x_long < -104.7302) %>% 
+  left_join(read_csv2("../data_raw/dc_trees/dc_tree_species.csv"), 
+            by = "species_sci") %>% # loading list of dc tree species
+  mutate(dc_tree = case_when(
+    is.na(dc_tree) ~ FALSE,  # changing na to false
+    .default = dc_tree        
+  )) -> denver_tree_sf
+ 
+```
+
+```{r}
+
+## Classification created using AI according to the USDA/Forest Service disease classification. Spot checking done. Further checks will need to be done prior to publish.
+
+denver_tree_sf %>% 
+  group_by(disease_pest_def) %>% 
+  filter(disease_pest_def != "N/A") %>% 
+  summarise(n = n())  %>% 
+  pull(disease_pest_def)
+
+tree_disease_usda <- tibble(
+  disease_pest_def = c(
+    "adelgids", "anthracnose", "aphids", "armillaria", "ash bark beetle",
+    "bacterial wetwood", "bagworms", "borers", "bullet gall", "cankers",
+    "carpenter ants", "chlorosis", "construction damage", "crown dieback",
+    "decay fungi", "drought stress", "dutch elm disease", "earwigs",
+    "elm leaf beetle", "emerald ash borer", "eriophyid mites", "fire blight",
+    "foliage disorder", "frass", "fruiting bodies", "gall insects", "gummosis",
+    "heavy discoloration", "herbicide", "ips beetle", "japanese beetle",
+    "kermes scale", "leaf necrosis", "leaf scorch", "lilac-ash borer",
+    "mealybug", "mistletoe", "needle necrosis", "needlecast", "oak twig bore",
+    "oak twig borer", "other - see notes", "pitch canker", "pitch moth",
+    "pitch tube", "powdery mildew", "red-headed ash borer", "rust",
+    "sapsucker damage", "scale insects", "signs of stress", "slime flux",
+    "sooty mold", "spider mites", "squirrel damage", "sunscald",
+    "termites", "thin canopy", "thousand cankers disease", "thrips damage",
+    "thyronectria canker", "turpentine beetle", "tussock moth",
+    "verticilium wilt", "witch's broom", "woodpecker damage"
+  ),
+  usda_disease_category = c(
+    "Insects/Arthropods", "Fungal Diseases", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Bacterial Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Animal/Mechanical Damage",
+    "Abiotic/Environmental Stress", "Fungal Diseases", "Abiotic/Environmental Stress",
+    "Fungal Diseases", "Insects/Arthropods", "Insects/Arthropods",
+    "Insects/Arthropods", "Insects/Arthropods", "Bacterial Diseases",
+    "Abiotic/Environmental Stress", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Abiotic/Environmental Stress",
+    "Abiotic/Environmental Stress", "Insects/Arthropods", "Insects/Arthropods",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Abiotic/Environmental Stress",
+    "Insects/Arthropods", "Insects/Arthropods", "Insects/Arthropods",
+    "Abiotic/Environmental Stress", "Fungal Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Other", "Fungal Diseases", "Insects/Arthropods",
+    "Other", "Fungal Diseases", "Insects/Arthropods", "Fungal Diseases",
+    "Animal/Mechanical Damage", "Insects/Arthropods", "Abiotic/Environmental Stress",
+    "Fungal Diseases", "Fungal Diseases", "Insects/Arthropods", "Animal/Mechanical Damage",
+    "Animal/Mechanical Damage", "Insects/Arthropods", "Abiotic/Environmental Stress",
+    "Insects/Arthropods", "Insects/Arthropods", "Fungal Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Fungal Diseases", "Abiotic/Environmental Stress", "Animal/Mechanical Damage"
+  )
+)
+
+tree_disease_usda
 
 ```
+
 
 To-do List:
 
