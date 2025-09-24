@@ -27,7 +27,7 @@ glimpse(denver_tree)
 
 denver_county <- counties(state = "CO", cb = TRUE) %>%
   filter(NAME == "Denver") %>%
-  st_transform(crs = 4326)
+  st_transform(crs = 4326) # adjust to local projection for final sample
 
 ```
 
@@ -55,24 +55,25 @@ denver_tree %>%
   filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
   st_as_sf(
     wkt = "the_geom", # column with WKT strings
-    crs = 4326        # EPSG:4326 (lon/lat in WGS84)
+    crs = 4326        # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
     ) %>%
-  st_filter(denver_county) -> denver_tree_sf # filtering out trees that are not with Denver County
+  st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
+  filter(x_long < -104.7302) -> denver_tree_sf # filtering trees near denver airport 
 
 ```
 
-To-do List: 
+To-do List:
 
-1. Add filter to exclude the 30 trees near the Denver Airport.
-2. Add in the DC Scientific data using code on 52 to 56 to extract only genus and species from DC.
-3. Calculate the % of surfaces around each tree location.
-4. leaflet_satellite backdrop
-5. shinny app
-_ filter tree sci_name 
-- filter for cluster or points 
-- filter size 
-- variables selections (for distributions plots)
-- distribution plot (y %total / x lat or long) * maybe 3d chart
+1.  Add filter to exclude the 30 trees near the Denver Airport.
+2.  Add in the DC Scientific data using code on 52 to 56 to extract only genus and species from DC.
+3.  Calculate the % of surfaces around each tree location.
+4.  leaflet_satellite backdrop
+5.  shinny app \_ filter tree sci_name
+
+-   filter for cluster or points
+-   filter size
+-   variables selections (for distributions plots)
+-   distribution plot (y %total / x lat or long) \* maybe 3d chart
 
 ```{r}
 
@@ -94,5 +95,3 @@ leaflet(denver_tree_sf) %>%
   )
 
 ```
-
-
