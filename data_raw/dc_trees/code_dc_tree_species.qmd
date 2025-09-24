@@ -6,16 +6,13 @@ editor: visual
 
 ```{r}
 
-dc_tree <- read_rds("Urban_Forestry_Street_Trees.rds")
-
-```
-
-```{r}
-
-dc_tree %>% 
+dc_tree <- read_rds("Urban_Forestry_Street_Trees.rds") %>% 
    mutate(
-    dc_species_sci = str_extract(SCI_NM, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
-  )
+    species_sci = str_extract(SCI_NM, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
+  ) %>% 
+  group_by(species_sci) %>% 
+  summarise(dc_tree = TRUE) %>% 
+  write_csv2("dc_tree_species.csv")
 
 ```
 
