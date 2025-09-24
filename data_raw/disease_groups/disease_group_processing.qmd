@@ -39,7 +39,8 @@ tibble(
     "Animal/Mechanical Damage", "Insects/Arthropods", "Abiotic/Environmental Stress",
     "Insects/Arthropods", "Insects/Arthropods", "Fungal Diseases", "Insects/Arthropods",
     "Insects/Arthropods", "Fungal Diseases", "Abiotic/Environmental Stress", "Animal/Mechanical Damage")
-  ) %>% write_csv2("usda_disease_categories")
+  ) %>% 
+  write_csv2("usda_disease_categories")
   
 
 ```
