@@ -12,6 +12,8 @@ library(sf)
 library(tigris)
 library(gridExtra)
 library(leaflet)
+library(rstac)
+library(terra)
 
 ```
 
@@ -102,3 +104,90 @@ leaflet(denver_tree_sf) %>%
   )
 
 ```
+
+
+```{r}
+
+stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
+
+```
+
+
+```{r}
+
+get_request(stac_source)
+
+```
+
+```{r}
+
+stac_query <- stac_search(
+  q = stac_source,
+  collections = "drcog-lulc",
+  bbox = c(-105.03854780803162, 39.71349959711705, -104.92090275376056, 39.77671756452841)
+)
+
+signed_stac_query <- items_sign(
+  get_request(stac_query),
+  sign_planetary_computer()
+)
+
+```
+
+
+
+```{r}
+
+library(terra)
+
+# extract all signed URLs
+urls <- sapply(
+  signed_stac_query$features,
+  function(f) f$assets$data$href
+)
+
+# prepend /vsicurl/
+urls <- paste0("/vsicurl/", urls)
+
+# try to load rasters, skip broken ones
+rasters <- list()
+for (i in seq_along(urls)) {
+  cat("Processing", i, "of", length(urls), "\n")
+  try({
+    r <- rast(urls[i])
+    rasters[[length(rasters) + 1]] <- r
+  }, silent = TRUE)
+}
+
+# mosaic into one raster
+mos <- merge(sprc(rasters))
+
+```
+```{r}
+
+plot(mos, main = "Full Mosaic",
+     col = class_df$col)
+
+```
+
+
+
+```{r}
+
+class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble)
+
+class_df$col <- paste0("#", class_df$color_hint)
+
+# Basic plot
+library(tidyterra)
+
+ggplot() +
+  geom_spatraster(data = mos) +
+  scale_fill_manual(values = class_df$col) +
+  labs(title = "Denver Land Cover", fill = "Land Cover") +
+  #coord_sf(xlim = c(-105.05, -105.06), ylim = c(39.72, 39.73)) + 
+  theme_minimal()
+
+```
+
+
