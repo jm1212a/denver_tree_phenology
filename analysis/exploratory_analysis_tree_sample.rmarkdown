@@ -72,6 +72,8 @@ denver_tree %>%
  
 ```
 
+
+
 To-do List:
 
 1.  Add filter to exclude the 30 trees near the Denver Airport.
@@ -84,6 +86,8 @@ To-do List:
 -   filter size
 -   variables selections (for distributions plots)
 -   distribution plot (y %total / x lat or long) \* maybe 3d chart
+
+
 
 ```{r}
 
@@ -106,8 +110,8 @@ leaflet(denver_tree_sf) %>%
 
 ```
 
-
 ```{r}
+
 stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
 
 stac_query <- stac_search(
@@ -122,19 +126,9 @@ signed_stac_query <- items_sign(
   sign_planetary_computer()
 )
 
-```
-
-
-```{r}
-
-urls <- paste0("/vsicurl/", signed_stac_query$features[[51]]$assets$data$href)
+urls <- paste0("/vsicurl/", signed_stac_query$features[[55]]$assets$data$href)
 
 r <- rast(urls)
-
-```
-
-
-```{r}
 
 class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble)
 
@@ -147,6 +141,9 @@ ggplot() +
     labels = class_df$description
   )
   
+
+
+
 ```
 
 ```{r}
@@ -165,7 +162,6 @@ corners_ll <- project(corners, "EPSG:4326") # Reproject to WGS84 (lat/lon)
 
 ```
 
-
 ```{r}
 
 denver_tree_sf %>%
@@ -179,102 +175,17 @@ denver_tree_sf %>%
 
 ```{r}
 
-bufs <- buffer(vect(denver_tree_sf_filtered$the_geom), width = 50, quadsegs = 4) # range 50m  4 = 32 sided octegon  
+points_sf <- st_transform(denver_tree_sf_filtered$the_geom[1:10], crs(r))
 
-cell_counts <- extract(r, bufs)
+# Convert sf points to SpatVector
+points_vect <- vect(points_sf)
 
-cell_counts %>%
-  group_by(ID, cell_counts[,2]) %>%
-  summarise(count = n(), .groups = "drop") -> cell_counts
-
-names(cell_counts)[2] <- "value"
-
-cell_counts %>% 
-  left_join(class_df) %>% 
-  select(ID, value,description,count) %>% 
-  left_join(cell_counts %>% 
-          group_by(ID) %>% 
-          summarise(total = sum(count), .groups = "drop")) %>% 
-  mutate(per_surface = count/total) %>% 
-  select(-value, -count, -total) %>% 
-  mutate(description = paste0("%_of_",description))%>% 
-  pivot_wider(names_from = description,values_from = per_surface, values_fill = 0) -> cell_summary
-
-result <- crossing(denver_tree_sf_filtered, cell_summary)
-
-```
+bufs <- buffer(points_vect, width = 90)
 
 
-
-
-```{r}
-
-results_list <- vector("list", length = 93)
-
-for (i in 1:93) {
-  
-  cat("Processing tile", i, "of 93...\n")
-  
-  # Load raster
-  r <- rast(paste0("/vsicurl/", signed_stac_query$features[[i]]$assets$data$href))
-  
-  # Get raster corners and make polygon
-  e <- ext(r)
-  corners <- vect(rbind(
-    c(xmin(e), ymin(e)),
-    c(xmin(e), ymax(e)),
-    c(xmax(e), ymin(e)),
-    c(xmax(e), ymax(e))
-  ), crs = crs(r))
-  
-  corners_ll <- project(corners, "EPSG:4326")
-  
-  # Filter points inside raster
-  denver_tree_sf_filtered <- denver_tree_sf %>%
-    filter(
-      st_coordinates(the_geom)[,1] >= xmin(corners_ll) &
-      st_coordinates(the_geom)[,1] <= xmax(corners_ll) &
-      st_coordinates(the_geom)[,2] >= ymin(corners_ll) &
-      st_coordinates(the_geom)[,2] <= ymax(corners_ll)
-    )
-  
-  cat("  Points inside tile:", nrow(denver_tree_sf_filtered), "\n")
-  
-  # Skip if no points in this tile
-  if (nrow(denver_tree_sf_filtered) == 0) next
-  
-  # Create buffers around points
-  bufs <- buffer(vect(denver_tree_sf_filtered$the_geom), width = 50, quadsegs = 4)
-  
-  # Extract raster values
-  cell_counts <- terra::extract(r, bufs)
-  
-  # Summarize counts per class per point
-  cell_counts <- cell_counts %>%
-    group_by(ID, layer) %>%
-    summarise(count = n(), .groups = "drop") %>%
-    rename(value = layer)
-  
-  # Join with class info and calculate % coverage
-  cell_summary <- cell_counts %>%
-    left_join(class_df, by = c("value" = "value")) %>%
-    group_by(ID) %>%
-    mutate(total = sum(count),
-           per_surface = count / total) %>%
-    ungroup() %>%
-    select(ID, description, per_surface) %>%
-    mutate(description = paste0("%_of_", description)) %>%
-    pivot_wider(names_from = description, values_from = per_surface, values_fill = 0)
-  
-  # Join back to original points
-  results_list[[i]] <- left_join(denver_tree_sf_filtered, cell_summary, by = c("ID"))
-  
-  cat("  Finished tile", i, "\n\n")
-}
-
-# Combine all tiles into one data frame
-final_results <- bind_rows(results_list)
-cat("All tiles processed! Total points:", nrow(final_results), "\n")
+cell_counts <- extract(r, bufs)%>%
+  group_by(ID) %>%
+  summarise(count = n(), .groups = "drop")
 
 ```
 
