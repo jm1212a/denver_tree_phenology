@@ -123,166 +123,11 @@ signed_stac_query <- items_sign(
   sign_planetary_computer()
 )
 
-```
-
-# Maping each landuse
-
-```{r}
-urls <- paste0("/vsicurl/", signed_stac_query$features[[51]]$assets$data$href)
-
-r <- rast(urls)
-
 class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble)
 
 class_df$col <- paste0("#", class_df$color_hint)
 
 ```
-
-
-```{r}
-
-ggplot() +
-  geom_spatraster(data = as.factor(r))+
-  scale_fill_manual(
-    values = class_df$col,
-    labels = class_df$description
-  )
-  
-```
-#
-
-```{r}
-
-e <- ext(r)
-
-# Create SpatVector of the four corners
-corners <- vect(rbind(
-  c(xmin(e), ymin(e)),
-  c(xmin(e), ymax(e)),
-  c(xmax(e), ymin(e)),
-  c(xmax(e), ymax(e))
-), crs = crs(r))
-
-corners_ll <- project(corners, "EPSG:4326") # Reproject to WGS84 (lat/lon)
-
-```
-
-
-```{r}
-
-denver_tree_sf %>%
-  filter(
-    st_coordinates(the_geom)[,1] >= xmin(corners_ll) &
-    st_coordinates(the_geom)[,1] <= xmax(corners_ll) &
-    st_coordinates(the_geom)[,2] >= ymin(corners_ll) &
-    st_coordinates(the_geom)[,2] <= ymax(corners_ll)) -> denver_tree_sf_filtered
-
-```
-
-```{r}
-
-bufs <- buffer(vect(denver_tree_sf_filtered$the_geom), width = 50, quadsegs = 4) # range 50m  4 = 32 sided octegon  
-
-cell_counts <- extract(r, bufs)
-
-cell_counts %>%
-  group_by(ID, cell_counts[,2]) %>%
-  summarise(count = n(), .groups = "drop") -> cell_counts
-
-names(cell_counts)[2] <- "value"
-
-cell_counts %>% 
-  left_join(class_df) %>% 
-  select(ID, value,description,count) %>% 
-  left_join(cell_counts %>% 
-          group_by(ID) %>% 
-          summarise(total = sum(count), .groups = "drop")) %>% 
-  mutate(per_surface = count/total) %>% 
-  select(-value, -count, -total) %>% 
-  mutate(description = paste0("%_of_",description))%>% 
-  pivot_wider(names_from = description,values_from = per_surface, values_fill = 0) -> cell_summary
-
-result <- crossing(denver_tree_sf_filtered, cell_summary)
-
-```
-
-
-# Loop to find the % of land cover
-
-```{r}
-
-results_list <- vector("list", length = 93)
-
-for (i in 1:93) {
-  
-  cat("Processing tile", i, "of 93...\n")
-  
-  # Load raster
-  r <- rast(paste0("/vsicurl/", signed_stac_query$features[[i]]$assets$data$href))
-  
-  # Get raster corners and make polygon
-  e <- ext(r)
-  corners <- vect(rbind(
-    c(xmin(e), ymin(e)),
-    c(xmin(e), ymax(e)),
-    c(xmax(e), ymin(e)),
-    c(xmax(e), ymax(e))
-  ), crs = crs(r))
-  
-  corners_ll <- project(corners, "EPSG:4326")
-  
-  # Filter points inside raster
-  denver_tree_sf_filtered <- denver_tree_sf %>%
-    filter(
-      st_coordinates(the_geom)[,1] >= xmin(corners_ll) &
-      st_coordinates(the_geom)[,1] <= xmax(corners_ll) &
-      st_coordinates(the_geom)[,2] >= ymin(corners_ll) &
-      st_coordinates(the_geom)[,2] <= ymax(corners_ll)
-    )
-  
-  cat("  Points inside tile:", nrow(denver_tree_sf_filtered), "\n")
-  
-  # Skip if no points in this tile
-  if (nrow(denver_tree_sf_filtered) == 0) next
-  
-  # Create buffers around points
-  bufs <- buffer(vect(denver_tree_sf_filtered$the_geom), width = 50, quadsegs = 4)
-  
-  # Extract raster values
-  cell_counts <- terra::extract(r, bufs)
-  
-  # Summarize counts per class per point
-  cell_counts <- cell_counts %>%
-    group_by(ID, layer) %>%
-    summarise(count = n(), .groups = "drop") 
-  
-    names(cell_counts)[2] <- "value"
-  
-  # Join with class info and calculate % coverage
-  cell_counts %>% 
-    left_join(class_df) %>% 
-    select(ID, value,description,count) %>% 
-    left_join(cell_counts %>% 
-            group_by(ID) %>% 
-            summarise(total = sum(count), .groups = "drop")) %>% 
-    mutate(per_surface = count/total) %>% 
-    select(-value, -count, -total) %>% 
-    mutate(description = paste0("%_of_",description))%>% 
-    pivot_wider(names_from = description,values_from = per_surface, 
-                values_fill = 0) -> cell_summary
-  
-  # Join back to original points
-  results_list[[i]] <-  crossing(denver_tree_sf_filtered, cell_summary)
-  
-  cat("  Finished tile", i, "\n\n")
-}
-
-# Combine all tiles into one data frame
-final_results <- bind_rows(results_list)
-cat("All tiles processed! Total points:", nrow(final_results), "\n")
-
-```
-
 
 
 ```{r}
@@ -359,28 +204,57 @@ land_cover <- function(geom) {
       select(ID, value,description,count) %>% 
       left_join(cell_counts %>% 
               group_by(ID) %>% 
-              summarise(total = sum(count), .groups = "drop")) %>% 
+              summarise(total = sum(count), .groups = "drop")) -> cell_counts
+    
+    cell_counts %>% 
       mutate(per_surface = count/total) %>% 
       select(-value, -count, -total) %>% 
-      mutate(description = paste0("%_of_",description))%>% 
-      pivot_wider(names_from = description,values_from = per_surface, 
-                  values_fill = 0) -> cell_summary
-  
+      mutate(description_per = paste0("%_of_",description))%>% 
+      select(-description) %>% 
+      pivot_wider(names_from = description_per,values_from = per_surface, 
+                  values_fill = 0) -> cell_per
+    
+    cell_counts %>% 
+      select(-value, -total) %>% 
+      mutate(description_count = paste0("#_of_pix_",description)) %>% 
+      select(-description) %>% 
+      pivot_wider(names_from = description_count, values_from = count, 
+                  values_fill = 0) -> cell_count
+    
+    left_join(cell_per, cell_count) -> cell_summary
+    
   return(cell_summary)
 }
 
 ```
 
 
-```{r}
+```{r, warning=FALSE}
 
-map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
-  mutate(tree_id = as.double(tree_id)) -> lc_data
+suppressMessages(
+  map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
+    mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_tree_sf %>% 
   head(10)%>%
   mutate(tree_id = as.double(row_number())) %>% 
-  left_join(lc_data, by = "tree_id")
+  left_join(lc_data, by = "tree_id") 
 
 ```
 
+Mapping Raster
+
+```{r}
+
+urls <- paste0("/vsicurl/", signed_stac_query$features[[51]]$assets$data$href)
+
+r <- rast(urls)
+
+ggplot() +
+  geom_spatraster(data = as.factor(r))+
+  scale_fill_manual(
+    values = class_df$col,
+    labels = class_df$description
+  )
+  
+```
