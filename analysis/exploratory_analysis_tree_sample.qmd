@@ -114,7 +114,6 @@ stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
 stac_query <- stac_search(
   q = stac_source,
   collections = "drcog-lulc",
-  #bbox = c(-105.12, 39.61, -104.728, 39.7217),
   intersects = denver_county
 )
 
@@ -166,6 +165,7 @@ ref_DLCD <- dplyr::bind_rows(ref_DLCD)
 ```
 
 ```{r}
+
 land_cover <- function(geom) {
   # wrap raw geometry in sfc with CRS
   if (!inherits(geom, "sfc")) {
@@ -187,7 +187,7 @@ land_cover <- function(geom) {
   
   r <- rast(rast_id_match)
   
-  bufs <- buffer(vect(geom), width = 50, quadsegs = 4)
+  bufs <- buffer(vect(geom), width = 90, quadsegs = 4)
   cell_counts <- terra::extract(r, bufs)
   
   cell_counts %>% 
@@ -232,11 +232,11 @@ land_cover <- function(geom) {
 ```{r, warning=FALSE}
 
 suppressMessages(
-  map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_tree_sf$the_geom[1:1000], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_tree_sf %>% 
-  head(10)%>%
+  head(1000)%>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") 
 
