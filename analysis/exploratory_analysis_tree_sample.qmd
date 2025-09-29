@@ -233,29 +233,115 @@ Calculating Land Cover using land_cover custome function.
 ```{r, warning=FALSE}
 
 suppressMessages(
-  map_dfr(denver_tree_sf$the_geom[1:1000], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_tree_sf$the_geom[1:1], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_tree_sf %>% 
-  head(1000)%>%
+  head(1)%>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") 
 
 ```
 
+```{r}
+
+rast_search <- function(geom){
+
+  if (!inherits(geom, "sfc")) {
+    geom <- st_sfc(geom, crs = st_crs(denver_tree_sf))
+  }
+  
+  rast_id_match <- NA
+  coords <- st_coordinates(geom)[1, ]
+  x <- coords[1]; y <- coords[2]
+  
+  for (i in seq_len(nrow(ref_DLCD))) {
+    bbox <- ref_DLCD[i, ]
+    if (x >= bbox$xmin && x <= bbox$xmax &&
+        y >= bbox$ymin && y <= bbox$ymax) {
+      rast_id_match <- bbox$rast_id
+      break
+    }
+  }
+  
+  return(rast(rast_id_match))
+
+}
+
+```
+
+
+```{r}
+
+rast_search(denver_tree_sf$the_geom[1])
+
+```
+
+
 Mapping Land Cover Raster
 
 ```{r}
 
-urls <- paste0("/vsicurl/", signed_stac_query$features[[51]]$assets$data$href)
-
-r <- rast(urls)
-
 ggplot() +
-  geom_spatraster(data = as.factor(r))+
+  geom_spatraster(data = as.factor(rast_search(denver_tree_sf$the_geom[1])), "EPSG:4326")+
+  geom_spatvector(data = buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4)
+                  , fill = "white", color = "white", size = 10) +
   scale_fill_manual(
+    name = "Land Cover Type",
     values = class_df$col,
     labels = class_df$description
-  )
-  
+  )+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> lc_image_1
+
+ggsave("../images/landcover_map_zoom_out.png", plot = lc_image_1, width = 8, height = 6, dpi = 300)
+
 ```
+
+
+```{r}
+
+lon <- c(-104.893, -104.890)
+lat <- c(39.658, 39.660)
+
+# Convert lat/lon to sf polygon
+bbox_sf <- st_as_sfc(st_bbox(c(xmin = lon[1], xmax = lon[2], 
+                               ymin = lat[1], ymax = lat[2]), crs = 4326))
+
+# Transform to raster CRS (replace with your raster CRS)
+bbox_proj <- st_transform(bbox_sf, crs(r))
+
+# Get coordinates in raster CRS
+bbox_coords <- st_bbox(bbox_proj)
+  
+ggplot() +
+  geom_spatraster(data = as.factor(rast_search(denver_tree_sf$the_geom[1])), "EPSG:4326")+
+  geom_spatvector(data = buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4)
+                  , fill = NA, color = "white", linewidth = 1) +
+  geom_sf(data = denver_tree_sf$the_geom[1], color = "pink", size = 3) +
+  scale_fill_manual(
+    name = "Land Cover Type",
+    values = class_df$col,
+    labels = class_df$description
+  ) +
+  coord_sf(
+    xlim = c(bbox_coords["xmin"], bbox_coords["xmax"]),
+    ylim = c(bbox_coords["ymin"], bbox_coords["ymax"])
+  )+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> lc_image_2
+  
+
+ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, height = 6, dpi = 300)
+
+```
+
+```{r}
+
+#buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
+
+st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
+
+
+
+
+```
+
