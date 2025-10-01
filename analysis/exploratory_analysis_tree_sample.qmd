@@ -70,7 +70,8 @@ denver_tree %>%
   left_join(read_csv2("../data_raw/disease_groups/usda_disease_categories"), 
             by = "disease_pest_def") %>% 
   left_join(read_csv2("../data_raw/tree_leaf_taxanomy/tree_leaf_taxanomy.csv"), 
-            by = "species_sci") 
+            by = "species_sci") %>% 
+  write_rds("../data_raw/denver_tree/denver_tree_clean.rds")
   
 
 ```
@@ -89,6 +90,8 @@ To-do List:
 -   distribution plot (y %total / x lat or long) \* maybe 3d chart
 
 ```{r}
+
+denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
 
 # comment test
 leaflet(denver_tree_sf) %>%
@@ -113,7 +116,14 @@ leaflet(denver_tree_sf) %>%
 # pulling DLUDS form Microsoft planetrycomputing
 
 ```{r}
+
+denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
+
 stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
+
+denver_county <- counties(state = "CO", cb = TRUE) %>%
+  filter(NAME == "Denver") %>%
+  st_transform(crs = 4326) # adjust to local projection for final sample
 
 stac_query <- stac_search(
   q = stac_source,
@@ -129,6 +139,8 @@ signed_stac_query <- items_sign(
 class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble)
 
 class_df$col <- paste0("#", class_df$color_hint)
+
+write_csv(class_df ,"../data_raw/mis._data_sets/class_df.csv")
 
 ```
 
@@ -159,17 +171,28 @@ for (i in 1:93) {
     ymin = ymin(corners_ll),
     ymax = ymax(corners_ll)
   )
-  
 }
 
 # Bind list into one data frame
 ref_DLCD <- dplyr::bind_rows(ref_DLCD)
 
+write_csv(ref_DLCD ,"../data_raw/mis._data_sets/ref_DLCD.csv")
+
 ```
+
 
 ```{r}
 
+stac_query <- stac_search(
+  q = stac("https://planetarycomputer.microsoft.com/api/stac/v1/"),
+  collections = "drcog-lulc"
+  )
+  
 land_cover <- function(geom) {
+  
+  ref_DLCD <- read_csv("../data_raw/mis._data_sets/ref_DLCD.csv")
+  class_df <- read_csv("../data_raw/mis._data_sets/class_df.csv")
+  
   # wrap raw geometry in sfc with CRS
   if (!inherits(geom, "sfc")) {
     geom <- st_sfc(geom, crs = st_crs(denver_tree_sf))
@@ -236,13 +259,15 @@ Calculating Land Cover using land_cover custome function.
 ```{r, warning=FALSE}
 
 suppressMessages(
-  map_dfr(denver_tree_sf$the_geom[1:1], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_tree_sf %>% 
-  head(1)%>%
+  head(10)%>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") 
+
+
 
 ```
 
@@ -340,7 +365,20 @@ ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, heig
 
 st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
 
+```
 
 
+```{r}
+
+suppressMessages(
+  map_dfr(denver_tree_sf$the_geom[1:1], land_cover, .id = "tree_id") %>% 
+    mutate(tree_id = as.double(tree_id)))-> lc_data
+
+denver_tree_sf %>% 
+  head(1)%>%
+  mutate(tree_id = as.double(row_number())) %>% 
+  left_join(lc_data, by = "tree_id") 
 
 ```
+
+
