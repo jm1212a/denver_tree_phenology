@@ -4,7 +4,6 @@ format: html
 editor: visual
 ---
 
-
 ```{r}
 
 library(tidyverse)
@@ -58,11 +57,18 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
             by = "disease_pest_def") %>% 
   left_join(read_csv2("../tree_leaf_taxanomy/tree_leaf_taxanomy.csv"), 
             by = "species_sci") %>% 
+  mutate(diameter = case_when(diameter == "12 to 1" ~ "12 to 18",
+                              diameter == "18 to 2" ~ "18 to 24",
+                              diameter == "24 to 3" ~ "24 to 30",
+                              diameter == "30 to 3" ~ "30 to 36",
+                              diameter == "36 to 4" ~ "36 to 42",
+                              diameter == "42 to 4" ~ "42 to 48",
+                              .default = diameter)) %>% 
   write_rds("denver_tree_clean.rds")
   
 ```
 
-## Code for adding land cover 
+## Code for adding land cover
 
 ```{r, warning=FALSE}
 

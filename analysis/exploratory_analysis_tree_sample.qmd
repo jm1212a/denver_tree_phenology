@@ -18,8 +18,6 @@ library(tidyterra)
 
 ```
 
-
-
 ```{r}
 
 denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
@@ -110,7 +108,6 @@ ref_DLCD <- dplyr::bind_rows(ref_DLCD)
 write_csv(ref_DLCD ,"../data_raw/mis._data_sets/ref_DLCD.csv")
 
 ```
-
 
 ```{r}
 
@@ -295,7 +292,6 @@ ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, heig
 
 ```
 
-
 ```{r}
 
 #buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
@@ -303,8 +299,6 @@ ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, heig
 st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
 
 ```
-
-
 
 ```{r, warning=FALSE}
 
@@ -323,4 +317,14 @@ denver_tree_sf %>%
 
 ```
 
+
+```{r}
+
+denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
+
+devner_tree_sf %>% 
+  group_by(diameter) %>% 
+  summarise(n = n())
+
+```
 
