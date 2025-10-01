@@ -18,75 +18,7 @@ library(tidyterra)
 
 ```
 
-```{r}
 
-denver_tree <- read_rds("../data_raw/denver_tree/tree_inventory_denver_20250911.rds")
-
-glimpse(denver_tree)
-
-```
-
-```{r}
-
-denver_county <- counties(state = "CO", cb = TRUE) %>%
-  filter(NAME == "Denver") %>%
-  st_transform(crs = 4326) # adjust to local projection for final sample
-
-```
-
-```{r}
-
-denver_tree %>%
-  # Fix formatting of common names: convert "last, first" to "first last"
-  mutate(
-    species_common = if_else(
-      str_detect(species_common, ","),# check if a comma exists
-      str_replace(species_common, "^(.*),\\s*(.*)$", "\\2 \\1"), # swap parts around
-      species_common  # leave unchanged if no comma
-    ),
-    # Combine scientific and common names into one column
-    botanic_common = paste(species_botanic, "(", species_common, ")"),
-    # Standardize disease/pest field: anything containing "N/A" becomes exactly "N/A"
-    disease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
-                               "N/A", disease_pest_def)
-    ) %>%
-  filter(species_botanic != "Tree requested") %>% # Remove rows with placeholder species
-  # Extract the Genus + species (binomial name) from species_botanic
-  mutate(
-    species_sci = str_extract(species_botanic, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
-  ) %>% 
-  filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
-  st_as_sf(
-    wkt = "the_geom", # column with WKT strings
-    crs = 4326        # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
-    ) %>%
-  st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
-  filter(x_long < -104.7302) %>% 
-  left_join(read_csv2("../data_raw/dc_trees/dc_tree_species.csv"), 
-            by = "species_sci") %>% # loading list of dc tree species
-  mutate(dc_tree = case_when(
-    is.na(dc_tree) ~ FALSE,  # changing na to false
-    .default = dc_tree)) %>% 
-  left_join(read_csv2("../data_raw/disease_groups/usda_disease_categories"), 
-            by = "disease_pest_def") %>% 
-  left_join(read_csv2("../data_raw/tree_leaf_taxanomy/tree_leaf_taxanomy.csv"), 
-            by = "species_sci") %>% 
-  write_rds("../data_raw/denver_tree/denver_tree_clean.rds")
-  
-```
-
-To-do List:
-
-1.  Add filter to exclude the 30 trees near the Denver Airport.
-2.  Add in the DC Scientific data using code on 52 to 56 to extract only genus and species from DC.
-3.  Calculate the % of surfaces around each tree location.
-4.  leaflet_satellite backdrop
-5.  shinny app \_ filter tree sci_name
-
--   filter for cluster or points
--   filter size
--   variables selections (for distributions plots)
--   distribution plot (y %total / x lat or long) \* maybe 3d chart
 
 ```{r}
 
@@ -371,8 +303,6 @@ ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, heig
 st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
 
 ```
-
-
 
 
 
