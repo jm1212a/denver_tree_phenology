@@ -87,6 +87,7 @@ To-do List:
 
 ```{r}
 
+# comment test
 leaflet(denver_tree_sf) %>%
   addTiles()%>%
   addPolygons(
@@ -127,7 +128,6 @@ class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:
 class_df$col <- paste0("#", class_df$color_hint)
 
 ```
-
 
 ```{r}
 
@@ -270,13 +270,11 @@ rast_search <- function(geom){
 
 ```
 
-
 ```{r}
 
 rast_search(denver_tree_sf$the_geom[1])
 
 ```
-
 
 Mapping Land Cover Raster
 
@@ -296,7 +294,6 @@ ggplot() +
 ggsave("../images/landcover_map_zoom_out.png", plot = lc_image_1, width = 8, height = 6, dpi = 300)
 
 ```
-
 
 ```{r}
 
@@ -344,4 +341,3 @@ st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
 
 
 ```
-
