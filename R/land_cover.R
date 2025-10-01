@@ -18,7 +18,7 @@ land_cover <- function(geom) {
   
   # wrap raw geometry in sfc with CRS
   if (!inherits(geom, "sfc")) {
-    geom <- st_sfc(geom, crs = st_crs(denver_tree_sf))
+    geom <- st_sfc(geom, crs = 4326)
   }
   
   rast_id_match <- NA

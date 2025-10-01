@@ -73,7 +73,6 @@ denver_tree %>%
             by = "species_sci") %>% 
   write_rds("../data_raw/denver_tree/denver_tree_clean.rds")
   
-
 ```
 
 To-do List:
@@ -267,16 +266,17 @@ denver_tree_sf %>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") 
 
-
-
 ```
 
 ```{r}
 
+
 rast_search <- function(geom){
+  
+  ref_DLCD <- read_csv("../data_raw/mis._data_sets/ref_DLCD.csv")
 
   if (!inherits(geom, "sfc")) {
-    geom <- st_sfc(geom, crs = st_crs(denver_tree_sf))
+    geom <- st_sfc(geom, crs = 4326)
   }
   
   rast_id_match <- NA
@@ -300,7 +300,11 @@ rast_search <- function(geom){
 
 ```{r}
 
-rast_search(denver_tree_sf$the_geom[1])
+#rast_search(denver_tree_sf$the_geom[1])
+
+class(rast_search(denver_tree_sf$the_geom[1]))
+
+
 
 ```
 
@@ -317,9 +321,9 @@ ggplot() +
     values = class_df$col,
     labels = class_df$description
   )+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> lc_image_1
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) #-> lc_image_1
 
-ggsave("../images/landcover_map_zoom_out.png", plot = lc_image_1, width = 8, height = 6, dpi = 300)
+#ggsave("../images/landcover_map_zoom_out.png", plot = lc_image_1, width = 8, height = 6, dpi = 300)
 
 ```
 
@@ -359,6 +363,7 @@ ggsave("../images/landcover_map_zoom_in.png", plot = lc_image_2, width = 8, heig
 
 ```
 
+
 ```{r}
 
 #buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
@@ -368,14 +373,21 @@ st_as_sf(buffer(vect(denver_tree_sf$the_geom[1]), width = 90, quadsegs = 4))
 ```
 
 
-```{r}
+
+
+
+```{r, warning=FALSE}
+
+denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
+
+source("../R/land_cover.R")
 
 suppressMessages(
-  map_dfr(denver_tree_sf$the_geom[1:1], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_tree_sf %>% 
-  head(1)%>%
+  head(10)%>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") 
 
