@@ -68,8 +68,11 @@ denver_tree %>%
     is.na(dc_tree) ~ FALSE,  # changing na to false
     .default = dc_tree)) %>% 
   left_join(read_csv2("../data_raw/disease_groups/usda_disease_categories"), 
-            by = "disease_pest_def") -> denver_tree_sf
- 
+            by = "disease_pest_def") %>% 
+  left_join(read_csv2("../data_raw/tree_leaf_taxanomy/tree_leaf_taxanomy.csv"), 
+            by = "species_sci") 
+  
+
 ```
 
 To-do List:

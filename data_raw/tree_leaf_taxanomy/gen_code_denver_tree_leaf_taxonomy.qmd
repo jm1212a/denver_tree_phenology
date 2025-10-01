@@ -14,7 +14,7 @@ library(tidyverse)
 
 # Create a classification function or use this tibble approach
 tree_tax <- tribble(
-  ~species_botanic, ~growth_habit, ~leaf_type, ~leaf_persistence,
+  ~species_sci, ~growth_habit, ~leaf_type, ~leaf_persistence,
   
   # Pines
   "Pinus ponderosa", "Gymnosperm", "Needleleaf", "Evergreen",
@@ -392,6 +392,3 @@ tree_tax <- tribble(
 write_csv2(tree_tax, "tree_leaf_taxanomy.csv")
 
 ```
-
-
-
