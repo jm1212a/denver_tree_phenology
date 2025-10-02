@@ -105,8 +105,6 @@ for (i in 1:93) {
 # Bind list into one data frame
 ref_DLCD <- dplyr::bind_rows(ref_DLCD)
 
-write_csv(ref_DLCD ,"../data_raw/mis._data_sets/ref_DLCD.csv")
-
 ```
 
 ```{r}
@@ -317,14 +315,17 @@ denver_tree_sf %>%
 
 ```
 
-
 ```{r}
 
 denver_tree_sf <- read_rds("../data_raw/denver_tree/denver_tree_clean.rds")
 
-devner_tree_sf %>% 
-  group_by(diameter) %>% 
-  summarise(n = n())
-
 ```
 
+```{r}
+
+denver_tree_sf %>%
+  group_by(species_sci, species_common, dc_tree, leaf_persistence, growth_habit) %>% 
+  summarise(Obs. = n()) 
+
+
+```

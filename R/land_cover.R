@@ -6,15 +6,58 @@ library(rstac)
 library(terra)
 library(tidyterra)
 
+stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
+
+denver_county <- counties(state = "CO", cb = TRUE) %>%
+  filter(NAME == "Denver") %>%
+  st_transform(crs = 4326) # adjust to local projection for final sample
+
 stac_query <- stac_search(
-  q = stac("https://planetarycomputer.microsoft.com/api/stac/v1/"),
-  collections = "drcog-lulc"
+  q = stac_source,
+  collections = "drcog-lulc",
+  intersects = denver_county
 )
 
-land_cover <- function(geom) {
+signed_stac_query <- items_sign(
+  post_request(stac_query),
+  sign_planetary_computer()
+)
+
+class_df <- map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble)
+
+class_df$col <- paste0("#", class_df$color_hint)
+
+ref_DLCD <- vector("list", length = 93)  # preallocate list
+
+for (i in 1:93) {
+  # Load raster
+  r <- rast(paste0("/vsicurl/", signed_stac_query$features[[i]]$assets$data$href))
   
-  ref_DLCD <- read_csv("../data_raw/mis._data_sets/ref_DLCD.csv")
-  class_df <- read_csv("../data_raw/mis._data_sets/class_df.csv")
+  # Get raster corners
+  e <- ext(r)
+  corners <- vect(rbind(
+    c(xmin(e), ymin(e)),
+    c(xmin(e), ymax(e)),
+    c(xmax(e), ymin(e)),
+    c(xmax(e), ymax(e))
+  ), crs = crs(r))
+  
+  corners_ll <- project(corners, "EPSG:4326")
+  
+  # Store metadata for this raster
+  ref_DLCD[[i]] <- data.frame(
+    rast_id = paste0("/vsicurl/", signed_stac_query$features[[i]]$assets$data$href),
+    xmin = xmin(corners_ll),
+    xmax = xmax(corners_ll),
+    ymin = ymin(corners_ll),
+    ymax = ymax(corners_ll)
+  )
+}
+
+# Bind list into one data frame
+ref_DLCD <- dplyr::bind_rows(ref_DLCD)
+
+land_cover <- function(geom) {
   
   # wrap raw geometry in sfc with CRS
   if (!inherits(geom, "sfc")) {

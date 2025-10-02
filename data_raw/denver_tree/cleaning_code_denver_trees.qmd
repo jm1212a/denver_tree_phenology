@@ -64,13 +64,21 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
                               diameter == "36 to 4" ~ "36 to 42",
                               diameter == "42 to 4" ~ "42 to 48",
                               .default = diameter)) %>% 
-  write_rds("denver_tree_clean.rds")
+  filter(diameter != "N/A",
+       diameter != "0",      
+       !is.na(diameter)) %>% 
+  filter(!str_detect(species_sci, regex("species", ignore_case = TRUE))) %>% 
+  filter()
+  
+  #write_rds("denver_tree_clean.rds")
   
 ```
 
 ## Code for adding land cover
 
 ```{r, warning=FALSE}
+
+denver_tree_sf <- read_rds("denver_tree_clean.rds")
 
 source("../../R/land_cover.R")
 
