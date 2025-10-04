@@ -1,40 +1,12 @@
----
-title: "Denver Tree Clean Up"
-format: html
-editor: visual
----
-
-```{r}
-
 library(tidyverse)
 library(sf)
 library(tigris)
-library(knitr)
-
-purl("cleaning_code_denver_trees.qmd", output = "cleaning_code_denver_trees.R", documentation = 0)
-
-```
-
-## Code Overview:
-
-This code cleans and enriches Denver's tree inventory data by first loading Denver County boundaries from Census TIGER/Line data and transforming them to WGS84 projection. It then reads the tree inventory RDS file and performs several cleaning steps: reformatting species common names from "last, first" to "first last" format, combining scientific and common names into a single field, standardizing disease/pest definitions so anything containing "N/A" becomes exactly "N/A", and removing placeholder entries where species is listed as "Tree requested". The code extracts the binomial scientific name (genus and species) from the full botanical name, converts the data to a spatial sf object using WKT geometry strings with WGS84 projection, and filters to keep only trees within Denver County boundaries and west of longitude -104.7302. Finally, it enriches the dataset by joining three external CSV files containing DC tree species classifications, USDA disease categories, and tree leaf taxonomy information (growth habit, leaf type, and persistence), then saves the cleaned, spatially-referenced dataset as "denver_tree_clean.rds" ready for analysis.
-
-```{r}
 
 denver_county <- counties(state = "CO", cb = TRUE) %>%
   filter(NAME == "Denver") %>%
   st_transform(crs = 4326) # adjust to local projection for final sample
 
-```
-
-```{r}
-
 source("../../R/land_cover.R")
-
-```
-
-
-```{r}
 
 read_rds("tree_inventory_denver_20250911.rds") %>%
   # Fix formatting of common names: convert "last, first" to "first last"
@@ -49,7 +21,7 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
     # Standardize disease/pest field: anything containing "N/A" becomes exactly "N/A"
     disease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
                                "N/A", disease_pest_def)
-    ) %>%
+  ) %>%
   filter(species_botanic != "Tree requested") %>% # Remove rows with placeholder species
   # Extract the Genus + species (binomial name) from species_botanic
   mutate(
@@ -59,7 +31,7 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
   st_as_sf(
     wkt = "the_geom", # column with WKT strings
     crs = 4326 # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
-    ) %>%
+  ) %>%
   st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
   filter(x_long < -104.7302) %>% 
   left_join(read_csv2("../dc_trees/dc_tree_species.csv"), 
@@ -79,8 +51,8 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
                               diameter == "42 to 4" ~ "42 to 48",
                               .default = diameter)) %>% 
   filter(diameter != "N/A",
-       diameter != "0",      
-       !is.na(diameter)) %>% 
+         diameter != "0",      
+         !is.na(diameter)) %>% 
   filter(!str_detect(species_sci, regex("species", ignore_case = TRUE))) %>% 
   filter(species_sci %in% c("Acer saccharinum", "Ulmus pumila", "Ulmus americana",
                             "Gleditsia triacanthos", "Fraxinus pennsylvanica", 
@@ -90,20 +62,7 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
                             "Pinus ponderosa", "Quercus rubra", "Ailanthus altissima", 
                             "Tilia cordata"),
          diameter %in% c("24 to 30", "30 to 36", 
-                       "36 to 42", "42 to 48", "48 +")) -> denver_trees_subsample
-
-```
-
-```{r}
-
-st_coordinates(denver_trees_subsample)[1:5,]
-
-```
-
-
-## Code for adding land cover
-
-```{r, warning=FALSE}
+                         "36 to 42", "42 to 48", "48 +")) -> denver_trees_subsample
 
 suppressMessages(
   map_dfr(denver_trees_subsample$the_geom[1:100], land_cover, .id = "tree_id") %>% 
@@ -114,10 +73,6 @@ denver_trees_subsample %>%
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") -> denver_trees_subsample
 
-```
-
-```{r}
-
 source("../../R/updated_landcover_code.R")
 
 denver_trees_subsample %>%
@@ -125,20 +80,11 @@ denver_trees_subsample %>%
   mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
   ungroup() %>% 
   filter(total < 266900) -> mos_sample
-  
 
-```
-
-```{r, warning=FALSE}
 suppressMessages(
   map_dfr(mos_sample$the_geom, land_cover_mosaic, .id = "tree_id_2") %>% 
-  mutate(tree_id_2 = as.double(tree_id_2))
-  )-> lc_data
-
-```
-
-
-```{r, warning=FALSE}
+    mutate(tree_id_2 = as.double(tree_id_2))
+)-> lc_data
 
 suppressMessages(
   map_dfr(mos_sample$the_geom, land_cover, .id = "tree_id_2") %>% 
@@ -154,22 +100,12 @@ bind_rows(lc_data, lc_data_t) %>%
                 list(pct = ~. / total), 
                 .names = "%_of_{sub('#_of_pix_', '', .col)}")) -> lc_data_t
 
-```
-
-
-```{r}
-
 mos_sample %>% 
   mutate(tree_id_2 = as.double(row_number())) %>% 
   left_join(lc_data_t, by = "tree_id_2") %>% 
   select(-ends_with(".x"), 
          -tree_id_2) %>%
   rename_with(~str_remove(., "\\.y$"), ends_with(".y")) -> mos_sample
-
-```
-
-
-```{r}
 
 denver_trees_subsample %>%
   rowwise() %>%
@@ -190,16 +126,8 @@ denver_trees_subsample %>%
       mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
       ungroup() %>%
       filter(total >= 266900)
-    ) -> denver_trees_subsample_complete
-
-```
-
-
-```{r}
-
-denver_trees_subsample_complete %>%
+  ) %>%
   select(-starts_with("#"),
-         -total) -> denver_trees_subsample_comple
-
-```
-
+         -total) %>% 
+  st_write(denver_trees_subsample_comple, "denver_trees_subsample.geojson", 
+           driver = "GeoJSON")
