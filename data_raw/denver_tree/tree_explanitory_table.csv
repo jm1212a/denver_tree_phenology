@@ -1,0 +1,16 @@
+species_common,species_sci,n,leaf_persistence,crown_spread_range,crown_area_range,notes
+Silver Maple,Acer saccharinum,6217,Deciduous,12-18 m,113-254 m²,Non-native
+Siberian Elm,Ulmus pumila,2919,Deciduous,12-18 m,113-254 m²,Non-native (invasive)
+American Elm,Ulmus americana,2794,Deciduous,18-24 m,254-452 m²,Native
+Honey Locust,Gleditsia triacanthos,2623,Deciduous,9-15 m,64-177 m²,Non-native
+Green Ash,Fraxinus pennsylvanica,2369,Deciduous,12-18 m,113-254 m²,Native
+Plains Cottonwood,Populus sargentii,1070,Deciduous,15-21 m,177-346 m²,Native
+Austrian Pine,Pinus nigra,957,Evergreen,6-12 m,28-113 m²,Non-native
+Eastern Cottonwood,Populus deltoides,871,Deciduous,15-23 m,177-415 m²,Native
+Western Catalpa,Catalpa speciosa,656,Deciduous,12-18 m,113-254 m²,Non-native
+Common Hackberry,Celtis occidentalis,656,Deciduous,12-18 m,113-254 m²,Native
+American Linden,Tilia americana,655,Deciduous,12-15 m,113-177 m²,Non-native
+Ponderosa Pine,Pinus ponderosa,521,Evergreen,8-11 m,50-95 m²,Native
+Northern Red Oak,Quercus rubra,481,Deciduous,15-23 m,177-415 m²,Non-native
+Tree of heaven,Ailanthus altissima,426,Deciduous,9-15 m,64-177 m²,Non-native (invasive)
+Littleleaf Linden,Tilia cordata,405,Deciduous,9-12 m,64-113 m²,Non-native

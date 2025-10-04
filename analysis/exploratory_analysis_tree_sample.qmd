@@ -229,7 +229,9 @@ rast_search <- function(geom){
 
 #rast_search(denver_tree_sf$the_geom[1])
 
-class(rast_search(denver_tree_sf$the_geom[1]))
+crs(rast(rast_id_match))
+
+#class(rast_search(denver_tree_sf$the_geom[1]))
 
 
 

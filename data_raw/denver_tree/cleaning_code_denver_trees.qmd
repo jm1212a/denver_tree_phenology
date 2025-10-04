@@ -22,6 +22,17 @@ denver_county <- counties(state = "CO", cb = TRUE) %>%
   filter(NAME == "Denver") %>%
   st_transform(crs = 4326) # adjust to local projection for final sample
 
+```
+
+```{r}
+
+source("../../R/land_cover.R")
+
+```
+
+
+```{r}
+
 read_rds("tree_inventory_denver_20250911.rds") %>%
   # Fix formatting of common names: convert "last, first" to "first last"
   mutate(
@@ -44,7 +55,7 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
   filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
   st_as_sf(
     wkt = "the_geom", # column with WKT strings
-    crs = 4326        # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
+    crs = 4326 # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
     ) %>%
   st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
   filter(x_long < -104.7302) %>% 
@@ -68,27 +79,124 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
        diameter != "0",      
        !is.na(diameter)) %>% 
   filter(!str_detect(species_sci, regex("species", ignore_case = TRUE))) %>% 
-  filter()
-  
-  #write_rds("denver_tree_clean.rds")
-  
+  filter(species_sci %in% c("Acer saccharinum", "Ulmus pumila", "Ulmus americana",
+                            "Gleditsia triacanthos", "Fraxinus pennsylvanica", 
+                            "Populus sargentii", "Pinus nigra",
+                            "Populus deltoides", "Catalpa speciosa", 
+                            "Celtis occidentalis", "Tilia americana",
+                            "Pinus ponderosa", "Quercus rubra", "Ailanthus altissima", 
+                            "Tilia cordata"),
+         diameter %in% c("24 to 30", "30 to 36", 
+                       "36 to 42", "42 to 48", "48 +")) -> denver_trees_subsample
+
 ```
+
+```{r}
+
+st_coordinates(denver_trees_subsample)[1:5,]
+
+```
+
 
 ## Code for adding land cover
 
 ```{r, warning=FALSE}
 
-denver_tree_sf <- read_rds("denver_tree_clean.rds")
-
-source("../../R/land_cover.R")
-
 suppressMessages(
-  map_dfr(denver_tree_sf$the_geom[1:10], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_trees_subsample$the_geom[1:100], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
-denver_tree_sf %>% 
-  head(10)%>%
+denver_trees_subsample %>% 
+  head(100) %>% 
   mutate(tree_id = as.double(row_number())) %>% 
-  left_join(lc_data, by = "tree_id") 
+  left_join(lc_data, by = "tree_id") -> denver_trees_subsample
 
 ```
+
+```{r}
+
+source("../../R/updated_landcover_code.R")
+
+denver_trees_subsample %>%
+  rowwise() %>%
+  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
+  ungroup() %>% 
+  filter(total < 266900) -> mos_sample
+  
+
+```
+
+```{r}
+suppressMessages(
+  map_dfr(mos_sample$the_geom, land_cover_mosaic, .id = "tree_id_2") %>% 
+  mutate(tree_id_2 = as.double(tree_id_2))
+  )-> lc_data
+
+```
+
+
+```{r}
+
+suppressMessages(
+  map_dfr(mos_sample$the_geom, land_cover, .id = "tree_id_2") %>% 
+    mutate(tree_id_2 = as.double(tree_id_2)))-> lc_data_t
+
+bind_rows(lc_data, lc_data_t) %>% 
+  group_by(tree_id_2) %>% 
+  summarise(across(starts_with("#"), ~sum(., na.rm = TRUE))) %>%
+  rowwise() %>%
+  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(across(starts_with("#_of_pix_"), 
+                list(pct = ~. / total), 
+                .names = "%_of_{sub('#_of_pix_', '', .col)}")) -> lc_data_t
+
+```
+
+
+```{r}
+
+mos_sample %>% 
+  mutate(tree_id_2 = as.double(row_number())) %>% 
+  left_join(lc_data_t, by = "tree_id_2") %>% 
+  select(-ends_with(".x"), 
+         -tree_id_2) %>%
+  rename_with(~str_remove(., "\\.y$"), ends_with(".y")) -> mos_sample
+
+```
+
+
+```{r}
+
+denver_trees_subsample %>%
+  rowwise() %>%
+  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(total < 266900) %>% 
+  left_join(mos_sample %>% 
+              st_drop_geometry(), by = "tree_id", suffix = c("", "_new")) %>% 
+  mutate(across(
+    .cols = ends_with("_new"),
+    .fns = ~ coalesce(.x, get(sub("_new$", "", cur_column()))),
+    .names = "{sub('_new$', '', .col)}"
+  )) %>% 
+  select(-ends_with("_new"))%>%
+  bind_rows(
+    denver_trees_subsample %>%
+      rowwise() %>%
+      mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
+      ungroup() %>%
+      filter(total >= 266900)
+    ) -> denver_trees_subsample_complete
+
+```
+
+
+```{r}
+
+denver_trees_subsample_complete %>%
+  select(-starts_with("#"),
+         -total) -> denver_trees_subsample_comple
+
+```
+
