@@ -9,9 +9,6 @@ editor: visual
 library(tidyverse)
 library(sf)
 library(tigris)
-library(knitr)
-
-purl("cleaning_code_denver_trees.qmd", output = "cleaning_code_denver_trees.R", documentation = 0)
 
 ```
 
@@ -106,11 +103,11 @@ st_coordinates(denver_trees_subsample)[1:5,]
 ```{r, warning=FALSE}
 
 suppressMessages(
-  map_dfr(denver_trees_subsample$the_geom[1:100], land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_trees_subsample$the_geom[1:10], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_trees_subsample %>% 
-  head(100) %>% 
+  head(10) %>% 
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") -> denver_trees_subsample
 
@@ -190,16 +187,22 @@ denver_trees_subsample %>%
       mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
       ungroup() %>%
       filter(total >= 266900)
-    ) -> denver_trees_subsample_complete
+    ) %>%
+  select(-starts_with("#"),
+         -total) %>% 
+  st_write("denver_trees_sample.geojson", driver = "GeoJSON")
 
 ```
 
-
 ```{r}
 
-denver_trees_subsample_complete %>%
-  select(-starts_with("#"),
-         -total) -> denver_trees_subsample_comple
+denver_trees_check <- st_read("denver_trees_sample.geojson")
+
+# Extract just the attributes as a data frame
+denver_trees_df <- st_drop_geometry(denver_trees_check)
+
+# View the first rows
+denver_trees_df
 
 ```
 
