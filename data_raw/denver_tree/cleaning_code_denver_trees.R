@@ -65,10 +65,11 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
                          "36 to 42", "42 to 48", "48 +")) -> denver_trees_subsample
 
 suppressMessages(
-  map_dfr(denver_trees_subsample$the_geom, land_cover, .id = "tree_id") %>% 
+  map_dfr(denver_trees_subsample$the_geom[1:10], land_cover, .id = "tree_id") %>% 
     mutate(tree_id = as.double(tree_id)))-> lc_data
 
 denver_trees_subsample %>% 
+  head(10) %>% 
   mutate(tree_id = as.double(row_number())) %>% 
   left_join(lc_data, by = "tree_id") -> denver_trees_subsample
 

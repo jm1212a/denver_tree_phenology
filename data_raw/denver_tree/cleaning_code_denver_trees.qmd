@@ -190,7 +190,7 @@ denver_trees_subsample %>%
     ) %>%
   select(-starts_with("#"),
          -total) %>% 
-  st_write("denver_trees_sample.geojson", driver = "GeoJSON")
+  st_write("denver_trees_sample.geojson", driver = "GeoJSON", delete_dsn = TRUE)
 
 ```
 
