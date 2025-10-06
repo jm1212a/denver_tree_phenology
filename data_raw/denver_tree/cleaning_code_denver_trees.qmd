@@ -87,7 +87,9 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
                             "Pinus ponderosa", "Quercus rubra", "Ailanthus altissima", 
                             "Tilia cordata"),
          diameter %in% c("24 to 30", "30 to 36", 
-                       "36 to 42", "42 to 48", "48 +")) -> denver_trees_subsample
+                       "36 to 42", "42 to 48", "48 +")) %>% 
+  st_write("denver_trees_sample.geojson", driver = "GeoJSON", delete_dsn = TRUE)
+  
 
 ```
 
