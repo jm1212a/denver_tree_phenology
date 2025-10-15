@@ -3,3 +3,4 @@
 *.gbdtabex filter=lfs diff=lfs merge=lfs -text
 data_raw/denver_tree/denver_tree_clean.rds filter=lfs diff=lfs merge=lfs -text
 data_raw/denver_tree/denver_trees_sample.geojson filter=lfs diff=lfs merge=lfs -text
+data_raw/ndvi_raw_extracts/extracted_ndvi_values.rds filter=lfs diff=lfs merge=lfs -text
