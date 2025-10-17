@@ -1,0 +1,182 @@
+---
+title: "fitting and extracting phenological metrics"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(phenofit)
+#library(pracma)
+library(oce)
+library(zoo)
+
+```
+
+
+```{r}
+
+extracts <- read_rds("./raw_extracts/extracted_ndvi_value.rds")
+
+```
+
+
+```{r}
+extracts %>% 
+  filter(UID == "548") %>% 
+  #filter(year(im_date_time) == "2021") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>% 
+  ggplot(aes(y = ndvi, x = im_date)) +
+  geom_point()
+
+
+
+```
+
+
+```{r}
+methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang")
+
+fits <- curvefit(extracts_samp$ndvi, extracts_samp$im_doy, tout = seq(1, 365, 1), methods)
+
+l_param   <- get_param(fits)
+d_GOF     <- get_GOF(fits)
+l_pheno   <- get_pheno(fits, "Elmore", IsPlot=TRUE)
+
+```
+
+
+
+```{r}
+
+
+library(phenofit)
+# simulate vegetation time-series
+FUN = doubleLog.Beck
+par =c(mn =0.1,mx =0.7,sos=50,rsp=0.1,eos=250,rau=0.1) 
+t <- seq(1, 365, 8)
+tout <- seq(1, 365, 1)
+y <- FUN(par, t)
+methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang") # "Klos" too slow
+fit <- curvefit(y, t, tout, methods) # `fFITs` (fine-fitting) object
+fits <- list(`2018` = fit, `2024` = fit) # multiple years
+l_param   <- get_param(fits)
+d_GOF     <- get_GOF(fits)
+d_fitting <- get_fitting(fits)
+l_pheno   <- get_pheno(fits, "AG", IsPlot=TRUE)
+
+
+
+```
+
+
+```{r}
+
+library(phenofit)
+
+# Just the essentials
+extracts %>% 
+  filter(UID == "582") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
+
+# Check what we have
+nrow(extracts_samp)
+range(extracts_samp$im_date_time)
+summary(extracts_samp$ndvi)
+
+# Try check_input with absolute minimum
+INPUT <- check_input(
+  t = extracts_samp$im_date_time, 
+  y = extracts_samp$ndvi
+)
+
+# What did we get?
+str(INPUT)
+
+
+# Try smooth_wWHIT with the INPUT object
+fit_result <- smooth_wWHIT(
+  y = INPUT$y,
+  w = INPUT$w,
+  ylu = INPUT$ylu,
+  nptperyear = INPUT$nptperyear,  # Use detected value (92)
+  lambda = 100,
+  wFUN = wBisquare,
+  iters = 2
+)
+
+# Check what we got
+str(fit_result)
+
+# If that works, plot it
+plot(INPUT$t, INPUT$y, col = "gray60", pch = 16, cex = 0.5,
+     xlab = "Date", ylab = "NDVI")
+lines(INPUT$t, fit_result$zs$iter2, col = "red", lwd = 2)
+
+
+names(fit_result)
+names(fit_result$zs)
+
+# The fitted values should be in fit_result$zs
+# Try plotting with the correct iteration
+plot(INPUT$t, INPUT$y, col = "gray60", pch = 16, cex = 0.5,
+     xlab = "Date", ylab = "NDVI")
+lines(INPUT$t, fit_result$zs[[2]], col = "red", lwd = 2)  # Try iteration 2
+
+
+```
+
+
+```{r}
+
+library(phenofit)
+
+# 1. Prepare data
+extracts %>% 
+  filter(UID == "582") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
+
+# 2. Check input
+INPUT <- check_input(
+  extracts_samp$im_date_time, 
+  extracts_samp$ndvi,
+  nptperyear = 92,  # Use detected value
+  south = FALSE
+)
+
+# 3. Divide growing seasons
+brks2 <- season_mov(INPUT,
+                    options = list(
+                      rFUN = "smooth_wWHIT",
+                      wFUN = wBisquare,
+                      lambda = 100,
+                      r_min = 0.01,
+                      ypeak_min = 0.05,
+                      MaxPeaksPerYear = 2,
+                      MaxTroughsPerYear = 3,
+                      verbose = TRUE
+                    ))
+
+# 4. Fine curve fitting for all seasons
+fits <- curvefits(
+  INPUT, 
+  brks2,
+  options = list(
+    methods = c("AG", "Beck", "Elmore", "Zhang"),
+    wFUN = wBisquare,
+    iters = 2
+  )
+)
+
+# 5. Extract phenology
+l_param <- get_param(fits)
+d_GOF <- get_GOF(fits)
+l_pheno <- get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+# View results
+print(l_pheno)
+
+```
+
+
