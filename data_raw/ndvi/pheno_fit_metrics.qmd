@@ -25,10 +25,10 @@ extracts <- read_rds("./raw_extracts/extracted_ndvi_value.rds")
 ```{r}
 extracts %>% 
   filter(UID == "548") %>% 
-  #filter(year(im_date_time) == "2021") %>% 
-  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>% 
-  ggplot(aes(y = ndvi, x = im_date)) +
-  geom_point()
+  filter(year(im_date_time) == "2021")  %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_sample 
+  # ggplot(aes(y = ndvi, x = im_date)) +
+  # geom_point()
 
 
 
