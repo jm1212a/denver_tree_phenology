@@ -38,7 +38,7 @@ extracts %>%
 ```{r}
 methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang")
 
-fits <- curvefit(extracts_samp$ndvi, extracts_samp$im_doy, tout = seq(1, 365, 1), methods)
+fits <- curvefit(extracts_sample$ndvi, extracts_sample$im_doy, tout = seq(1, 365, 1), methods)
 
 l_param   <- get_param(fits)
 d_GOF     <- get_GOF(fits)
