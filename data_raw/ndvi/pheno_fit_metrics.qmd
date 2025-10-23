@@ -13,13 +13,11 @@ library(zoo)
 
 ```
 
-
 ```{r}
 
 extracts <- read_rds("./raw_extracts/extracted_ndvi_value.rds")
 
 ```
-
 
 ```{r}
 extracts %>% 
@@ -32,7 +30,6 @@ extracts %>%
 
 ```
 
-
 ```{r}
 methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang")
 
@@ -43,8 +40,6 @@ d_GOF     <- get_GOF(fits)
 l_pheno   <- get_pheno(fits, "Elmore", IsPlot=TRUE)
 
 ```
-
-
 
 ```{r}
 
@@ -68,10 +63,9 @@ l_pheno   <- get_pheno(fits, "AG", IsPlot=TRUE)
 
 ```
 
-
 ```{r}
 
-library(phenofit)
+
 
 # Just the essentials
 extracts %>% 
@@ -122,7 +116,6 @@ plot(INPUT$t, INPUT$y, col = "gray60", pch = 16, cex = 0.5,
      xlab = "Date", ylab = "NDVI")
 lines(INPUT$t, fit_result$zs[[2]], col = "red", lwd = 2)  # Try iteration 2
 
-
 ```
 
 
@@ -140,22 +133,22 @@ ggplot(data = extracts_samp, aes(x = im_date, y = ndvi)) +
   geom_line()
 
 
-INPUT <- check_input(
+x <- check_input(
   t = extracts_samp$im_date, 
   y = extracts_samp$ndvi,
-  nptperyear = 100,
+  nptperyear = 50,
   south = FALSE)
 
-plot_input(INPUT)
+plot_input(x)
 
 # 3. Divide growing seasons
-brks2 <- season_mov(INPUT, rFUN = smooth_wWHIT)
+brks2 <- season_mov(x, rFUN = smooth_wWHIT)
+
+plot_season(x, brks2)
 
 # 4. Fine curve fitting for all seasons
-fits <- curvefits(
-  INPUT, 
-  brks2
-)
+
+fits <- curvefits(x, brks2)
 
 # 5. Extract phonology
 l_param <- get_param(fits)
@@ -166,5 +159,6 @@ l_pheno <- get_pheno(fits, "Elmore", IsPlot = TRUE)
 print(l_pheno)
 
 ```
+
 
 

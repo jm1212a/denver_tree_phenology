@@ -35,17 +35,17 @@ bind_rows(read_and_clean("./raw_data_sets/USC00052223.dly"), read_and_clean("./r
     tmax = TMAX,
     total_precip = sum(PRCP, na.rm = TRUE),
     .groups = "drop"
-  ) %>% 
-  group_by(year)%>%
-  summarise(
-    t_test = list(t.test(
-      mean_temp ~ station_id,
-      data = cur_data()
-    ))
   ) %>%
-  mutate(tidy_results = map(t_test, broom::tidy)) %>%
-  unnest(tidy_results) %>%
-  select(year, estimate1, estimate2, statistic, p.value, conf.low, conf.high) 
+   group_by(year)%>%
+   summarise(
+     t_test = list(t.test(
+       mean_temp ~ station_id,
+       data = cur_data()
+     ))
+   ) %>%
+   mutate(tidy_results = map(t_test, broom::tidy)) %>%
+   unnest(tidy_results) %>%
+   select(year, estimate1, estimate2, statistic, p.value, conf.low, conf.high)
 
   
 
