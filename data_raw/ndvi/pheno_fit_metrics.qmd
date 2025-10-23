@@ -118,14 +118,13 @@ lines(INPUT$t, fit_result$zs[[2]], col = "red", lwd = 2)  # Try iteration 2
 
 ```
 
-
 ```{r}
 
 library(phenofit)
 
 # 1. Prepare data
 extracts %>% 
-  filter(UID == "582") %>% 
+  filter(UID == "2") %>% 
   mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
 
 
@@ -160,5 +159,112 @@ print(l_pheno)
 
 ```
 
+```{r}
 
+extracts %>% 
+  filter(UID == "2") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
 
+```
+
+```{r}
+
+check_input(t = extracts_samp$im_date,
+            y = extracts_samp$ndvi,
+            #nptperyear = 58,
+            south = FALSE) -> test_input
+
+plot_input(test_input)
+
+```
+
+```{r}
+
+season_mov(test_input, rFUN = smooth_wWHIT) -> brk
+
+plot_season(test_input, brk)
+
+```
+
+```{r}
+
+curvefits(test_input, brk) -> fits
+
+```
+
+```{r}
+
+get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+```
+
+# Normalizing
+
+```{r}
+
+extracts %>% 
+  filter(UID == "1") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+  mutate(
+    time_numeric = as.numeric(im_date),
+    trend = predict(lm(ndvi ~ time_numeric)),
+    ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+  ) -> extracts_samp
+
+```
+
+```{r}
+
+check_input(t = extracts_samp$im_date,
+            y = extracts_samp$ndvi,
+            #nptperyear = 58,
+            south = FALSE) -> test_input
+
+x_detrended <- check_input(
+  t = extracts_samp$im_date, 
+  y = extracts_samp$ndvi_detrended,
+  nptperyear = 50,
+  south = FALSE
+)
+
+plot_input(test_input)
+
+plot_input(x_detrended)
+
+```
+
+```{r}
+
+#season_mov(x_detrended) -> brk
+
+#.rs.restartR()
+
+brks_mov <- season_mov(test_input,
+    options = list(
+        rFUN = "smooth_wWHIT",
+        r_max = 0.12,
+        r_min = 0.02
+    )
+)
+
+plot_season(x_detrended, brks_mov)
+
+```
+
+```{r}
+
+curvefits(test_input, brks_mov) -> fits
+
+```
+
+```{r}
+
+get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+```
+
+```{r}
+
+?season_mov
+
+```
