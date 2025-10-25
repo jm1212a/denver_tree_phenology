@@ -203,7 +203,7 @@ get_pheno(fits, "Elmore", IsPlot = TRUE)
 ```{r}
 
 extracts %>% 
-  filter(UID == "1") %>% 
+  filter(UID == "21994") %>% 
   mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
   mutate(
     time_numeric = as.numeric(im_date),
@@ -223,7 +223,7 @@ check_input(t = extracts_samp$im_date,
 x_detrended <- check_input(
   t = extracts_samp$im_date, 
   y = extracts_samp$ndvi_detrended,
-  nptperyear = 50,
+  #nptperyear = 50,
   south = FALSE
 )
 
@@ -239,11 +239,11 @@ plot_input(x_detrended)
 
 #.rs.restartR()
 
-brks_mov <- season_mov(test_input,
+brks_mov <- season_mov(x_detrended,
     options = list(
-        rFUN = "smooth_wWHIT",
-        r_max = 0.12,
-        r_min = 0.02
+        rFUN = "smooth_wHANTS"#,
+        #r_max = 0.12,
+        #r_min = 0.02
     )
 )
 
@@ -257,14 +257,276 @@ curvefits(test_input, brks_mov) -> fits
 
 ```
 
+
+```{r}
+
+#get_param(fits)
+
+get_GOF(fits)
+
+```
+
+
 ```{r}
 
 get_pheno(fits, "Elmore", IsPlot = TRUE)
 
 ```
+# LOOP for All Trees
 
 ```{r}
 
-?season_mov
+extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  sample_n(100) %>% 
+  pull(UID) -> trees
 
 ```
+
+```{r}
+
+pheno_metrix_date <- data.frame()
+pheno_metrix_doy <- data.frame()
+fit_stats <- data.frame()
+
+for (i in trees) {
+  
+  tryCatch({
+    
+    extracts %>% 
+      filter(UID == i) %>% 
+      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+      mutate(
+        time_numeric = as.numeric(im_date),
+        trend = predict(lm(ndvi ~ time_numeric)),
+        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+      ) -> extracts_samp
+    
+    check_input(
+      t = extracts_samp$im_date,
+      y = extracts_samp$ndvi, 
+      south = FALSE
+    ) -> test_input
+    
+    check_input(
+      t = extracts_samp$im_date, 
+      y = extracts_samp$ndvi_detrended,
+      south = FALSE
+    ) -> x_detrended 
+    
+    season_mov(
+      x_detrended,
+      options = list(
+        rFUN = "smooth_wHANTS"
+      )
+    ) -> brks_mov 
+    
+    curvefits(test_input, brks_mov) -> fit
+    
+    get_GOF(fit) -> stats
+    get_pheno(fit, "Elmore") -> metrics
+    
+    # Extract date and doy metrics
+    metrics$date$Elmore %>% 
+      mutate(UID = i) -> metrics_date
+    
+    metrics$doy$Elmore %>% 
+      mutate(UID = i) -> metrics_doy
+    
+    stats %>% 
+      mutate(UID = i) -> stats
+    
+    # Bind rows
+    bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
+    
+    bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
+    
+    bind_rows(fit_stats, stats) -> fit_stats
+    
+  }, error = function(e) {
+    message(paste("Skipping tree", i, "- Error:", e$message))
+  })
+  
+}
+
+left_join(
+  pheno_metrix_doy, 
+  pheno_metrix_date, 
+  by = c("UID", "flag", "origin"),
+  suffix = c("_doy", "_date")) -> phen_metrix 
+
+fit_stats %>%
+  group_by(meth) %>% 
+  summarise(mean_r2 = mean(R2, na.rm = TRUE))
+
+```
+
+```{r}
+
+#smooth_wHANTS/Elmore produced a curve with .094% usablity based on 1000 samples
+#smooth_wWHIT/Elmore produced curve with .083% usablity based on 1000 samples
+
+fit_stats %>% 
+  filter(meth == "Elmore") %>% 
+  group_by(UID) %>% 
+  summarise(mean_r2 = mean(R2, na.rm = TRUE)) -> fit_stats_test
+  
+phen_metrix %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  left_join(fit_stats_test) %>% 
+  filter(n >= 6 & mean_r2 >= .9) %>% 
+  nrow()
+
+```
+
+```{r}
+
+evaluate_pheno_methods <- function(extracts, n_samples, pheno_curves, season_curves, 
+                                   min_observations = 6, min_r2 = 0.9) {
+  
+  # Random sample of trees
+  trees <- extracts %>% 
+    group_by(UID) %>% 
+    summarise(n = n(), .groups = "drop") %>% 
+    sample_n(n_samples) %>% 
+    pull(UID)
+  
+  message(paste("Randomly sampled", n_samples, "trees for analysis\n"))
+  
+  # Initialize results matrix
+  results <- matrix(NA, 
+                    nrow = length(season_curves), 
+                    ncol = length(pheno_curves),
+                    dimnames = list(season_curves, pheno_curves))
+  
+  total_trees <- length(trees)
+  
+  # Loop through each combination
+  for (sc in season_curves) {
+    for (pc in pheno_curves) {
+      
+      message(paste("\nProcessing:", sc, "/", pc))
+      
+      # Initialize data frames for this combination
+      pheno_metrix_date <- data.frame()
+      pheno_metrix_doy <- data.frame()
+      fit_stats <- data.frame()
+      
+      # Loop through trees
+      for (i in trees) {
+        tryCatch({
+          
+          extracts %>% 
+            filter(UID == i) %>% 
+            mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+            mutate(
+              time_numeric = as.numeric(im_date),
+              trend = predict(lm(ndvi ~ time_numeric)),
+              ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+            ) -> extracts_samp
+          
+          check_input(
+            t = extracts_samp$im_date,
+            y = extracts_samp$ndvi, 
+            south = FALSE
+          ) -> test_input
+          
+          check_input(
+            t = extracts_samp$im_date, 
+            y = extracts_samp$ndvi_detrended,
+            south = FALSE
+          ) -> x_detrended 
+          
+          season_mov(
+            x_detrended,
+            options = list(
+              rFUN = paste0("smooth_", sc)
+            )
+          ) -> brks_mov 
+          
+          curvefits(test_input, brks_mov) -> fit
+          
+          get_GOF(fit) -> stats
+          get_pheno(fit, pc) -> metrics
+          
+          # Extract date and doy metrics
+          metrics$date[[pc]] %>% 
+            mutate(UID = i) -> metrics_date
+          
+          metrics$doy[[pc]] %>% 
+            mutate(UID = i) -> metrics_doy
+          
+          stats %>% 
+            mutate(UID = i) -> stats
+          
+          # Bind rows
+          pheno_metrix_date <- bind_rows(pheno_metrix_date, metrics_date)
+          pheno_metrix_doy <- bind_rows(pheno_metrix_doy, metrics_doy)
+          fit_stats <- bind_rows(fit_stats, stats)
+          
+        }, error = function(e) {
+          # Silent error handling
+        })
+      }
+      
+      # Calculate proportion meeting criteria
+      if (nrow(fit_stats) > 0) {
+        
+        phen_metrix <- left_join(
+          pheno_metrix_doy, 
+          pheno_metrix_date, 
+          by = c("UID", "flag", "origin"),
+          suffix = c("_doy", "_date")
+        )
+        
+        fit_stats_filtered <- fit_stats %>% 
+          filter(meth == pc) %>% 
+          group_by(UID) %>% 
+          summarise(mean_r2 = mean(R2, na.rm = TRUE), .groups = "drop")
+        
+        n_meeting_criteria <- phen_metrix %>% 
+          count(UID) %>% 
+          left_join(fit_stats_filtered, by = "UID") %>% 
+          filter(n >= min_observations & mean_r2 >= min_r2) %>% 
+          nrow()
+        
+        results[sc, pc] <- n_meeting_criteria / total_trees
+        
+        message(paste(sc, "/", pc, ":", 
+                     sprintf("%.2f", results[sc, pc]), "usable (",
+                     n_meeting_criteria, "of", total_trees, "trees)"))
+      } else {
+        results[sc, pc] <- 0
+        message(paste(sc, "/", pc, ": 0.00 usable (no successful fits)"))
+      }
+    }
+  }
+  
+  return(results)
+}
+
+```
+
+
+
+```{r}
+
+pheno_curves <- c("AG", "Beck", "Elmore", "Zhang")
+season_curves <- c("wHANTS", "wSG", "wWHIT")
+
+usability_matrix <- evaluate_pheno_methods(
+  extracts = extracts,
+  n_samples = 100,  # Just specify number of samples
+  pheno_curves = pheno_curves,
+  season_curves = season_curves,
+  min_observations = 6,
+  min_r2 = 0.9
+)
+
+# Format to 2 decimal places
+usability_formatted <- apply(usability_matrix, c(1, 2), function(x) sprintf("%.2f", x))
+
+print(usability_formatted)
+
