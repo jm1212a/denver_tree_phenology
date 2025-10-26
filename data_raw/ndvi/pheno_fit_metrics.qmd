@@ -15,7 +15,7 @@ library(zoo)
 
 ```{r}
 
-extracts <- read_rds("./raw_extracts/extracted_ndvi_value.rds")
+read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts 
 
 ```
 
@@ -203,7 +203,7 @@ get_pheno(fits, "Elmore", IsPlot = TRUE)
 ```{r}
 
 extracts %>% 
-  filter(UID == "21994") %>% 
+  filter(UID == "2222") %>% 
   mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
   mutate(
     time_numeric = as.numeric(im_date),
@@ -257,7 +257,6 @@ curvefits(test_input, brks_mov) -> fits
 
 ```
 
-
 ```{r}
 
 #get_param(fits)
@@ -266,25 +265,21 @@ get_GOF(fits)
 
 ```
 
-
 ```{r}
 
 get_pheno(fits, "Elmore", IsPlot = TRUE)
 
 ```
+
 # LOOP for All Trees
 
-```{r}
+```{r, warning=FALSE}
 
 extracts %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
-  sample_n(100) %>% 
+ # sample_n(100) %>% 
   pull(UID) -> trees
-
-```
-
-```{r}
 
 pheno_metrix_date <- data.frame()
 pheno_metrix_doy <- data.frame()
@@ -356,9 +351,20 @@ left_join(
   by = c("UID", "flag", "origin"),
   suffix = c("_doy", "_date")) -> phen_metrix 
 
-fit_stats %>%
-  group_by(meth) %>% 
-  summarise(mean_r2 = mean(R2, na.rm = TRUE))
+fit_stats %>% 
+  filter(meth == "Elmore") %>% 
+  right_join(phen_metrix) -> phen_metrix 
+
+phen_metrix %>% 
+  group_by(UID) %>% 
+  summarise(mean_r2 = mean(R2, na.rm = TRUE),
+            n = n()) %>% 
+  filter(n >= 6 & mean_r2 >= .9) %>% 
+  pull(UID) -> sample
+
+phen_metrix %>% 
+  filter(UID %in% sample) -> phen_metrix
+  
 
 ```
 
@@ -376,8 +382,8 @@ phen_metrix %>%
   group_by(UID) %>% 
   summarise(n = n()) %>% 
   left_join(fit_stats_test) %>% 
-  filter(n >= 6 & mean_r2 >= .9) %>% 
-  nrow()
+  filter(n >= 6 & mean_r2 >= .9) 
+  
 
 ```
 
@@ -509,24 +515,22 @@ evaluate_pheno_methods <- function(extracts, n_samples, pheno_curves, season_cur
 
 ```
 
+```{r, warning=FALSE}
 
+pheno_curves <- c("AG", "Beck", "Elmore", "Zhang") 
 
-```{r}
-
-pheno_curves <- c("AG", "Beck", "Elmore", "Zhang")
 season_curves <- c("wHANTS", "wSG", "wWHIT")
 
 usability_matrix <- evaluate_pheno_methods(
   extracts = extracts,
-  n_samples = 100,  # Just specify number of samples
+  n_samples = 500, 
   pheno_curves = pheno_curves,
   season_curves = season_curves,
   min_observations = 6,
   min_r2 = 0.9
 )
 
-# Format to 2 decimal places
-usability_formatted <- apply(usability_matrix, c(1, 2), function(x) sprintf("%.2f", x))
+```
 
-print(usability_formatted)
+
 
