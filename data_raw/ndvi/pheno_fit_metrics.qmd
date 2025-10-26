@@ -19,6 +19,27 @@ read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
 ```
 
+# Phenological Curve Tuning
+
+```{r}
+
+source("../../R/evaluate_pheno_methods.R")
+
+pheno_curves <- c("AG", "Beck", "Elmore", "Zhang") 
+season_curves <- c("wHANTS", "wSG", "wWHIT") 
+
+
+evaluate_pheno_methods(
+  extracts = extracts, 
+  n_samples = 10,
+  pheno_curves = pheno_curves,
+  season_curves = season_curves, 
+  min_observations = 6, 
+  min_r2 = 0.9 ) 
+
+```
+
+
 # LOOP for All Trees
 
 ```{r, warning=FALSE}
@@ -120,296 +141,21 @@ phen_metrix %>%
   
 
 ```
-
 ```{r}
 
 write_rds(phen_metrix, "extracted_metrics.rds")
 
 ```
 
-# Fluction for ploting each years curve and metrics
+# Graphing Each Curve
 
 ```{r}
 
-plot_year <- function(data, year, tree_id, 
-                     metrics = c()){
-  
-  # Define metric groups
-  metric_groups <- list(
-    "Inflection" = c("Greenup", "Maturity", "Senescence", "Dormancy"),
-    "Derivative" = c("DER.sos", "DER.pos", "DER.eos"),
-    "GU" = c("UD", "SD", "DD", "RD"),
-    "TRS2" = c("TRS2.sos", "TRS2.eos"),
-    "TRS5" = c("TRS5.sos", "TRS5.eos"),
-    "TRS6" = c("TRS6.sos", "TRS6.eos"),
-    "TRS" = c("TRS2.sos", "TRS2.eos", "TRS5.sos", "TRS5.eos", "TRS6.sos", "TRS6.eos")
-  )
-  
-  # Expand groups to individual metrics
-  expanded_metrics <- c()
-  for(m in metrics) {
-    if(m %in% names(metric_groups)) {
-      expanded_metrics <- c(expanded_metrics, metric_groups[[m]])
-    } else {
-      expanded_metrics <- c(expanded_metrics, m)
-    }
-  }
-  
-  data %>% 
-    filter(flag == year) %>% 
-    filter(UID == tree_id) -> data_year
-  
-  data_year %>% 
-    pull(fit_data) %>% 
-    .[[1]] -> plot_list
-  
-  elmore_function <- function(t, mn, mx, sos, rsp, eos, rau, m7) {
-    mn + (mx - m7 * t) * (1/(1 + exp(-rsp * (t - sos))) - 
-                            1/(1 + exp(-rau * (t - eos))))
-  }
-  
-  as.Date(plot_list$data$t, origin = "2000-01-01") -> t_dates
-  
-  plot(t_dates, plot_list$data$y,
-       main = paste("Tree:", tree_id, "Year:", year),
-       xlab = "Date", ylab = "NDVI",
-       pch = 16, col = "gray60",
-       ylim = c(min(plot_list$data$y, na.rm = TRUE), 
-                max(plot_list$data$y, na.rm = TRUE) * 1.15))
-  
-  lines(t_dates, 
-        elmore_function(plot_list$data$t, 
-                       plot_list$model$Elmore$par[1], 
-                       plot_list$model$Elmore$par[2], 
-                       plot_list$model$Elmore$par[3],
-                       plot_list$model$Elmore$par[4], 
-                       plot_list$model$Elmore$par[5], 
-                       plot_list$model$Elmore$par[6], 
-                       plot_list$model$Elmore$par[7]),
-        col = "red", lwd = 2)
-  
-  # Define colors for all metrics
-  colors <- c(
-    "Greenup" = "lightgreen", 
-    "Maturity" = "darkgreen", 
-    "Senescence" = "orange", 
-    "Dormancy" = "brown",
-    "TRS2.sos" = "blue",
-    "TRS2.eos" = "darkblue",
-    "TRS5.sos" = "cyan",
-    "TRS5.eos" = "darkcyan",
-    "TRS6.sos" = "purple",
-    "TRS6.eos" = "purple4",
-    "DER.sos" = "pink",
-    "DER.pos" = "hotpink",
-    "DER.eos" = "deeppink",
-    "UD" = "yellow3",
-    "SD" = "gold",
-    "DD" = "goldenrod",
-    "RD" = "darkgoldenrod"
-  )
-  
-  # Plot each metric
-  y_offset <- 0.95
-  for(metric in expanded_metrics) {
-    date_col <- paste0(metric, "_date")
-    doy_col <- paste0(metric, "_doy")
-    
-    if(date_col %in% names(data_year)) {
-      metric_date <- data_year[[date_col]]
-      metric_doy <- data_year[[doy_col]]
-      metric_color <- colors[metric]
-      if(is.na(metric_color)) metric_color <- "black"
-      
-      abline(v = metric_date, col = metric_color, lty = 2, lwd = 1.5)
-      text(metric_date, par("usr")[4] * y_offset, 
-           paste(metric, "\n", metric_date, "\nDOY:", metric_doy), 
-           pos = 2, col = metric_color, cex = 0.7)
-      
-      y_offset <- y_offset - 0.05
-    }
-  }
-}
+source("../../R/plot_year.R")
 
-# # Usage examples:
-# 
-# # Default: just inflection points
-# plot_year(phen_metrix, "2018_1", "20788")
-# 
-# # Inflection + Derivative
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("Derivative"))
-# 
-# # All TRS thresholds
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("TRS"))
-# 
-# # Specific TRS threshold
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("TRS2"))
-# 
-# # GU curvature metrics
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("GU"))
-# 
-# # Combine multiple groups
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("Inflection", "Derivative", "GU"))
-# 
-# # Everything
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("Inflection", "Derivative", "GU", "TRS"))
-# 
-# # Mix groups and individual metrics
-# plot_year(phen_metrix, "2018_1", "20788", 
-#           metrics = c("Inflection", "DER.sos", "TRS5"))
+plot_year(phen_metrix, "2020_1", "15598", 
+          metrics = c("Inflection"))
 
-```
-
-
-
-# Tuning
-
-```{r}
-
-evaluate_pheno_methods <- function(extracts, n_samples, pheno_curves, season_curves, 
-                                   min_observations = 6, min_r2 = 0.9) {
-  
-  # Random sample of trees
-  trees <- extracts %>% 
-    group_by(UID) %>% 
-    summarise(n = n(), .groups = "drop") %>% 
-    sample_n(n_samples) %>% 
-    pull(UID)
-  
-  message(paste("Randomly sampled", n_samples, "trees for analysis\n"))
-  
-  # Initialize results matrix
-  results <- matrix(NA, 
-                    nrow = length(season_curves), 
-                    ncol = length(pheno_curves),
-                    dimnames = list(season_curves, pheno_curves))
-  
-  total_trees <- length(trees)
-  
-  # Loop through each combination
-  for (sc in season_curves) {
-    for (pc in pheno_curves) {
-      
-      message(paste("\nProcessing:", sc, "/", pc))
-      
-      # Initialize data frames for this combination
-      pheno_metrix_date <- data.frame()
-      pheno_metrix_doy <- data.frame()
-      fit_stats <- data.frame()
-      
-      # Loop through trees
-      for (i in trees) {
-        tryCatch({
-          
-          extracts %>% 
-            filter(UID == i) %>% 
-            mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
-            mutate(
-              time_numeric = as.numeric(im_date),
-              trend = predict(lm(ndvi ~ time_numeric)),
-              ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
-            ) -> extracts_samp
-          
-          check_input(
-            t = extracts_samp$im_date,
-            y = extracts_samp$ndvi, 
-            south = FALSE
-          ) -> test_input
-          
-          check_input(
-            t = extracts_samp$im_date, 
-            y = extracts_samp$ndvi_detrended,
-            south = FALSE
-          ) -> x_detrended 
-          
-          season_mov(
-            x_detrended,
-            options = list(
-              rFUN = paste0("smooth_", sc)
-            )
-          ) -> brks_mov 
-          
-          curvefits(test_input, brks_mov) -> fit
-          
-          get_GOF(fit) -> stats
-          get_pheno(fit, pc) -> metrics
-          
-          # Extract date and doy metrics
-          metrics$date[[pc]] %>% 
-            mutate(UID = i) -> metrics_date
-          
-          metrics$doy[[pc]] %>% 
-            mutate(UID = i) -> metrics_doy
-          
-          stats %>% 
-            mutate(UID = i) -> stats
-          
-          # Bind rows
-          pheno_metrix_date <- bind_rows(pheno_metrix_date, metrics_date)
-          pheno_metrix_doy <- bind_rows(pheno_metrix_doy, metrics_doy)
-          fit_stats <- bind_rows(fit_stats, stats)
-          
-        }, error = function(e) {
-          # Silent error handling
-        })
-      }
-      
-      # Calculate proportion meeting criteria
-      if (nrow(fit_stats) > 0) {
-        
-        phen_metrix <- left_join(
-          pheno_metrix_doy, 
-          pheno_metrix_date, 
-          by = c("UID", "flag", "origin"),
-          suffix = c("_doy", "_date")
-        )
-        
-        fit_stats_filtered <- fit_stats %>% 
-          filter(meth == pc) %>% 
-          group_by(UID) %>% 
-          summarise(mean_r2 = mean(R2, na.rm = TRUE), .groups = "drop")
-        
-        n_meeting_criteria <- phen_metrix %>% 
-          count(UID) %>% 
-          left_join(fit_stats_filtered, by = "UID") %>% 
-          filter(n >= min_observations & mean_r2 >= min_r2) %>% 
-          nrow()
-        
-        results[sc, pc] <- n_meeting_criteria / total_trees
-        
-        message(paste(sc, "/", pc, ":", 
-                     sprintf("%.2f", results[sc, pc]), "usable (",
-                     n_meeting_criteria, "of", total_trees, "trees)"))
-      } else {
-        results[sc, pc] <- 0
-        message(paste(sc, "/", pc, ": 0.00 usable (no successful fits)"))
-      }
-    }
-  }
-  
-  return(results)
-}
-
-# #Usage
-# 
-# pheno_curves <- c("AG", "Beck", "Elmore", "Zhang") 
-# 
-# season_curves <- c("wHANTS", "wSG", "wWHIT")
-# 
-# usability_matrix <- evaluate_pheno_methods(
-#   extracts = extracts,
-#   n_samples = 500, 
-#   pheno_curves = pheno_curves,
-#   season_curves = season_curves,
-#   min_observations = 6,
-#   min_r2 = 0.9
-# )
 
 ```
 
