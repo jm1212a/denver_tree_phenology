@@ -370,22 +370,13 @@ phen_metrix %>%
 
 ```{r}
 
-#smooth_wHANTS/Elmore produced a curve with .094% usablity based on 1000 samples
-#smooth_wWHIT/Elmore produced curve with .083% usablity based on 1000 samples
-
-fit_stats %>% 
-  filter(meth == "Elmore") %>% 
-  group_by(UID) %>% 
-  summarise(mean_r2 = mean(R2, na.rm = TRUE)) -> fit_stats_test
-  
-phen_metrix %>% 
-  group_by(UID) %>% 
-  summarise(n = n()) %>% 
-  left_join(fit_stats_test) %>% 
-  filter(n >= 6 & mean_r2 >= .9) 
-  
+write_rds(phen_metrix, "extracted_metrics.rds")
 
 ```
+
+
+
+# Tuning
 
 ```{r}
 
