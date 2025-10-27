@@ -17,13 +17,13 @@ library(zoo)
 
 This code extracts phenology metrics from NDVI time series for 100 randomly sampled trees:
 
-1. **Input**: Raw NDVI extractions by tree and date
-2. **Processing**: 
-   - Despikes and detrends NDVI time series
-   - Fits Elmore curves with wHANTS smoothing
-   - Extracts phenology dates and metrics
-3. **Quality Filtering**: Keeps only trees with ≥6 seasons and mean R² ≥0.9
-4. **Output**: Phenology metrics with dates, DOY, fit statistics, and fit objects
+1.  **Input**: Raw NDVI extractions by tree and date
+2.  **Processing**:
+    -   Despikes and detrends NDVI time series
+    -   Fits Elmore curves with wHANTS smoothing
+    -   Extracts phenology dates and metrics
+3.  **Quality Filtering**: Keeps only trees with ≥6 seasons and mean R² ≥0.9
+4.  **Output**: Phenology metrics with dates, DOY, fit statistics, and fit objects
 
 The result is a high-quality dataset ready for phenology analysis and visualization.
 
@@ -32,11 +32,11 @@ The result is a high-quality dataset ready for phenology analysis and visualizat
 # Load raw NDVI extraction data
 read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
-# Randomly sample 100 trees for processing
+# extracting unquie tree values/random sampling if testing
 extracts %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
-  sample_n(100) %>% 
+  #sample_n(100) %>% # Randomly sample for testing
   pull(UID) -> trees
 
 # Initialize empty data frames to store results
@@ -151,6 +151,11 @@ phen_metrix %>%
 
 ```
 
+```{r}
 
+read_rds("./extracted_metrics.rds") %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  pull(UID) -> trees
 
-
+```
