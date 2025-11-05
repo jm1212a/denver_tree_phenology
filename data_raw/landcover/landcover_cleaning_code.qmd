@@ -28,3 +28,9 @@ read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
 
 ```
 
+```{r}
+
+read_rds("./cleaned_data/land_cover.rds")
+
+```
+

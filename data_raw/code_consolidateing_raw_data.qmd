@@ -1,0 +1,25 @@
+---
+title: "Consolidating_raw_data"
+format: html
+editor: visual
+---
+
+# loading denver_tree_data
+
+```{r}
+
+st_drop_geometry(st_read("./denver_tree/denver_trees_sample.geojson")) %>% 
+  mutate(UID = row_number()) %>% 
+  left_join(read_rds("./landcover/cleaned_data/land_cover.rds"), 
+            by = "UID") -> tree_ldc
+
+read_rds("./ndvi/pheno_curve_metrics/extracted_metrics.rds") %>% 
+  mutate(UID = as.integer(UID)) %>% 
+  left_join(tree_ldc, by = "UID") -> tree_ldc_metrics
+
+tree_ldc_metrics %>% 
+  group_by(botanic_common, leaf_persistence) %>% 
+  summarize(n = length(unique(UID)))
+
+```
+
