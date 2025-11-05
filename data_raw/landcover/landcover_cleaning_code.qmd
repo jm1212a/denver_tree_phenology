@@ -4,23 +4,52 @@ format: pdf
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+
+library(tidyverse)
+library(sf)
+library(tigris)
+library(gridExtra)
+library(rstac)
+library(terra)
+library(tidyterra)
+
 ```
 
-You can add options to executable code like this
-
 ```{r}
-#| echo: false
-2 * 2
+
+stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
+
+stac_query <- stac_search(
+  q = stac_source,
+  collections = "drcog-lulc"
+  )
+
+signed_stac_query <- items_sign(
+  post_request(stac_query),
+  sign_planetary_computer()
+  )
+
+map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble) %>% 
+  mutate(description = str_to_lower(description),
+         description = str_replace_all(description, " ", "_")) -> class_df
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+```{r}
+
+class_df
+
+read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
+  rename(structures = class_1,
+         impervious_surfaces = class_2,
+         water = class_3,
+         prairie_grass_land = class_4,
+         shrubland = class_5,
+         tree_canopy = class_6,
+         irrigated_land = class_7,
+         barren_land = class_8,
+         cropland = class_9) 
+
+```
+
