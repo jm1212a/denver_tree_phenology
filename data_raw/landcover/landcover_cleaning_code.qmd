@@ -7,49 +7,23 @@ editor: visual
 ```{r}
 
 library(tidyverse)
-library(sf)
-library(tigris)
-library(gridExtra)
-library(rstac)
-library(terra)
-library(tidyterra)
 
-```
+#Nine land cover classes were mapped: (1) structures, (2) impervious surfaces, (3) water, (4) grassland/prairie, (5) tree canopy, (6) irrigated lands/turf, (7) barren/rock, (8) cropland, and (9) shrubland/scrubland
 
-```{r}
-
-stac_source <- stac("https://planetarycomputer.microsoft.com/api/stac/v1/")
-
-stac_query <- stac_search(
-  q = stac_source,
-  collections = "drcog-lulc"
-  )
-
-signed_stac_query <- items_sign(
-  post_request(stac_query),
-  sign_planetary_computer()
-  )
-
-map_dfr(signed_stac_query$features[[1]]$assets$data$`classification:classes`, as_tibble) %>% 
-  mutate(description = str_to_lower(description),
-         description = str_replace_all(description, " ", "_")) -> class_df
-
-```
-
-```{r}
-
-class_df
-
-read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
+read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>% 
   rename(structures = class_1,
          impervious_surfaces = class_2,
          water = class_3,
-         prairie_grass_land = class_4,
-         shrubland = class_5,
-         tree_canopy = class_6,
-         irrigated_land = class_7,
-         barren_land = class_8,
-         cropland = class_9) 
+         prairie_grassland = class_4,
+         tree_canopy = class_5,
+         irrigated_land = class_6,
+         barren_rock = class_7,
+         cropland = class_8,
+         scrubland = class_9) %>% 
+  mutate(unirrigated = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), na.rm = TRUE),
+         irrigated = rowSums(across(c(cropland, irrigated_land)), na.rm = TRUE),
+         impervious = rowSums(across(c(structures, impervious_surfaces)), na.rm = TRUE)) %>% 
+  select(UID, unirrigated, irrigated, impervious, tree_canopy, water) 
 
 ```
 
