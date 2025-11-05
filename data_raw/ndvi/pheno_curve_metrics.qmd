@@ -153,9 +153,9 @@ phen_metrix %>%
 
 ```{r}
 
-read_rds("./extracted_metrics.rds") %>% 
-  group_by(UID) %>% 
-  summarise(n = n()) %>% 
+read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
+  #group_by(UID) %>% 
+  #summarise(n = n()) %>% 
   pull(UID) -> trees
 
 ```

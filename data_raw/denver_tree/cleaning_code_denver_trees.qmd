@@ -26,13 +26,6 @@ denver_county <- counties(state = "CO", cb = TRUE) %>%
 
 ```{r}
 
-source("../../R/land_cover.R")
-
-```
-
-
-```{r}
-
 read_rds("tree_inventory_denver_20250911.rds") %>%
   # Fix formatting of common names: convert "last, first" to "first last"
   mutate(
@@ -93,108 +86,6 @@ read_rds("tree_inventory_denver_20250911.rds") %>%
 
 ```
 
-```{r}
-
-st_coordinates(denver_trees_subsample)[1:5,]
-
-```
-
-
-## Code for adding land cover
-
-```{r, warning=FALSE}
-
-suppressMessages(
-  map_dfr(denver_trees_subsample$the_geom[1:10], land_cover, .id = "tree_id") %>% 
-    mutate(tree_id = as.double(tree_id)))-> lc_data
-
-denver_trees_subsample %>% 
-  head(10) %>% 
-  mutate(tree_id = as.double(row_number())) %>% 
-  left_join(lc_data, by = "tree_id") -> denver_trees_subsample
-
-```
-
-```{r}
-
-source("../../R/updated_landcover_code.R")
-
-denver_trees_subsample %>%
-  rowwise() %>%
-  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
-  ungroup() %>% 
-  filter(total < 266900) -> mos_sample
-  
-
-```
-
-```{r, warning=FALSE}
-suppressMessages(
-  map_dfr(mos_sample$the_geom, land_cover_mosaic, .id = "tree_id_2") %>% 
-  mutate(tree_id_2 = as.double(tree_id_2))
-  )-> lc_data
-
-```
-
-
-```{r, warning=FALSE}
-
-suppressMessages(
-  map_dfr(mos_sample$the_geom, land_cover, .id = "tree_id_2") %>% 
-    mutate(tree_id_2 = as.double(tree_id_2)))-> lc_data_t
-
-bind_rows(lc_data, lc_data_t) %>% 
-  group_by(tree_id_2) %>% 
-  summarise(across(starts_with("#"), ~sum(., na.rm = TRUE))) %>%
-  rowwise() %>%
-  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
-  ungroup() %>%
-  mutate(across(starts_with("#_of_pix_"), 
-                list(pct = ~. / total), 
-                .names = "%_of_{sub('#_of_pix_', '', .col)}")) -> lc_data_t
-
-```
-
-
-```{r}
-
-mos_sample %>% 
-  mutate(tree_id_2 = as.double(row_number())) %>% 
-  left_join(lc_data_t, by = "tree_id_2") %>% 
-  select(-ends_with(".x"), 
-         -tree_id_2) %>%
-  rename_with(~str_remove(., "\\.y$"), ends_with(".y")) -> mos_sample
-
-```
-
-
-```{r}
-
-denver_trees_subsample %>%
-  rowwise() %>%
-  mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
-  ungroup() %>%
-  filter(total < 266900) %>% 
-  left_join(mos_sample %>% 
-              st_drop_geometry(), by = "tree_id", suffix = c("", "_new")) %>% 
-  mutate(across(
-    .cols = ends_with("_new"),
-    .fns = ~ coalesce(.x, get(sub("_new$", "", cur_column()))),
-    .names = "{sub('_new$', '', .col)}"
-  )) %>% 
-  select(-ends_with("_new"))%>%
-  bind_rows(
-    denver_trees_subsample %>%
-      rowwise() %>%
-      mutate(total = sum(c_across(starts_with("#")), na.rm = TRUE)) %>%
-      ungroup() %>%
-      filter(total >= 266900)
-    ) %>%
-  select(-starts_with("#"),
-         -total) %>% 
-  st_write("denver_trees_sample.geojson", driver = "GeoJSON", delete_dsn = TRUE)
-
-```
 
 ```{r}
 
@@ -203,8 +94,6 @@ denver_trees_check <- st_read("denver_trees_sample.geojson")
 # Extract just the attributes as a data frame
 denver_trees_df <- st_drop_geometry(denver_trees_check)
 
-# View the first rows
 denver_trees_df
 
 ```
-
