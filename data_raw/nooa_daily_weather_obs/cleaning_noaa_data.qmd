@@ -18,42 +18,6 @@ source("./helper_functions/read_and_clean.R")
 
 ```{r}
 
-#USC00052223 is in an area of high impervious surfaces on average has a higher degree temp. 
-#Over the time of the study period USC00052223, the station in high impervious 
-# surfaces has a statistical significant higher mean temperature, in 2 our of 
-# the 7 years of the study 
-
-bind_rows(read_and_clean("./raw_data_sets/USC00052223.dly"), read_and_clean("./raw_data_sets/USW00023062.dly")) %>% 
-  group_by(year(date), station_id) %>% 
-  mutate(year = year(date)) %>% 
-  filter(year >= 2018 & year <= 2024 ) %>% 
-  mutate(station_id = factor(station_id, levels = c("USC00052223", "USW00023062"))) %>% 
-  group_by(year, date, station_id) %>% 
-  summarise(
-    mean_temp = mean((TMAX + TMIN) / 2, na.rm = TRUE),
-    tmin = TMIN,
-    tmax = TMAX,
-    total_precip = sum(PRCP, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-   group_by(year)%>%
-   summarise(
-     t_test = list(t.test(
-       mean_temp ~ station_id,
-       data = cur_data()
-     ))
-   ) %>%
-   mutate(tidy_results = map(t_test, broom::tidy)) %>%
-   unnest(tidy_results) %>%
-   select(year, estimate1, estimate2, statistic, p.value, conf.low, conf.high)
-
-  
-
-```
-
-
-```{r}
-
 read_fwf("./raw_data_sets/ghcnd-stations.txt", 
          col_positions = fwf_widths(c(11, 10, 10, 10, 100))) %>% 
   rename(station_id = X1, latitude = X2, longitude = X3, elevation_state = X4, Name = X5) %>% 
@@ -65,24 +29,108 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
     TRUE ~ elevation)) %>% 
   mutate(elevation = as.double(elevation)) %>%
   select(-elevation_state) %>% 
-  right_join(bind_rows(read_and_clean("./raw_data_sets/USC00052223.dly"),
-                       read_and_clean("./raw_data_sets/USW00023062.dly")), 
-             by = "station_id") %>% 
-  mutate() 
+  right_join(read_and_clean("./raw_data_sets/USW00023062.dly"), 
+             by = "station_id")%>% 
+  mutate(year = year(date)) %>% 
+  filter(year >= 2017 & year <= 2025 ) %>% 
+  group_by(year, date, station_id) %>% 
+  mutate(
+    mean_temp = mean((TMAX + TMIN) / 2, na.rm = TRUE),
+    month = month(date),
+    day = day(date)) %>% 
+  rename(tmax = TMAX,
+         tmin = TMIN,
+         prcp = PRCP,
+         snow = SNOW,
+         snwd = SNWD)-> climate_data
+
+climate_data %>%
+  filter((month %in% c(1, 2, 12))) %>%
+  mutate(winter_year = ifelse(month == 12, year + 1, year)) %>%
+  group_by(winter_year) %>%
+  summarise(winter_prcp = sum(prcp, na.rm = TRUE), #months chosen 12,1,2
+            winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            winter_temp = mean(mean_temp, na.rm = TRUE)) %>% 
+  rename(year = winter_year)-> winter_metrics
+
+climate_data %>%
+  filter((month %in% c(2, 3))) %>% 
+  group_by(year) %>%
+  summarise(late_winter_prcp = sum(prcp, na.rm = TRUE), #months chosen 2,3
+            late_winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            late_winter_temp = mean(mean_temp, na.rm = TRUE)) -> late_winter_metrics
+
+climate_data %>%
+  filter((month %in% c(3, 4, 5))) %>% 
+  group_by(year) %>%
+  summarise(spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
+            spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            spring_temp = mean(mean_temp, na.rm = TRUE)) -> spring_metrics
+
+climate_data %>%
+  filter((month %in% c(3, 4))) %>% 
+  group_by(year) %>%
+  summarise(early_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
+            early_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            early_spring_temp = mean(mean_temp, na.rm = TRUE)) -> early_spring_metrics
+
+climate_data %>%
+  filter((month %in% c(5, 6))) %>% 
+  group_by(year) %>%
+  summarise(late_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 5,6
+            late_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            late_spring_temp = mean(mean_temp, na.rm = TRUE)) -> late_spring_metrics
+
+climate_data %>%
+  filter((month %in% c(6, 7, 8))) %>% 
+  group_by(year) %>%
+  summarise(summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 6,7,8
+            summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            summer_temp = mean(mean_temp, na.rm = TRUE)) -> summer_metrics
+
+climate_data %>%
+  filter((month %in% c(7, 8))) %>% 
+  group_by(year) %>%
+  summarise(late_summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 8,9
+            late_summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            late_summer_temp = mean(mean_temp, na.rm = TRUE)) -> late_summer_metrics
+
+climate_data %>%
+  filter((month %in% c(9, 10, 11))) %>% 
+  group_by(year) %>%
+  summarise(fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10,11
+            fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            fall_temp = mean(mean_temp, na.rm = TRUE)) -> fall_metrics
+
+climate_data %>%
+  filter((month %in% c(9, 10))) %>% 
+  group_by(year) %>%
+  summarise(early_fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10
+            early_fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            early_fall_temp = mean(mean_temp, na.rm = TRUE)) -> early_fall_metrics
+
+climate_data %>%
+  filter((month %in% c(11, 12))) %>% 
+  group_by(year) %>%
+  summarise(late_fall_prcp = sum(prcp, na.rm = TRUE), # months chosen 11,12
+            late_fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
+            late_fall_temp = mean(mean_temp, na.rm = TRUE)) -> late_fall_metrics
+
+climate_data %>%
+  group_by(year) %>%
+  summarise(
+    annual_prcp = sum(prcp, na.rm = TRUE),  # total precipitation
+    annual_prcp_days = sum(prcp != 0, na.rm = TRUE),  # count of days with precipitation
+    annual_mean_temp = mean(mean_temp, na.rm = TRUE)) -> annual_metrics
+
+
+list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
+     late_spring_metrics,summer_metrics, late_summer_metrics, fall_metrics,
+     early_fall_metrics, late_fall_metrics) %>% 
+  reduce(left_join, by = "year") %>% 
+  write_csv("./climate_variables/climate_variables.csv")
 
 
 ```
 
-```{r}
-
-read.fwf("./raw_data_sets/USW00023062.dly",
-                 widths = c(11, 4, 2, 4, rep(8, 31)), 
-                 col.names = c("station_id", "year", "month", "element", 
-                               paste0("day_", 1:31)),
-                 stringsAsFactors = FALSE) %>% 
-  tail(20)
-  #mutate(across(starts_with("day_"),
-  #              ~ as.numeric(str_extract(.x, "-?\\d+"))))
-
-```
 

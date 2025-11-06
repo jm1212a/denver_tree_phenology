@@ -1,0 +1,148 @@
+## ------------------------------------------------------------------------------------------
+library(tidyverse)
+library(phenofit)
+library(oce)
+library(zoo)
+library(progress)
+## ----warning=FALSE-------------------------------------------------------------------------
+
+# Load raw NDVI extraction data
+read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
+
+# extracting unquie tree values/random sampling if testing
+extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  #sample_n(100) %>% # Randomly sample for testing
+  pull(UID) -> trees
+
+# Initialize empty data frames to store results
+pheno_metrix_date <- data.frame()  # Phenology metrics as dates
+pheno_metrix_doy <- data.frame()   # Phenology metrics as day of year
+fit_stats <- data.frame()          # Goodness of fit statistics
+total_trees <- length(trees)
+
+# Loop through each sampled tree
+for (i in trees) {
+  
+  counter <- which(trees == i)
+  if (counter %% 100 == 0) {  # Print every 10 trees
+    message(sprintf("Progress: %d/%d (%.1f%%)", 
+                    counter, total_trees, (counter/total_trees)*100))
+  }
+  
+  tryCatch({
+    
+    # Filter data for current tree and preprocess NDVI
+    extracts %>% 
+      filter(UID == i) %>% 
+      # Remove spikes/outliers using median-based despiking
+      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+      # Detrend NDVI to remove long-term trends while preserving seasonality
+      mutate(
+        time_numeric = as.numeric(im_date),
+        trend = predict(lm(ndvi ~ time_numeric)),
+        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+      ) -> extracts_samp
+    
+    # Prepare original NDVI data for phenofit
+    check_input(
+      t = extracts_samp$im_date,
+      y = extracts_samp$ndvi, 
+      south = FALSE  # Northern hemisphere
+    ) -> test_input
+    
+    # Prepare detrended NDVI data for phenofit
+    check_input(
+      t = extracts_samp$im_date, 
+      y = extracts_samp$ndvi_detrended,
+      south = FALSE
+    ) -> x_detrended 
+    
+    # Detect growing seasons using wHANTS smoothing
+    season_mov(
+      x_detrended,
+      options = list(
+        rFUN = "smooth_wWHIT"  # Harmonic analysis smoothing
+      )
+    ) -> brks_mov 
+    
+    # Fit phenology curves (multiple methods) to each detected season
+    curvefits(test_input, brks_mov) -> fit
+    
+    # Extract goodness of fit statistics (R2, NSE, RMSE, etc.)
+    get_GOF(fit) -> stats
+    
+    # Extract phenology metrics using Elmore method
+    get_pheno(fit, "Elmore") -> metrics
+    
+    # Extract date-based phenology metrics and add tree ID
+    metrics$date$Elmore %>% 
+      mutate(UID = i) -> metrics_date
+    
+    # Extract DOY-based phenology metrics and add tree ID
+    metrics$doy$Elmore %>% 
+      mutate(UID = i) -> metrics_doy
+    
+    # Create lookup table with fit objects as list column
+    data.frame(
+      flag = names(fit),
+      fit_data = I(fit)) -> fit_lookup
+    
+    tibble(
+      UID = i,
+      season_data = list(test_input)) -> season_curve
+    
+    # Add tree ID and join fit objects to statistics
+    stats %>% 
+      mutate(UID = i) %>% 
+      left_join(season_curve, by = "UID") %>% 
+      left_join(fit_lookup, by = "flag") -> stats 
+    
+    # Accumulate results across all trees
+    bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
+    bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
+    bind_rows(fit_stats, stats) -> fit_stats
+    
+  }, error = function(e) {
+    # Skip trees that fail processing and print error message
+    message(paste("Skipping tree", i, "- Error:", e$message))
+  })
+  
+}
+
+# Join DOY and date phenology metrics
+left_join(
+  pheno_metrix_doy, 
+  pheno_metrix_date, 
+  by = c("UID", "flag", "origin"),
+  suffix = c("_doy", "_date")) -> phen_metrix 
+
+# Join fit statistics with phenology metrics
+fit_stats %>% 
+  filter(meth == "Elmore") %>%  # Keep only Elmore method statistics
+  right_join(phen_metrix) -> phen_metrix 
+
+# Filter for high-quality trees based on quality criteria
+phen_metrix %>% 
+  group_by(UID) %>% 
+  summarise(
+    mean_r2 = mean(R2, na.rm = TRUE),  # Average R² across seasons
+    n = n()                             # Number of seasons per tree
+  ) %>% 
+  filter(n >= 6 & mean_r2 >= .9) %>%   # Keep trees with ≥6 seasons and R² ≥0.9
+  pull(UID) -> sample
+
+# Filter dataset to only high-quality trees and save
+phen_metrix %>% 
+  filter(UID %in% sample) %>% 
+  write_rds("./pheno_curve_metrics/extracted_metrics.rds")
+
+## ------------------------------------------------------------------------------------------
+
+# read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
+#   #group_by(UID) %>% 
+#   #summarise(n = n()) %>% 
+#   #pull(UID) -> trees
+
+

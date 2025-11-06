@@ -10,6 +10,7 @@ library(tidyverse)
 library(phenofit)
 library(oce)
 library(zoo)
+library(progress)
 
 ```
 
@@ -44,11 +45,19 @@ pheno_metrix_date <- data.frame()  # Phenology metrics as dates
 pheno_metrix_doy <- data.frame()   # Phenology metrics as day of year
 fit_stats <- data.frame()          # Goodness of fit statistics
 
+pb <- progress_bar$new(
+  format = "  Processing [:bar] :current/:total (:percent) ETA: :eta",
+  total = length(trees),
+  clear = FALSE,
+  width = 60
+)
+
 # Loop through each sampled tree
 for (i in trees) {
   
   tryCatch({
     
+    pb$tick()
     # Filter data for current tree and preprocess NDVI
     extracts %>% 
       filter(UID == i) %>% 
