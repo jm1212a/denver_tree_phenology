@@ -4,6 +4,13 @@ format: html
 editor: visual
 ---
 
+```{r}
+
+library(tidyverse)
+library(phenofit)
+
+```
+
 # loading denver_tree_data
 
 ```{r}
@@ -20,6 +27,32 @@ read_rds("./ndvi/pheno_curve_metrics/extracted_metrics.rds") %>%
 tree_ldc_metrics %>% 
   group_by(botanic_common, leaf_persistence) %>% 
   summarize(n = length(unique(UID)))
+
+tree_ldc_metrics
+
+```
+
+```{r}
+
+source("../R/evaluate_pheno_methods.R")
+
+read_rds("./ndvi/raw_extracts/extracted_ndvi_value.rds") -> extracts
+
+pheno_curves <- c("Elmore")
+season_curves <- c("wWHIT")
+
+# Test with 100 random trees
+
+usability_matrix <- evaluate_pheno_methods(
+  extracts = extracts,
+  n_samples = 100,
+  pheno_curves = pheno_curves,
+  season_curves = season_curves,
+  min_observations = 6,
+  min_r2 = 0.9
+  )
+ 
+usability_matrix
 
 ```
 

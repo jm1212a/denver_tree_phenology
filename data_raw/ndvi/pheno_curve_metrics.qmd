@@ -79,7 +79,7 @@ for (i in trees) {
     season_mov(
       x_detrended,
       options = list(
-        rFUN = "smooth_wHANTS"  # Harmonic analysis smoothing
+        rFUN = "smooth_wWHIT"  # Harmonic analysis smoothing
       )
     ) -> brks_mov 
     
@@ -105,9 +105,14 @@ for (i in trees) {
       flag = names(fit),
       fit_data = I(fit)) -> fit_lookup
     
+    tibble(
+      UID = i,
+      season_data = list(test_input)) -> season_curve
+    
     # Add tree ID and join fit objects to statistics
     stats %>% 
       mutate(UID = i) %>% 
+      left_join(season_curve, by = "UID") %>% 
       left_join(fit_lookup, by = "flag") -> stats 
     
     # Accumulate results across all trees
@@ -156,6 +161,6 @@ phen_metrix %>%
 read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
   #group_by(UID) %>% 
   #summarise(n = n()) %>% 
-  pull(UID) -> trees
+  #pull(UID) -> trees
 
 ```
