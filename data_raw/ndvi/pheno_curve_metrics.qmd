@@ -189,9 +189,9 @@ extracts %>%
   pull(UID) -> trees
 
 # Initialize empty data frames to store results
-pheno_metrix_date <- data.frame()  # Phenology metrics as dates
-pheno_metrix_doy <- data.frame()   # Phenology metrics as day of year
-fit_stats <- data.frame()          # Goodness of fit statistics
+pheno_metrix_date <- list()
+pheno_metrix_doy <- list()
+fit_stats <- list()
 total_trees <- length(trees)
 
 # Loop through each sampled tree
@@ -284,9 +284,9 @@ for (i in trees) {
         left_join(fit_lookup, by = "flag") -> stats 
       
         # Accumulate results across all trees
-      bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
-      bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
-      bind_rows(fit_stats, stats) -> fit_stats
+      pheno_metrix_date[[length(pheno_metrix_date) + 1]] <- metrics_date
+      pheno_metrix_doy[[length(pheno_metrix_doy) + 1]] <- metrics_doy
+      fit_stats[[length(fit_stats) + 1]] <- stats
       
       } else {
         message(paste("Skipping tree", i, "r2 < .9 or n < 6"))
@@ -298,6 +298,10 @@ for (i in trees) {
     })
  
 }
+
+pheno_metrix_date <- bind_rows(pheno_metrix_date)
+pheno_metrix_doy <- bind_rows(pheno_metrix_doy)
+fit_stats <- bind_rows(fit_stats)
 
 # Join DOY and date phenology metrics
 left_join(
@@ -321,9 +325,177 @@ fit_stats %>%
 
 ```
 
+# improved prcessing time uing list and panning
+```{r, warning=FALSE}
+
+library(tidyverse)
+library(phenofit)
+library(oce)
+library(zoo)
+library(furrr)
+library(progressr)
+
+# Load raw NDVI extraction data
+read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
+
+# Sample trees for testing
+extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  #sample_n(100) %>%
+  pull(UID) -> trees
+
+# Pre-split data by tree 
+extracts %>% 
+  filter(UID %in% trees) %>% 
+  group_split(UID, .keep = TRUE) -> extracts_split 
+
+total_trees <- length(trees)
+
+# Function to process one tree
+process_tree <- function(tree_data, p = NULL) {
+  
+  if (!is.null(p)) p()  
+  
+  i <- unique(tree_data$UID)
+  
+  counter <- which(trees == i)
+  
+  if (counter %% 100 == 0) {  # Print every 10 trees
+    message(sprintf("Progress: %d/%d (%.1f%%)", 
+                    counter, total_trees, (counter/total_trees)*100))
+    }
+  
+  tryCatch({
+    
+    # Preprocess NDVI
+    tree_data %>% 
+      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+      mutate(
+        time_numeric = as.numeric(im_date),
+        trend = predict(lm(ndvi ~ time_numeric)),
+        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+      ) -> extracts_samp
+    
+    # Prepare inputs
+    test_input <- check_input(
+      t = extracts_samp$im_date,
+      y = extracts_samp$ndvi, 
+      south = FALSE
+    )
+    
+    x_detrended <- check_input(
+      t = extracts_samp$im_date, 
+      y = extracts_samp$ndvi_detrended,
+      south = FALSE
+    )
+    
+    # Detect growing seasons
+    brks_mov <- season_mov(
+      x_detrended,
+      options = list(rFUN = "smooth_wWHIT")
+    )
+    
+    # Fit phenology curves
+    fit <- curvefits(test_input, brks_mov)
+    stats <- get_GOF(fit)
+    
+    # Check fit quality
+    fit_check <- stats %>% 
+      filter(meth == "Elmore") %>% 
+      mutate(UID = i) %>%
+      group_by(UID) %>% 
+      summarise(
+        mean_r2 = mean(R2, na.rm = TRUE),  
+        n = n()
+      )
+    
+    if (fit_check$mean_r2 > 0.90 & fit_check$n >= 6) {
+      
+      # Extract phenology metrics
+      metrics <- get_pheno(fit, "Elmore")
+      
+      metrics_date <- metrics$date$Elmore %>% 
+        mutate(UID = i)
+      
+      metrics_doy <- metrics$doy$Elmore %>% 
+        mutate(UID = i)
+      
+      # Create lookup tables
+      fit_lookup <- data.frame(
+        flag = names(fit),
+        fit_data = I(fit))
+      
+      season_curve <- tibble(
+        UID = i,
+        season_data = list(test_input))
+      
+      # Join fit objects to statistics
+      stats <- stats %>% 
+        mutate(UID = i) %>%
+        left_join(season_curve, by = "UID") %>% 
+        left_join(fit_lookup, by = "flag")
+      
+      # Return results
+      return(list(
+        metrics_date = metrics_date,
+        metrics_doy = metrics_doy,
+        stats = stats
+      ))
+      
+    } else {
+      #message(paste("Skipping tree", i, "- r2 < .9 or n < 6"))
+      return(NULL)
+    }
+    
+  }, error = function(e) {
+    #message(paste("Skipping tree", i, "- Error:", e$message))
+    return(NULL)
+  })
+}
+
+# Set up parallel processing (use all cores minus 1)
+plan(multisession, workers = availableCores() - 1)
+
+# Process all trees in parallel with progress bar
+with_progress({
+  p <- progressor(steps = length(extracts_split))
+  
+  results <- future_map(
+    extracts_split, 
+    ~process_tree(.x, p),
+    .options = furrr_options(seed = TRUE)
+  )
+})
+
+# Combine results (remove NULLs from skipped trees)
+results <- compact(results)
+
+pheno_metrix_date <- map_df(results, "metrics_date")
+pheno_metrix_doy <- map_df(results, "metrics_doy")
+fit_stats <- map_df(results, "stats")
+
+# Join DOY and date phenology metrics
+left_join(
+  pheno_metrix_doy, 
+  pheno_metrix_date, 
+  by = c("UID", "flag", "origin"),
+  suffix = c("_doy", "_date")) -> phen_metrix 
+
+# Join fit statistics with phenology metrics
+fit_stats %>% 
+  filter(meth == "Elmore") %>%
+  right_join(phen_metrix) %>% 
+  write_rds("./pheno_curve_metrics/extracted_metrics.rds")
+
+```
+
+
 ```{r}
 
 read_rds("./pheno_curve_metrics/extracted_metrics.rds") 
 
 ```
+
+
 
