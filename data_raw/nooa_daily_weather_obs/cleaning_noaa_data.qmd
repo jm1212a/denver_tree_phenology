@@ -130,7 +130,4 @@ list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
   reduce(left_join, by = "year") %>% 
   write_csv("./climate_variables/climate_variables.csv")
 
-
 ```
-
-
