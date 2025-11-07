@@ -26,6 +26,7 @@ total_trees <- length(trees)
 for (i in trees) {
   
   counter <- which(trees == i)
+  
   if (counter %% 100 == 0) {  # Print every 10 trees
     message(sprintf("Progress: %d/%d (%.1f%%)", 
                     counter, total_trees, (counter/total_trees)*100))
@@ -73,36 +74,51 @@ for (i in trees) {
     # Extract goodness of fit statistics (R2, NSE, RMSE, etc.)
     get_GOF(fit) -> stats
     
-    # Extract phenology metrics using Elmore method
-    get_pheno(fit, "Elmore") -> metrics
-    
-    # Extract date-based phenology metrics and add tree ID
-    metrics$date$Elmore %>% 
-      mutate(UID = i) -> metrics_date
-    
-    # Extract DOY-based phenology metrics and add tree ID
-    metrics$doy$Elmore %>% 
-      mutate(UID = i) -> metrics_doy
-    
-    # Create lookup table with fit objects as list column
-    data.frame(
-      flag = names(fit),
-      fit_data = I(fit)) -> fit_lookup
-    
-    tibble(
-      UID = i,
-      season_data = list(test_input)) -> season_curve
-    
-    # Add tree ID and join fit objects to statistics
     stats %>% 
-      mutate(UID = i) %>% 
-      left_join(season_curve, by = "UID") %>% 
-      left_join(fit_lookup, by = "flag") -> stats 
+      filter(meth == "Elmore") %>% 
+      mutate(UID = i) %>%
+      group_by(UID) %>% 
+      summarise(
+        mean_r2 = mean(R2, na.rm = TRUE),  
+        n = n()
+      ) -> fit_check
     
-    # Accumulate results across all trees
-    bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
-    bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
-    bind_rows(fit_stats, stats) -> fit_stats
+    if (fit_check$mean_r2 > .90 & fit_check$n >= 6){
+      
+      # Extract phenology metrics using Elmore method
+      get_pheno(fit, "Elmore") -> metrics
+      
+      # Extract date-based phenology metrics and add tree ID
+      metrics$date$Elmore %>% 
+        mutate(UID = i) -> metrics_date
+      
+      # Extract DOY-based phenology metrics and add tree ID
+      metrics$doy$Elmore %>% 
+        mutate(UID = i) -> metrics_doy
+      
+      # Create lookup table with fit objects as list column
+      data.frame(
+        flag = names(fit),
+        fit_data = I(fit)) -> fit_lookup
+      
+      tibble(
+        UID = i,
+        season_data = list(test_input)) -> season_curve
+      
+      # Add tree ID and join fit objects to statistics
+      stats %>% 
+        mutate(UID = i) %>%
+        left_join(season_curve, by = "UID") %>% 
+        left_join(fit_lookup, by = "flag") -> stats 
+      
+      # Accumulate results across all trees
+      bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
+      bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
+      bind_rows(fit_stats, stats) -> fit_stats
+      
+    } else {
+      message(paste("Skipping tree", i, "r2 < .9 or n < 6"))
+    }
     
   }, error = function(e) {
     # Skip trees that fail processing and print error message
@@ -121,28 +137,7 @@ left_join(
 # Join fit statistics with phenology metrics
 fit_stats %>% 
   filter(meth == "Elmore") %>%  # Keep only Elmore method statistics
-  right_join(phen_metrix) -> phen_metrix 
-
-# Filter for high-quality trees based on quality criteria
-phen_metrix %>% 
-  group_by(UID) %>% 
-  summarise(
-    mean_r2 = mean(R2, na.rm = TRUE),  # Average R² across seasons
-    n = n()                             # Number of seasons per tree
-  ) %>% 
-  filter(n >= 6 & mean_r2 >= .9) %>%   # Keep trees with ≥6 seasons and R² ≥0.9
-  pull(UID) -> sample
-
-# Filter dataset to only high-quality trees and save
-phen_metrix %>% 
-  filter(UID %in% sample) %>% 
-  write_rds("./pheno_curve_metrics/extracted_metrics.rds")
-
-## ------------------------------------------------------------------------------------------
-
-# read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
-#   #group_by(UID) %>% 
-#   #summarise(n = n()) %>% 
-#   #pull(UID) -> trees
+  right_join(phen_metrix) %>% 
+  write_rds("./pheno_curve_metrics/extracted_metrics_test.rds")
 
 
