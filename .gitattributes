@@ -8,3 +8,4 @@ data_raw/ndvi_raw_extracts/extracted_ndvi_value.rds filter=lfs diff=lfs merge=lf
 data_raw/ndvi/raw_extracts/extracted_ndvi_value.rds filter=lfs diff=lfs merge=lfs -text
 data/raw/ndvi/pheno_curve_metrics/extracted_metrics.rds filter=lfs diff=lfs merge=lfs -text
 data_raw/ndvi/pheno_curve_metrics/extracted_metrics.rds filter=lfs diff=lfs merge=lfs -text
+*.rds filter=lfs diff=lfs merge=lfs -text
