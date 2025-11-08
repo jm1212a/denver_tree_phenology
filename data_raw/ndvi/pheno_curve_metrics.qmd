@@ -10,7 +10,8 @@ library(tidyverse)
 library(phenofit)
 library(oce)
 library(zoo)
-library(progress)
+library(furrr)
+library(progressr)
 
 ```
 
@@ -28,326 +29,28 @@ This code extracts phenology metrics from NDVI time series for 100 randomly samp
 
 The result is a high-quality dataset ready for phenology analysis and visualization.
 
-```{r, warning=FALSE}
-
-# Load raw NDVI extraction data
-read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
-
-# extracting unquie tree values/random sampling if testing
-extracts %>% 
-  group_by(UID) %>% 
-  summarise(n = n()) %>% 
-  #sample_n(100) %>% # Randomly sample for testing
-  pull(UID) -> trees
-
-# Initialize empty data frames to store results
-pheno_metrix_date <- data.frame()  # Phenology metrics as dates
-pheno_metrix_doy <- data.frame()   # Phenology metrics as day of year
-fit_stats <- data.frame()          # Goodness of fit statistics
-
-pb <- progress_bar$new(
-  format = "  Processing [:bar] :current/:total (:percent) ETA: :eta",
-  total = length(trees),
-  clear = FALSE,
-  width = 60
-)
-
-# Loop through each sampled tree
-for (i in trees) {
-  
-  tryCatch({
-    
-    pb$tick()
-    # Filter data for current tree and preprocess NDVI
-    extracts %>% 
-      filter(UID == i) %>% 
-      # Remove spikes/outliers using median-based despiking
-      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
-      # Detrend NDVI to remove long-term trends while preserving seasonality
-      mutate(
-        time_numeric = as.numeric(im_date),
-        trend = predict(lm(ndvi ~ time_numeric)),
-        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
-      ) -> extracts_samp
-    
-    # Prepare original NDVI data for phenofit
-    check_input(
-      t = extracts_samp$im_date,
-      y = extracts_samp$ndvi, 
-      south = FALSE  # Northern hemisphere
-    ) -> test_input
-    
-    # Prepare detrended NDVI data for phenofit
-    check_input(
-      t = extracts_samp$im_date, 
-      y = extracts_samp$ndvi_detrended,
-      south = FALSE
-    ) -> x_detrended 
-    
-    # Detect growing seasons using wHANTS smoothing
-    season_mov(
-      x_detrended,
-      options = list(
-        rFUN = "smooth_wWHIT"  # Harmonic analysis smoothing
-      )
-    ) -> brks_mov 
-    
-    # Fit phenology curves (multiple methods) to each detected season
-    curvefits(test_input, brks_mov) -> fit
-    
-    # Extract goodness of fit statistics (R2, NSE, RMSE, etc.)
-    get_GOF(fit) -> stats
-    
-    # Extract phenology metrics using Elmore method
-    get_pheno(fit, "Elmore") -> metrics
-    
-    # Extract date-based phenology metrics and add tree ID
-    metrics$date$Elmore %>% 
-      mutate(UID = i) -> metrics_date
-    
-    # Extract DOY-based phenology metrics and add tree ID
-    metrics$doy$Elmore %>% 
-      mutate(UID = i) -> metrics_doy
-    
-    # Create lookup table with fit objects as list column
-    data.frame(
-      flag = names(fit),
-      fit_data = I(fit)) -> fit_lookup
-    
-    tibble(
-      UID = i,
-      season_data = list(test_input)) -> season_curve
-    
-    # Add tree ID and join fit objects to statistics
-    stats %>% 
-      mutate(UID = i) %>% 
-      left_join(season_curve, by = "UID") %>% 
-      left_join(fit_lookup, by = "flag") -> stats 
-    
-    # Accumulate results across all trees
-    bind_rows(pheno_metrix_date, metrics_date) -> pheno_metrix_date
-    bind_rows(pheno_metrix_doy, metrics_doy) -> pheno_metrix_doy 
-    bind_rows(fit_stats, stats) -> fit_stats
-    
-  }, error = function(e) {
-    # Skip trees that fail processing and print error message
-    message(paste("Skipping tree", i, "- Error:", e$message))
-  })
-  
-}
-
-# Join DOY and date phenology metrics
-left_join(
-  pheno_metrix_doy, 
-  pheno_metrix_date, 
-  by = c("UID", "flag", "origin"),
-  suffix = c("_doy", "_date")) -> phen_metrix 
-
-# Join fit statistics with phenology metrics
-fit_stats %>% 
-  filter(meth == "Elmore") %>%  # Keep only Elmore method statistics
-  right_join(phen_metrix) -> phen_metrix 
-
-# Filter for high-quality trees based on quality criteria
-phen_metrix %>% 
-  group_by(UID) %>% 
-  summarise(
-    mean_r2 = mean(R2, na.rm = TRUE),  # Average R² across seasons
-    n = n()                             # Number of seasons per tree
-  ) %>% 
-  filter(n >= 6 & mean_r2 >= .9) %>%   # Keep trees with ≥6 seasons and R² ≥0.9
-  pull(UID) -> sample
-
-# Filter dataset to only high-quality trees and save
-phen_metrix %>% 
-  filter(UID %in% sample) %>% 
-  write_rds("./pheno_curve_metrics/extracted_metrics.rds")
-
-```
-
-```{r}
-
-read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
-  #group_by(UID) %>% 
-  #summarise(n = n()) %>% 
-  #pull(UID) -> trees
-
-```
-
-# corrected version 11/6/2025
-
-```{r}
-
-# Load raw NDVI extraction data
-read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
-
-# extracting unquie tree values/random sampling if testing
-extracts %>% 
-  group_by(UID) %>% 
-  summarise(n = n()) %>% 
-  sample_n(100) %>% # Randomly sample for testing
-  pull(UID) -> trees
-
-# Initialize empty data frames to store results
-pheno_metrix_date <- list()
-pheno_metrix_doy <- list()
-fit_stats <- list()
-total_trees <- length(trees)
-
-# Loop through each sampled tree
-for (i in trees) {
-  
-  counter <- which(trees == i)
-  
-  if (counter %% 10 == 0) {  # Print every 10 trees
-    message(sprintf("Progress: %d/%d (%.1f%%)", 
-                    counter, total_trees, (counter/total_trees)*100))
-    }
-  
-  tryCatch({
-    
-    # Filter data for current tree and preprocess NDVI
-    extracts %>% 
-      filter(UID == i) %>% 
-      # Remove spikes/outliers using median-based despiking
-      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
-      # Detrend NDVI to remove long-term trends while preserving seasonality
-      mutate(
-        time_numeric = as.numeric(im_date),
-        trend = predict(lm(ndvi ~ time_numeric)),
-        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
-      ) -> extracts_samp
-    
-    # Prepare original NDVI data for phenofit
-    check_input(
-      t = extracts_samp$im_date,
-      y = extracts_samp$ndvi, 
-      south = FALSE  # Northern hemisphere
-    ) -> test_input
-    
-    # Prepare detrended NDVI data for phenofit
-    check_input(
-      t = extracts_samp$im_date, 
-      y = extracts_samp$ndvi_detrended,
-      south = FALSE
-    ) -> x_detrended 
-    
-    # Detect growing seasons using wHANTS smoothing
-    season_mov(
-      x_detrended,
-      options = list(
-        rFUN = "smooth_wWHIT"  # Harmonic analysis smoothing
-      )
-    ) -> brks_mov 
-    
-    # Fit phenology curves (multiple methods) to each detected season
-    curvefits(test_input, brks_mov) -> fit
-    
-    # Extract goodness of fit statistics (R2, NSE, RMSE, etc.)
-    get_GOF(fit) -> stats
-    
-    stats %>% 
-      filter(meth == "Elmore") %>% 
-      mutate(UID = i) %>%
-      group_by(UID) %>% 
-      summarise(
-        mean_r2 = mean(R2, na.rm = TRUE),  
-        n = n()
-        ) -> fit_check
-    
-    if (fit_check$mean_r2 > .90 & fit_check$n >= 6){
-      
-      # Extract phenology metrics using Elmore method
-      get_pheno(fit, "Elmore") -> metrics
-      
-      # Extract date-based phenology metrics and add tree ID
-      metrics$date$Elmore %>% 
-        mutate(UID = i) -> metrics_date
-    
-      # Extract DOY-based phenology metrics and add tree ID
-      metrics$doy$Elmore %>% 
-        mutate(UID = i) -> metrics_doy
-    
-      # Create lookup table with fit objects as list column
-      data.frame(
-        flag = names(fit),
-        fit_data = I(fit)) -> fit_lookup
-      
-      tibble(
-        UID = i,
-        season_data = list(test_input)) -> season_curve
-      
-      # Add tree ID and join fit objects to statistics
-      stats %>% 
-        mutate(UID = i) %>%
-        left_join(season_curve, by = "UID") %>% 
-        left_join(fit_lookup, by = "flag") -> stats 
-      
-        # Accumulate results across all trees
-      pheno_metrix_date[[length(pheno_metrix_date) + 1]] <- metrics_date
-      pheno_metrix_doy[[length(pheno_metrix_doy) + 1]] <- metrics_doy
-      fit_stats[[length(fit_stats) + 1]] <- stats
-      
-      } else {
-        message(paste("Skipping tree", i, "r2 < .9 or n < 6"))
-      }
-    
-    }, error = function(e) {
-      # Skip trees that fail processing and print error message
-      message(paste("Skipping tree", i, "- Error:", e$message))
-    })
- 
-}
-
-pheno_metrix_date <- bind_rows(pheno_metrix_date)
-pheno_metrix_doy <- bind_rows(pheno_metrix_doy)
-fit_stats <- bind_rows(fit_stats)
-
-# Join DOY and date phenology metrics
-left_join(
-  pheno_metrix_doy, 
-  pheno_metrix_date, 
-  by = c("UID", "flag", "origin"),
-  suffix = c("_doy", "_date")) -> phen_metrix 
-
-# Join fit statistics with phenology metrics
-fit_stats %>% 
-  filter(meth == "Elmore") %>%  # Keep only Elmore method statistics
-  right_join(phen_metrix) #%>% 
-  #write_rds("./pheno_curve_metrics/extracted_metrics.rds")
-
-## ------------------------------------------------------------------------------------------
-
-# read_rds("./pheno_curve_metrics/extracted_metrics.rds") #%>% 
-#   #group_by(UID) %>% 
-#   #summarise(n = n()) %>% 
-#   #pull(UID) -> trees
-
-```
-
 # improved prcessing time uing list and panning
 ```{r, warning=FALSE}
 
-library(tidyverse)
-library(phenofit)
-library(oce)
-library(zoo)
-library(furrr)
-library(progressr)
-
 # Load raw NDVI extraction data
 read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
+
+```
+
+
+```{r, warning=FALSE}
 
 # Sample trees for testing
 extracts %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
-  #sample_n(100) %>%
+  #sample_n(2000) %>%
   pull(UID) -> trees
 
 # Pre-split data by tree 
 extracts %>% 
   filter(UID %in% trees) %>% 
+  select(UID, im_date, ndvi) %>% 
   group_split(UID, .keep = TRUE) -> extracts_split 
 
 total_trees <- length(trees)
@@ -493,9 +196,230 @@ fit_stats %>%
 
 ```{r}
 
-read_rds("./pheno_curve_metrics/extracted_metrics.rds") 
+read_rds("./pheno_curve_metrics/extracted_metrics_test.rds") -> test_data
+
+test_data
+
+source("../../R/plot_year.R")
+
+plot_year(test_data, "2022_1", "14063", metrics = "Inflection")
 
 ```
 
+```{r}
 
+plot_year(phen_metrix, "2018_1", "20788", metrics = "Derivative")
+
+```
+
+```{r}
+
+batch_size <- 20
+output_dir <- "./pheno_curve_metrics/batches"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Get all trees
+extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  sample_n(200) %>%
+  pull(UID) -> all_trees
+
+# Split into batches
+total_trees <- length(all_trees)
+n_batches <- ceiling(total_trees / batch_size)
+tree_batches <- split(all_trees, ceiling(seq_along(all_trees) / batch_size))
+
+message(sprintf("Processing %d trees in %d batches of ~%d", 
+                total_trees, n_batches, batch_size))
+
+# Function to process one tree (unchanged from your original)
+process_tree <- function(tree_data, trees, total_trees, p = NULL) {
+  
+  if (!is.null(p)) p()  
+  
+  i <- unique(tree_data$UID)
+  
+  counter <- which(trees == i)
+  
+  if (counter %% 100 == 0) {
+    message(sprintf("Progress: %d/%d (%.1f%%)", 
+                    counter, total_trees, (counter/total_trees)*100))
+  }
+  
+  tryCatch({
+    
+    # Preprocess NDVI
+    tree_data %>% 
+      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+      mutate(
+        time_numeric = as.numeric(im_date),
+        trend = predict(lm(ndvi ~ time_numeric)),
+        ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+      ) -> extracts_samp
+    
+    # Prepare inputs
+    test_input <- check_input(
+      t = extracts_samp$im_date,
+      y = extracts_samp$ndvi, 
+      south = FALSE
+    )
+    
+    x_detrended <- check_input(
+      t = extracts_samp$im_date, 
+      y = extracts_samp$ndvi_detrended,
+      south = FALSE
+    )
+    
+    # Detect growing seasons
+    brks_mov <- season_mov(
+      x_detrended,
+      options = list(rFUN = "smooth_wWHIT")
+    )
+    
+    # Fit phenology curves
+    fit <- curvefits(test_input, brks_mov)
+    stats <- get_GOF(fit)
+    
+    # Check fit quality
+    fit_check <- stats %>% 
+      filter(meth == "Elmore") %>% 
+      mutate(UID = i) %>%
+      group_by(UID) %>% 
+      summarise(
+        mean_r2 = mean(R2, na.rm = TRUE),  
+        n = n()
+      )
+    
+    if (fit_check$mean_r2 > 0.90 & fit_check$n >= 6) {
+      
+      # Extract phenology metrics
+      metrics <- get_pheno(fit, "Elmore")
+      
+      metrics_date <- metrics$date$Elmore %>% 
+        mutate(UID = i)
+      
+      metrics_doy <- metrics$doy$Elmore %>% 
+        mutate(UID = i)
+      
+      # Create lookup tables
+      fit_lookup <- data.frame(
+        flag = names(fit),
+        fit_data = I(fit))
+      
+      season_curve <- tibble(
+        UID = i,
+        season_data = list(test_input))
+      
+      # Join fit objects to statistics
+      stats <- stats %>% 
+        mutate(UID = i) %>%
+        left_join(season_curve, by = "UID") %>% 
+        left_join(fit_lookup, by = "flag")
+      
+      # Return results
+      return(list(
+        metrics_date = metrics_date,
+        metrics_doy = metrics_doy,
+        stats = stats
+      ))
+      
+    } else {
+      return(NULL)
+    }
+    
+  }, error = function(e) {
+    return(NULL)
+  })
+}
+
+# Process each batch
+for (batch_num in seq_along(tree_batches)) {
+  
+  message(sprintf("\n=== BATCH %d/%d ===", batch_num, n_batches))
+  
+  # Check if already processed
+  batch_file <- file.path(output_dir, sprintf("batch_%03d.rds", batch_num))
+  if (file.exists(batch_file)) {
+    message("Batch already exists, skipping...")
+    next
+  }
+  
+  # Get trees for this batch
+  trees <- tree_batches[[batch_num]]
+  total_trees <- length(trees)
+  
+  # Pre-split data by tree
+  extracts %>% 
+    filter(UID %in% trees) %>% 
+    select(UID, im_date, ndvi) %>% 
+    group_split(UID, .keep = TRUE) -> extracts_split
+  
+  # Set up parallel processing
+  plan(multisession, workers = availableCores() - 1)
+  
+  # Process all trees in parallel with progress bar
+  with_progress({
+    p <- progressor(steps = length(extracts_split))
+    
+    results <- future_map(
+      extracts_split, 
+      ~process_tree(.x, trees, total_trees, p),
+      .options = furrr_options(seed = TRUE)
+    )
+  })
+  
+  # Combine results (remove NULLs from skipped trees)
+  results <- compact(results)
+  
+  if (length(results) == 0) {
+    message("No valid results in this batch, skipping save...")
+    next
+  }
+  
+  pheno_metrix_date <- map_df(results, "metrics_date")
+  pheno_metrix_doy <- map_df(results, "metrics_doy")
+  fit_stats <- map_df(results, "stats")
+  
+  # Join DOY and date phenology metrics
+  left_join(
+    pheno_metrix_doy, 
+    pheno_metrix_date, 
+    by = c("UID", "flag", "origin"),
+    suffix = c("_doy", "_date")
+  ) -> phen_metrix 
+  
+  # Join fit statistics with phenology metrics
+  batch_results <- fit_stats %>% 
+    filter(meth == "Elmore") %>%
+    right_join(phen_metrix)
+  
+  # Save batch
+  write_rds(batch_results, batch_file)
+  message(sprintf("Saved batch %d with %d trees", batch_num, nrow(batch_results)))
+  
+  # Clean up memory
+  rm(extracts_split, results, pheno_metrix_date, pheno_metrix_doy, 
+     fit_stats, phen_metrix, batch_results)
+  gc()
+}
+
+# Combine all batches
+message("\n=== Combining all batches ===")
+
+batch_files <- list.files(output_dir, pattern = "^batch_.*\\.rds$", full.names = TRUE)
+
+if (length(batch_files) == 0) {
+  stop("No batch files found!")
+}
+
+all_results <- map_df(batch_files, read_rds)
+
+# Save final combined output
+write_rds(all_results, "./pheno_curve_metrics/extracted_metrics_test.rds")
+
+message(sprintf("Done! Final dataset has %d rows from %d batches", 
+                nrow(all_results), length(batch_files)))
+
+```
 

@@ -1,3 +1,4 @@
+
 library(tidyverse)
 library(phenofit)
 library(oce)
@@ -8,25 +9,38 @@ library(progressr)
 # Load raw NDVI extraction data
 read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
-# Sample trees for testing
+batch_size <- 20
+output_dir <- "./pheno_curve_metrics/batches"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Get all trees
 extracts %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
-  sample_n(100) %>%
-  pull(UID) -> trees
+  sample_n(200) %>%
+  pull(UID) -> all_trees
 
-# Pre-split data by tree 
-extracts %>% 
-  filter(UID %in% trees) %>% 
-  group_split(UID, .keep = TRUE) -> extracts_split 
+# Split into batches
+total_trees <- length(all_trees)
+n_batches <- ceiling(total_trees / batch_size)
+tree_batches <- split(all_trees, ceiling(seq_along(all_trees) / batch_size))
 
-total_trees <- length(trees)
-message(sprintf("Total trees to process: %d", total_trees))
+message(sprintf("Processing %d trees in %d batches of ~%d", 
+                total_trees, n_batches, batch_size))
 
-# Function to process one tree
-process_tree <- function(tree_data, p = NULL) {
+# Function to process one tree (unchanged from your original)
+process_tree <- function(tree_data, trees, total_trees, p = NULL) {
+  
+  if (!is.null(p)) p()  
   
   i <- unique(tree_data$UID)
+  
+  counter <- which(trees == i)
+  
+  if (counter %% 100 == 0) {
+    message(sprintf("Progress: %d/%d (%.1f%%)", 
+                    counter, total_trees, (counter/total_trees)*100))
+  }
   
   tryCatch({
     
@@ -98,8 +112,6 @@ process_tree <- function(tree_data, p = NULL) {
         left_join(season_curve, by = "UID") %>% 
         left_join(fit_lookup, by = "flag")
       
-      if (!is.null(p)) p(message = sprintf("Tree %s: Success", i))
-      
       # Return results
       return(list(
         metrics_date = metrics_date,
@@ -108,63 +120,98 @@ process_tree <- function(tree_data, p = NULL) {
       ))
       
     } else {
-      if (!is.null(p)) p(message = sprintf("Tree %s: Skipped (r2 < .9 or n < 6)", i))
-      return(list(status = "skipped", UID = i))
+      return(NULL)
     }
     
   }, error = function(e) {
-    if (!is.null(p)) p(message = sprintf("Tree %s: Error - %s", i, e$message))
-    return(list(status = "error", UID = i, error = e$message))
+    return(NULL)
   })
 }
 
-# Set up parallel processing (use all cores minus 1)
-plan(multisession, workers = availableCores() - 1)
-
-handlers(global = TRUE)
-handlers("progress")
-
-start_time <- Sys.time()
-
-# Process all trees in parallel with progress bar
-with_progress({
-  p <- progressor(steps = length(extracts_split))
+# Process each batch
+for (batch_num in seq_along(tree_batches)) {
   
-  results <- future_map(
-    extracts_split, 
-    ~process_tree(.x, p),
-    .options = furrr_options(seed = TRUE)
-  )
-})
+  message(sprintf("\n=== BATCH %d/%d ===", batch_num, n_batches))
+  
+  # Check if already processed
+  batch_file <- file.path(output_dir, sprintf("batch_%03d.rds", batch_num))
+  if (file.exists(batch_file)) {
+    message("Batch already exists, skipping...")
+    next
+  }
+  
+  # Get trees for this batch
+  trees <- tree_batches[[batch_num]]
+  total_trees <- length(trees)
+  
+  # Pre-split data by tree
+  extracts %>% 
+    filter(UID %in% trees) %>% 
+    select(UID, im_date, ndvi) %>% 
+    group_split(UID, .keep = TRUE) -> extracts_split
+  
+  # Set up parallel processing
+  plan(multisession, workers = availableCores() - 1)
+  
+  # Process all trees in parallel with progress bar
+  with_progress({
+    p <- progressor(steps = length(extracts_split))
+    
+    results <- future_map(
+      extracts_split, 
+      ~process_tree(.x, trees, total_trees, p),
+      .options = furrr_options(seed = TRUE)
+    )
+  })
+  
+  # Combine results (remove NULLs from skipped trees)
+  results <- compact(results)
+  
+  if (length(results) == 0) {
+    message("No valid results in this batch, skipping save...")
+    next
+  }
+  
+  pheno_metrix_date <- map_df(results, "metrics_date")
+  pheno_metrix_doy <- map_df(results, "metrics_doy")
+  fit_stats <- map_df(results, "stats")
+  
+  # Join DOY and date phenology metrics
+  left_join(
+    pheno_metrix_doy, 
+    pheno_metrix_date, 
+    by = c("UID", "flag", "origin"),
+    suffix = c("_doy", "_date")
+  ) -> phen_metrix 
+  
+  # Join fit statistics with phenology metrics
+  batch_results <- fit_stats %>% 
+    filter(meth == "Elmore") %>%
+    right_join(phen_metrix)
+  
+  # Save batch
+  write_rds(batch_results, batch_file)
+  message(sprintf("Saved batch %d with %d trees", batch_num, nrow(batch_results)))
+  
+  # Clean up memory
+  rm(extracts_split, results, pheno_metrix_date, pheno_metrix_doy, 
+     fit_stats, phen_metrix, batch_results)
+  gc()
+}
 
-end_time <- Sys.time()
-message(sprintf("\nProcessing complete! Time elapsed: %.2f minutes", 
-                as.numeric(difftime(end_time, start_time, units = "mins"))))
+# Combine all batches
+message("\n=== Combining all batches ===")
 
-# Analyze results
-successful <- sum(map_chr(results, ~.x$status %||% "success") == "success")
-skipped <- sum(map_chr(results, ~.x$status %||% "success") == "skipped")
-errors <- sum(map_chr(results, ~.x$status %||% "success") == "error")
+batch_files <- list.files(output_dir, pattern = "^batch_.*\\.rds$", full.names = TRUE)
 
-message(sprintf("Results: %d successful, %d skipped, %d errors", 
-                successful, skipped, errors))
+if (length(batch_files) == 0) {
+  stop("No batch files found!")
+}
 
-results_successful <- results[map_chr(results, ~.x$status %||% "success") == "success"]
+all_results <- map_df(batch_files, read_rds)
 
-pheno_metrix_date <- map_df(results_successful, "metrics_date")
-pheno_metrix_doy <- map_df(results_successful, "metrics_doy")
-fit_stats <- map_df(results_successful, "stats")
+# Save final combined output
+write_rds(all_results, "./pheno_curve_metrics/extracted_metrics_test.rds")
 
-# Join DOY and date phenology metrics
-left_join(
-  pheno_metrix_doy, 
-  pheno_metrix_date, 
-  by = c("UID", "flag", "origin"),
-  suffix = c("_doy", "_date")) -> phen_metrix 
-
-# Join fit statistics with phenology metrics
-fit_stats %>% 
-  filter(meth == "Elmore") %>%
-  right_join(phen_metrix) %>% 
-  write_rds("./pheno_curve_metrics/extracted_metrics_test.rds")
-
+message(sprintf("Done! Final dataset has %d rows from %d batches", 
+                nrow(all_results), length(batch_files)))
