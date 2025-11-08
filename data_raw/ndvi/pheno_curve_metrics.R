@@ -9,7 +9,7 @@ library(progressr)
 # Load raw NDVI extraction data
 read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
-batch_size <- 20
+batch_size <- 1000
 output_dir <- "./pheno_curve_metrics/batches"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -17,7 +17,7 @@ dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 extracts %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
-  sample_n(200) %>%
+  #sample_n(200) %>%
   pull(UID) -> all_trees
 
 # Split into batches
@@ -211,7 +211,7 @@ if (length(batch_files) == 0) {
 all_results <- map_df(batch_files, read_rds)
 
 # Save final combined output
-write_rds(all_results, "./pheno_curve_metrics/extracted_metrics_test.rds")
+write_rds(all_results, "./pheno_curve_metrics/extracted_metrics.rds")
 
 message(sprintf("Done! Final dataset has %d rows from %d batches", 
                 nrow(all_results), length(batch_files)))
