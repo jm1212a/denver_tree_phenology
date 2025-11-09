@@ -4,23 +4,294 @@ format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+
+library(tidyverse)
+library(phenofit)
+library(sf)
+library(patchwork)
+
 ```
 
-You can add options to executable code like this
-
 ```{r}
-#| echo: false
-2 * 2
+
+read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+
+tree_ldc_metrics_climate %>%
+  group_by(species_common, leaf_persistence) %>%
+  summarize(n = length(unique(UID))) %>% 
+  filter(n > 50) %>% 
+  pull(1) -> species_list
+
+```
+
+
+```{r}
+
+tree_ldc_metrics_climate %>% 
+  filter(year <= 2022,
+         species_common == "Eastern Cottonwood") %>% 
+  ggplot(aes(x = early_spring_temp, y = DER.sos_doy))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+names(tree_ldc_metrics_climate)
+
+tree_ldc_metrics_climate %>% 
+  filter(year < 2024,
+         species_common == "Green Ash") %>% 
+  ggplot(aes(x = impervious, y = DER.sos_doy))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious, y = DER.eos_doy))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = irrigated, y = DER.eos_doy))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+
+```
+
+```{r}
+
+tree_ldc_metrics_climate %>%
+  select(where(is.numeric)) %>%
+  names()
+
+```
+
+
+# Corrilation Matrixs by species
+
+```{r}
+
+pheno_vars <- c("DER.sos_doy", "DER.eos_doy", "DER.pos_doy")  
+
+sos_climate <- c("late_winter_prcp_days", "late_winter_temp", "late_winter_prcp", 
+                 "winter_temp", "winter_prcp", "winter_prcp_days", 
+                 "early_spring_temp", "early_spring_prcp_days", "early_spring_prcp",
+                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious")
+
+eos_climate <- c("summer_temp", "summer_prcp", "summer_prcp_days","late_summer_prcp", 
+                 "late_summer_prcp_days", "late_summer_temp", "fall_temp", 
+                 "fall_prcp", "fall_prcp_days", "early_fall_prcp", 
+                 "early_fall_prcp_days", "early_fall_temp",
+                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious")
+
+pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious") 
+
+all_climate_vars <- unique(c(sos_climate, eos_climate, pos_climate))
+
+calc_species_cor <- function(species_name, data){
+  data %>% 
+    filter(year < 2025, species_common == species_name) %>% 
+    select(all_of(c(pheno_vars, all_climate_vars))) %>% 
+    cor(use = "pairwise.complete.obs") %>% 
+    as.data.frame() %>% 
+    rownames_to_column("pheno_var") %>% 
+    filter(pheno_var %in% pheno_vars) %>% 
+    select(pheno_var, all_of(all_climate_vars)) %>% 
+    pivot_longer(-pheno_var, names_to = "climate_var", values_to = "correlation") %>% 
+    filter(
+      (pheno_var == "DER.sos_doy" & climate_var %in% sos_climate) |
+      (pheno_var == "DER.eos_doy" & climate_var %in% eos_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) 
+    ) %>% 
+    rename(!!species_name := correlation)
+}
+
+# Calculate for all species
+map(species_list, ~calc_species_cor(.x, tree_ldc_metrics_climate)) %>% 
+  compact() %>%  # Remove NULL values
+  reduce(full_join, by = c("pheno_var", "climate_var")) -> all_cors 
+
+all_cors %>% 
+  pivot_longer(cols = -c(pheno_var, climate_var), 
+               names_to = "species", 
+               values_to = "correlation") %>% 
+  mutate(group = "Individual Species") %>% 
+  bind_rows(
+    all_cors %>% 
+      pivot_longer(cols = -c(pheno_var, climate_var), 
+                   names_to = "species", 
+                   values_to = "correlation") %>% 
+      group_by(pheno_var, climate_var) %>% 
+      summarise(correlation = mean(correlation, na.rm = TRUE), .groups = "drop") %>% 
+      mutate(species = "Average", group = "Average")
+  ) %>% 
+  
+  ggplot(aes(x = species, y = climate_var, fill = correlation)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.2f", correlation)), size = 2) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "darkgreen",
+                       midpoint = 0, limits = c(-1, 1), 
+                       name = "Correlation") +
+  facet_grid(pheno_var ~ group, scales = "free", space = "free") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 7),
+    axis.title = element_blank(),
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(title = "Phenology-Climate Correlations Across Species")
+
+```
+
+```{r}
+
+pheno_vars <- c("DER.sos_doy", "DER.eos_doy", "DER.pos_doy", 
+                "Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy")  
+
+sos_climate <- c("late_winter_prcp_days", "late_winter_temp", "late_winter_prcp", 
+                 "winter_temp", "winter_prcp", "winter_prcp_days", 
+                 "early_spring_temp", "early_spring_prcp_days", "early_spring_prcp",
+                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious")
+
+eos_climate <- c("summer_temp", "summer_prcp", "summer_prcp_days","late_summer_prcp", 
+                 "late_summer_prcp_days", "late_summer_temp", "fall_temp", 
+                 "fall_prcp", "fall_prcp_days", "early_fall_prcp", 
+                 "early_fall_prcp_days", "early_fall_temp",
+                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious")
+
+pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious") 
+
+all_climate_vars <- unique(c(sos_climate, eos_climate, pos_climate))
+
+calc_species_cor <- function(species_name, data){
+  data %>% 
+    filter(year < 2025, species_common == species_name) %>% 
+    select(all_of(c(pheno_vars, all_climate_vars))) %>% 
+    cor(use = "pairwise.complete.obs") %>% 
+    as.data.frame() %>% 
+    rownames_to_column("pheno_var") %>% 
+    filter(pheno_var %in% pheno_vars) %>% 
+    select(pheno_var, all_of(all_climate_vars)) %>% 
+    pivot_longer(-pheno_var, names_to = "climate_var", values_to = "correlation") %>% 
+    filter(
+      # Original metrics
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "Greenup_doy" & climate_var %in% sos_climate) |
+      (pheno_var == "Maturity_doy" & climate_var %in% pos_climate) |
+      (pheno_var == "Senescence_doy" & climate_var %in% eos_climate) |
+      (pheno_var == "Dormancy_doy" & climate_var %in% eos_climate)
+    ) %>% 
+    rename(!!species_name := correlation)
+}
+
+map(species_list, ~calc_species_cor(.x, tree_ldc_metrics_climate)) %>% 
+  compact() %>%  # Remove NULL values
+  reduce(full_join, by = c("pheno_var", "climate_var")) -> all_cors 
+
+all_cors %>% 
+  pivot_longer(cols = -c(pheno_var, climate_var), 
+               names_to = "species", 
+               values_to = "correlation") %>% 
+  mutate(group = "Individual Species") %>% 
+  bind_rows(
+    all_cors %>% 
+      pivot_longer(cols = -c(pheno_var, climate_var), 
+                   names_to = "species", 
+                   values_to = "correlation") %>% 
+      group_by(pheno_var, climate_var) %>% 
+      summarise(correlation = mean(correlation, na.rm = TRUE), .groups = "drop") %>% 
+      mutate(species = "Average", group = "Average")
+  ) %>% 
+  
+  ggplot(aes(x = species, y = climate_var, fill = correlation)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.2f", correlation)), size = 2) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "darkgreen",
+                       midpoint = 0, limits = c(-1, 1), 
+                       name = "Correlation") +
+  facet_grid(pheno_var ~ group, scales = "free", space = "free") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 7),
+    axis.title = element_blank(),
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(title = "Phenology-Climate Correlations Across Species")
+
+
+```
+
+
+
+# Mixed Effect Model top level regressions for each species, unique intercpes for each tree.
+
+```{r}
+
+tree_ldc_metrics_climate %>% 
+  filter(species_common == "Silver Maple") %>%
+  filter(year < 2024) %>% 
+  mutate(
+    early_spring_prcp_z = scale(early_spring_prcp)[,1],
+    early_spring_temp_z = scale(early_spring_temp)[,1],
+    impervious_z = scale(impervious)[,1]
+  ) -> data
+
+
+library(lme4)
+library(lmerTest)
+
+sos_model <- lmer(
+  DER.sos_doy ~ early_spring_temp_z + impervious_z + early_spring_prcp_z +
+                (1 | UID),  # Tree effects
+  data = data,  # Only 1 or few species
+  REML = TRUE
+)
+
+summary(sos_model)
+
+```
+
+```{r}
+
+model_null <- lmer(
+  DER.sos_doy ~ 1 +
+                (1 | UID),  # Tree effects
+  data = data,  # Only 1 or few species
+  REML = TRUE
+  )
+
+```
+
+```{r}
+
+library(performance)
+
+summary(sos_model)
+
+summary(sos_model)$optinfo$conv$lme4$messages
+
+anova(model_null, sos_model) # test for variations between species
+
+r2(sos_model)
+
+AIC(model_null, sos_model)
+BIC(model_null, sos_model)
+
+plot(sos_model)  # Residuals
+qqnorm(resid(sos_model))  # Normality
+qqline(resid(sos_model))
+
+ranef(sos_model)$species_common
+
+```
