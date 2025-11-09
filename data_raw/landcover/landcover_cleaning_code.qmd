@@ -20,9 +20,12 @@ read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
          barren_rock = class_7,
          cropland = class_8,
          scrubland = class_9) %>% 
-  mutate(unirrigated = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), na.rm = TRUE),
-         irrigated = rowSums(across(c(cropland, irrigated_land)), na.rm = TRUE),
-         impervious = rowSums(across(c(structures, impervious_surfaces)), na.rm = TRUE)) %>% 
+  mutate(unirrigated = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), 
+                               na.rm = TRUE),
+         irrigated = rowSums(across(c(cropland, irrigated_land)), 
+                             na.rm = TRUE),
+         impervious = rowSums(across(c(structures, impervious_surfaces)), 
+                              na.rm = TRUE)) %>% 
   select(UID, unirrigated, irrigated, impervious, tree_canopy, water) %>% 
   write_rds("./cleaned_data/land_cover.rds")
 
