@@ -25,17 +25,32 @@ st_drop_geometry(st_read("./denver_tree/denver_trees_sample.geojson")) %>%
 read_rds("./ndvi/pheno_curve_metrics/extracted_metrics.rds") %>% 
   mutate(UID = as.integer(UID)) %>% 
   left_join(tree_ldc, by = "UID") %>% 
-  rename(year = flag) %>% 
-  mutate(year = as.double(str_replace(year, "_\\d+$",""))) %>% 
-  left_join(read_csv("./nooa_daily_weather_obs/climate_variables/climate_variables.csv"), by = "year") -> tree_ldc_metrics_climate
+  group_by(flag) %>% 
+  mutate(year = as.double(str_replace(flag, "_\\d+$",""))) %>% 
+  left_join(
+    read_csv("./nooa_daily_weather_obs/climate_variables/climate_variables.csv"), 
+    by = "year") -> tree_ldc_metrics_climate
+
+tree_ldc_metrics_climate %>%
+  group_by(UID, year) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1) %>% 
+  ungroup()-> multi_cylce
+
+anti_join(tree_ldc_metrics_climate, multi_cylce, 
+          by = c("UID", "year")) %>%
+  ungroup() %>% 
+  select(-flag) -> tree_ldc_metrics_climate
 
 ```
 
 ```{r}
 
-tree_ldc_metrics %>%
+tree_ldc_metrics_climate %>%
   group_by(species_common, leaf_persistence) %>%
-  summarize(n = length(unique(UID))) 
+  summarize(n = length(unique(UID))) %>% 
+  filter(n > 50) %>% 
+  pull(1) -> species_list
 
 ```
 
@@ -43,9 +58,9 @@ tree_ldc_metrics %>%
 ```{r}
 
 tree_ldc_metrics_climate %>% 
-  filter(year < 2024,
+  filter(year <= 2022,
          species_common == "Eastern Cottonwood") %>% 
-  ggplot(aes(x = early_spring_prcp, y = DER.sos_doy))+
+  ggplot(aes(x = early_spring_temp, y = DER.sos_doy))+
   geom_point()+
   geom_smooth(method = lm)
 
@@ -60,7 +75,16 @@ tree_ldc_metrics_climate %>%
 
 ```
 
-# Corrilation Matrixs by species 
+```{r}
+
+tree_ldc_metrics_climate %>%
+  select(-where(is.numeric)) %>%
+  names()
+
+```
+
+
+# Corrilation Matrixs by species
 
 ```{r}
 
@@ -83,7 +107,7 @@ all_climate_vars <- unique(c(sos_climate, eos_climate, pos_climate))
 
 calc_species_cor <- function(species_name, data){
   data %>% 
-    filter(year < 2024, species_common == species_name) %>% 
+    filter(year < 2025, species_common == species_name) %>% 
     select(all_of(c(pheno_vars, all_climate_vars))) %>% 
     cor(use = "pairwise.complete.obs") %>% 
     as.data.frame() %>% 
@@ -99,9 +123,9 @@ calc_species_cor <- function(species_name, data){
     rename(!!species_name := correlation)
 }
 
-species_list <- c("Eastern Cottonwood", "American Elm", "Common Hackberry",
-                  "Green Ash", "Honey Locust", "Plains Cottonwood", 
-                  "Siberian Elm", "Silver Maple", "Tree of heaven")
+# species_list <- c("Eastern Cottonwood", "American Elm", "Common Hackberry",
+#                   "Green Ash", "Honey Locust", "Plains Cottonwood", 
+#                   "Siberian Elm", "Silver Maple", "Tree of heaven")
 
 # Calculate for all species
 map(species_list, ~calc_species_cor(.x, tree_ldc_metrics_climate)) %>% 
@@ -141,12 +165,12 @@ all_cors %>%
 
 ```
 
-# Mixed Effect Model top level regressions for each species, unique intercpes for each tree. 
+# Mixed Effect Model top level regressions for each species, unique intercpes for each tree.
 
 ```{r}
 
 tree_ldc_metrics_climate %>% 
-  filter(species_common == "Eastern Cottonwood") %>%
+  filter(species_common == "Silver Maple") %>%
   filter(year < 2024) %>% 
   mutate(
     early_spring_prcp_z = scale(early_spring_prcp)[,1],
@@ -169,7 +193,6 @@ summary(sos_model)
 
 ```
 
-
 ```{r}
 
 model_null <- lmer(
@@ -180,7 +203,6 @@ model_null <- lmer(
   )
 
 ```
-
 
 ```{r}
 
@@ -204,15 +226,3 @@ qqline(resid(sos_model))
 ranef(sos_model)$species_common
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
