@@ -51,7 +51,7 @@ climate_data %>%
   summarise(winter_prcp = sum(prcp, na.rm = TRUE), #months chosen 12,1,2
             winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
             winter_temp = mean(mean_temp, na.rm = TRUE),
-            winter_mean_tmax = mean(tmax), na.rm = TRUE) %>% 
+            winter_mean_tmax = mean(tmax, na.rm = TRUE))%>% 
   rename(year = winter_year)-> winter_metrics
 
 climate_data %>%
@@ -60,7 +60,7 @@ climate_data %>%
   summarise(late_winter_prcp = sum(prcp, na.rm = TRUE), #months chosen 2,3
             late_winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
             late_winter_temp = mean(mean_temp, na.rm = TRUE),
-            late_winter_mean_tmax = mean(tmax), na.rm = TRUE) -> late_winter_metrics
+            late_winter_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_winter_metrics
 
 climate_data %>%
   filter((month %in% c(3, 4, 5))) %>% 
@@ -68,7 +68,7 @@ climate_data %>%
   summarise(spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
             spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
             spring_temp = mean(mean_temp, na.rm = TRUE),
-            spring_mean_tmax = mean(tmax), na.rm = TRUE) -> spring_metrics
+            spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> spring_metrics
 
 climate_data %>%
   filter((month %in% c(3, 4))) %>% 
@@ -76,7 +76,7 @@ climate_data %>%
   summarise(early_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
             early_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
             early_spring_temp = mean(mean_temp, na.rm = TRUE),
-            early_spring_mean_tmax = mean(tmax), na.rm = TRUE) -> early_spring_metrics
+            early_spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> early_spring_metrics
 
 climate_data %>%
   filter((month %in% c(5, 6))) %>% 
@@ -84,7 +84,7 @@ climate_data %>%
   summarise(late_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 5,6
             late_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
             late_spring_temp = mean(mean_temp, na.rm = TRUE),
-            late_spring_mean_tmax = mean(tmax), na.rm = TRUE) -> late_spring_metrics
+            late_spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_spring_metrics
 
 climate_data %>%
   filter((month %in% c(6, 7, 8))) %>% 
@@ -92,7 +92,7 @@ climate_data %>%
   summarise(summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 6,7,8
             summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
             summer_temp = mean(mean_temp, na.rm = TRUE),
-            summer_mean_tmax = mean(tmax), na.rm = TRUE) -> summer_metrics
+            summer_mean_tmax = mean(tmax, na.rm = TRUE)) -> summer_metrics
 
 climate_data %>%
   filter((month %in% c(7, 8))) %>% 
@@ -100,7 +100,7 @@ climate_data %>%
   summarise(late_summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 8,9
             late_summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
             late_summer_temp = mean(mean_temp, na.rm = TRUE),
-            late_summer_mean_tmax = mean(tmax), na.rm = TRUE) -> late_summer_metrics
+            late_summer_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_summer_metrics
 
 climate_data %>%
   filter((month %in% c(9, 10, 11))) %>% 
@@ -108,7 +108,7 @@ climate_data %>%
   summarise(fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10,11
             fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
             fall_temp = mean(mean_temp, na.rm = TRUE),
-            fall_mean_tmax = mean(tmax), na.rm = TRUE) -> fall_metrics
+            fall_mean_tmax = mean(tmax, na.rm = TRUE)) -> fall_metrics
 
 climate_data %>%
   filter((month %in% c(9, 10))) %>% 
@@ -116,7 +116,7 @@ climate_data %>%
   summarise(early_fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10
             early_fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
             early_fall_temp = mean(mean_temp, na.rm = TRUE),
-            early_fall_mean_tmax = mean(tmax), na.rm = TRUE) -> early_fall_metrics
+            early_fall_mean_tmax = mean(tmax, na.rm = TRUE)) -> early_fall_metrics
 
 climate_data %>%
   filter((month %in% c(11, 12))) %>% 
@@ -150,14 +150,10 @@ climate_data %>%
 list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
      late_spring_metrics,summer_metrics, late_summer_metrics, fall_metrics,
      early_fall_metrics, late_fall_metrics, cumulative_prcp) %>% 
-  reduce(left_join, by = "year") #%>% 
-  #write_csv("./climate_variables/climate_variables.csv")
+  reduce(left_join, by = "year") %>% 
+  write_csv("./climate_variables/climate_variables.csv")
 
 ```
 
-```{r}
 
-
-
-```
 
