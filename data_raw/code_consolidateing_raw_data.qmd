@@ -41,10 +41,14 @@ anti_join(tree_ldc_metrics_climate, multi_cylce,
   select(8, species_botanic, species_common, leaf_persistence, botanic_common, 
          x_long, y_lat, year, usda_disease_category, 9:10, DER.sos_doy:DER.eos_doy, 
          Greenup_doy:Dormancy_doy, DER.sos_date:DER.eos_date, 
-         Greenup_date:Dormancy_date,  winter_prcp:late_fall_temp, 
+         Greenup_date:Dormancy_date,  winter_prcp:late_fall_cumulative_prcp, 
          unirrigated:water) %>% 
   write_rds("../data/processed_trees_ndvi_lc_climate.rds")
 
 ```
+```{r}
 
+names(tree_ldc_metrics_climate)
+
+```
 
