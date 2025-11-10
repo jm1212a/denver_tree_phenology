@@ -19,7 +19,6 @@ read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_clim
 
 ```
 
-
 ```{r}
 
 tree_ldc_metrics_climate %>%
@@ -29,7 +28,6 @@ tree_ldc_metrics_climate %>%
   pull(1) -> species_list
 
 ```
-
 
 ```{r}
 
@@ -70,7 +68,6 @@ tree_ldc_metrics_climate %>%
   names()
 
 ```
-
 
 # Corrilation Matrixs by species
 
@@ -200,6 +197,7 @@ all_cors %>%
   ) +
   labs(title = "Phenology-Climate Correlations Across Species")
 ```
+
 ```{r}
 
 source("../R/plot_year.R")
@@ -215,14 +213,14 @@ plot(tree_ldc_metrics_climate$season_data[[1]]$t, tree_ldc_metrics_climate$seaso
 
 ```
 
-
-
 # Mixed Effect Model top level regressions for each species, unique intercpes for each tree.
 
 ```{r}
 
+species_list
+
 tree_ldc_metrics_climate %>% 
-  filter(species_common == "Silver Maple") %>%
+  filter(species_common == "Tree of heaven") %>%
   filter(year < 2024) %>% 
   mutate(
     early_spring_prcp_z = scale(early_spring_prcp)[,1],
