@@ -1,0 +1,67 @@
+disease_pest_def;usda_disease_category
+adelgids;Insects/Arthropods
+anthracnose;Fungal Diseases
+aphids;Insects/Arthropods
+armillaria;Fungal Diseases
+ash bark beetle;Insects/Arthropods
+bacterial wetwood;Bacterial Diseases
+bagworms;Insects/Arthropods
+borers;Insects/Arthropods
+bullet gall;Insects/Arthropods
+cankers;Fungal Diseases
+carpenter ants;Insects/Arthropods
+chlorosis;Abiotic/Environmental Stress
+construction damage;Animal/Mechanical Damage
+crown dieback;Abiotic/Environmental Stress
+decay fungi;Fungal Diseases
+drought stress;Abiotic/Environmental Stress
+dutch elm disease;Fungal Diseases
+earwigs;Insects/Arthropods
+elm leaf beetle;Insects/Arthropods
+emerald ash borer;Insects/Arthropods
+eriophyid mites;Insects/Arthropods
+fire blight;Bacterial Diseases
+foliage disorder;Abiotic/Environmental Stress
+frass;Insects/Arthropods
+fruiting bodies;Fungal Diseases
+gall insects;Insects/Arthropods
+gummosis;Abiotic/Environmental Stress
+heavy discoloration;Abiotic/Environmental Stress
+herbicide;Abiotic/Environmental Stress
+ips beetle;Insects/Arthropods
+japanese beetle;Insects/Arthropods
+kermes scale;Insects/Arthropods
+leaf necrosis;Abiotic/Environmental Stress
+leaf scorch;Abiotic/Environmental Stress
+lilac-ash borer;Insects/Arthropods
+mealybug;Insects/Arthropods
+mistletoe;Insects/Arthropods
+needle necrosis;Abiotic/Environmental Stress
+needlecast;Fungal Diseases
+oak twig bore;Insects/Arthropods
+oak twig borer;Insects/Arthropods
+other - see notes;Other
+pitch canker;Fungal Diseases
+pitch moth;Insects/Arthropods
+pitch tube;Other
+powdery mildew;Fungal Diseases
+red-headed ash borer;Insects/Arthropods
+rust;Fungal Diseases
+sapsucker damage;Animal/Mechanical Damage
+scale insects;Insects/Arthropods
+signs of stress;Abiotic/Environmental Stress
+slime flux;Fungal Diseases
+sooty mold;Fungal Diseases
+spider mites;Insects/Arthropods
+squirrel damage;Animal/Mechanical Damage
+sunscald;Animal/Mechanical Damage
+termites;Insects/Arthropods
+thin canopy;Abiotic/Environmental Stress
+thousand cankers disease;Insects/Arthropods
+thrips damage;Insects/Arthropods
+thyronectria canker;Fungal Diseases
+turpentine beetle;Insects/Arthropods
+tussock moth;Insects/Arthropods
+verticilium wilt;Fungal Diseases
+witch's broom;Abiotic/Environmental Stress
+woodpecker damage;Animal/Mechanical Damage

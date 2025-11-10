@@ -1,0 +1,99 @@
+---
+title: "Denver Tree Clean Up"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(tigris)
+
+```
+
+## Code Overview:
+
+This code cleans and enriches Denver's tree inventory data by first loading Denver County boundaries from Census TIGER/Line data and transforming them to WGS84 projection. It then reads the tree inventory RDS file and performs several cleaning steps: reformatting species common names from "last, first" to "first last" format, combining scientific and common names into a single field, standardizing disease/pest definitions so anything containing "N/A" becomes exactly "N/A", and removing placeholder entries where species is listed as "Tree requested". The code extracts the binomial scientific name (genus and species) from the full botanical name, converts the data to a spatial sf object using WKT geometry strings with WGS84 projection, and filters to keep only trees within Denver County boundaries and west of longitude -104.7302. Finally, it enriches the dataset by joining three external CSV files containing DC tree species classifications, USDA disease categories, and tree leaf taxonomy information (growth habit, leaf type, and persistence), then saves the cleaned, spatially-referenced dataset as "denver_tree_clean.rds" ready for analysis.
+
+```{r}
+
+denver_county <- counties(state = "CO", cb = TRUE) %>%
+  filter(NAME == "Denver") %>%
+  st_transform(crs = 4326) # adjust to local projection for final sample
+
+```
+
+```{r}
+
+read_rds("tree_inventory_denver_20250911.rds") %>%
+  # Fix formatting of common names: convert "last, first" to "first last"
+  mutate(
+    species_common = if_else(
+      str_detect(species_common, ","),# check if a comma exists
+      str_replace(species_common, "^(.*),\\s*(.*)$", "\\2 \\1"), # swap parts around
+      species_common  # leave unchanged if no comma
+    ),
+    # Combine scientific and common names into one column
+    botanic_common = paste(species_botanic, "(", species_common, ")"),
+    # Standardize disease/pest field: anything containing "N/A" becomes exactly "N/A"
+    disease_pest_def = if_else(str_detect(disease_pest_def, "N/A"), 
+                               "N/A", disease_pest_def)
+    ) %>%
+  filter(species_botanic != "Tree requested") %>% # Remove rows with placeholder species
+  # Extract the Genus + species (binomial name) from species_botanic
+  mutate(
+    species_sci = str_extract(species_botanic, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
+  ) %>% 
+  filter(!is.na(species_sci)) %>% # Keep only rows with a valid species_sci
+  st_as_sf(
+    wkt = "the_geom", # column with WKT strings
+    crs = 4326 # EPSG:4326 (lon/lat in WGS84) adjust to local projection for final sample
+    ) %>%
+  st_filter(denver_county) %>%  # filtering out trees that are not with Denver County
+  filter(x_long < -104.7302) %>% 
+  left_join(read_csv2("../dc_trees/dc_tree_species.csv"), 
+            by = "species_sci") %>% # loading list of dc tree species
+  mutate(dc_tree = case_when(
+    is.na(dc_tree) ~ FALSE,  # changing na to false
+    .default = dc_tree)) %>% 
+  left_join(read_csv2("../disease_groups/usda_disease_categories"), 
+            by = "disease_pest_def") %>% 
+  left_join(read_csv2("../tree_leaf_taxanomy/tree_leaf_taxanomy.csv"), 
+            by = "species_sci") %>% 
+  mutate(diameter = case_when(diameter == "12 to 1" ~ "12 to 18",
+                              diameter == "18 to 2" ~ "18 to 24",
+                              diameter == "24 to 3" ~ "24 to 30",
+                              diameter == "30 to 3" ~ "30 to 36",
+                              diameter == "36 to 4" ~ "36 to 42",
+                              diameter == "42 to 4" ~ "42 to 48",
+                              .default = diameter)) %>% 
+  filter(diameter != "N/A",
+       diameter != "0",      
+       !is.na(diameter)) %>% 
+  filter(!str_detect(species_sci, regex("species", ignore_case = TRUE))) %>% 
+  filter(species_sci %in% c("Acer saccharinum", "Ulmus pumila", "Ulmus americana",
+                            "Gleditsia triacanthos", "Fraxinus pennsylvanica", 
+                            "Populus sargentii", "Pinus nigra",
+                            "Populus deltoides", "Catalpa speciosa", 
+                            "Celtis occidentalis", "Tilia americana",
+                            "Pinus ponderosa", "Quercus rubra", "Ailanthus altissima", 
+                            "Tilia cordata"),
+         diameter %in% c("24 to 30", "30 to 36", 
+                       "36 to 42", "42 to 48", "48 +")) %>% 
+  st_write("denver_trees_sample.geojson", driver = "GeoJSON", delete_dsn = TRUE)
+  
+
+```
+
+
+```{r}
+
+denver_trees_check <- st_read("denver_trees_sample.geojson")
+
+# Extract just the attributes as a data frame
+denver_trees_df <- st_drop_geometry(denver_trees_check)
+
+denver_trees_df
+
+```

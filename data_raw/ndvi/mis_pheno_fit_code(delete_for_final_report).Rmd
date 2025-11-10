@@ -1,0 +1,271 @@
+---
+title: "mis_pheno_fit_code"
+author: "Jared Martin"
+date: "2025-10-26"
+output: html_document
+---
+
+```{r}
+
+library(tidyverse)
+library(phenofit)
+library(oce)
+library(zoo)
+
+```
+
+```{r}
+
+read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts 
+
+```
+
+
+```{r}
+extracts %>% 
+  filter(UID == "548") %>% 
+  filter(year(im_date_time) == "2021")  %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_sample 
+
+```
+
+```{r}
+methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang")
+
+fits <- curvefit(extracts_sample$ndvi, extracts_sample$im_doy, tout = seq(1, 365, 1), methods)
+
+l_param   <- get_param(fits)
+d_GOF     <- get_GOF(fits)
+l_pheno   <- get_pheno(fits, "Elmore", IsPlot=TRUE)
+
+```
+
+```{r}
+
+
+library(phenofit)
+# simulate vegetation time-series
+FUN = doubleLog.Beck
+par =c(mn =0.1,mx =0.7,sos=50,rsp=0.1,eos=250,rau=0.1) 
+t <- seq(1, 365, 8)
+tout <- seq(1, 365, 1)
+y <- FUN(par, t)
+methods <- c("AG", "Beck", "Elmore", "Gu", "Zhang") # "Klos" too slow
+fit <- curvefit(y, t, tout, methods) # `fFITs` (fine-fitting) object
+fits <- list(`2018` = fit, `2024` = fit) # multiple years
+l_param   <- get_param(fits)
+d_GOF     <- get_GOF(fits)
+d_fitting <- get_fitting(fits)
+l_pheno   <- get_pheno(fits, "AG", IsPlot=TRUE)
+
+
+
+```
+
+```{r}
+
+
+
+# Just the essentials
+extracts %>% 
+  filter(UID == "582") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
+
+# Check what we have
+nrow(extracts_samp)
+range(extracts_samp$im_date_time)
+summary(extracts_samp$ndvi)
+
+# Try check_input with absolute minimum
+INPUT <- check_input(
+  t = extracts_samp$im_date_time, 
+  y = extracts_samp$ndvi
+)
+
+# What did we get?
+str(INPUT)
+
+
+# Try smooth_wWHIT with the INPUT object
+fit_result <- smooth_wWHIT(
+  y = INPUT$y,
+  w = INPUT$w,
+  ylu = INPUT$ylu,
+  nptperyear = INPUT$nptperyear,  # Use detected value (92)
+  lambda = 100,
+  wFUN = wBisquare,
+  iters = 2
+)
+
+# Check what we got
+str(fit_result)
+
+# If that works, plot it
+plot(INPUT$t, INPUT$y, col = "gray60", pch = 16, cex = 0.5,
+     xlab = "Date", ylab = "NDVI")
+lines(INPUT$t, fit_result$zs$iter2, col = "red", lwd = 2)
+
+
+names(fit_result)
+names(fit_result$zs)
+
+# The fitted values should be in fit_result$zs
+# Try plotting with the correct iteration
+plot(INPUT$t, INPUT$y, col = "gray60", pch = 16, cex = 0.5,
+     xlab = "Date", ylab = "NDVI")
+lines(INPUT$t, fit_result$zs[[2]], col = "red", lwd = 2)  # Try iteration 2
+
+```
+
+```{r}
+
+library(phenofit)
+
+# 1. Prepare data
+extracts %>% 
+  filter(UID == "2") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
+
+
+ggplot(data = extracts_samp, aes(x = im_date, y = ndvi)) +
+  geom_line()
+
+
+x <- check_input(
+  t = extracts_samp$im_date, 
+  y = extracts_samp$ndvi,
+  nptperyear = 50,
+  south = FALSE)
+
+plot_input(x)
+
+# 3. Divide growing seasons
+brks2 <- season_mov(x, rFUN = smooth_wWHIT)
+
+plot_season(x, brks2)
+
+# 4. Fine curve fitting for all seasons
+
+fits <- curvefits(x, brks2)
+
+# 5. Extract phonology
+l_param <- get_param(fits)
+d_GOF <- get_GOF(fits)
+l_pheno <- get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+# View results
+print(l_pheno)
+
+```
+
+```{r}
+
+extracts %>% 
+  filter(UID == "2") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) -> extracts_samp
+
+```
+
+```{r}
+
+check_input(t = extracts_samp$im_date,
+            y = extracts_samp$ndvi,
+            #nptperyear = 58,
+            south = FALSE) -> test_input
+
+plot_input(test_input)
+
+```
+
+```{r}
+
+season_mov(test_input, rFUN = smooth_wWHIT) -> brk
+
+plot_season(test_input, brk)
+
+```
+
+```{r}
+
+curvefits(test_input, brk) -> fits
+
+```
+
+```{r}
+
+get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+```
+
+# Normalizing
+
+```{r}
+
+extracts %>% 
+  filter(UID == "2222") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+  mutate(
+    time_numeric = as.numeric(im_date),
+    trend = predict(lm(ndvi ~ time_numeric)),
+    ndvi_detrended = ndvi - trend + mean(ndvi, na.rm = TRUE)
+  ) -> extracts_samp
+
+```
+
+```{r}
+
+check_input(t = extracts_samp$im_date,
+            y = extracts_samp$ndvi,
+            #nptperyear = 58,
+            south = FALSE) -> test_input
+
+x_detrended <- check_input(
+  t = extracts_samp$im_date, 
+  y = extracts_samp$ndvi_detrended,
+  #nptperyear = 50,
+  south = FALSE
+)
+
+plot_input(test_input)
+
+plot_input(x_detrended)
+
+```
+
+```{r}
+
+#season_mov(x_detrended) -> brk
+
+#.rs.restartR()
+
+brks_mov <- season_mov(x_detrended,
+    options = list(
+        rFUN = "smooth_wHANTS"#,
+        #r_max = 0.12,
+        #r_min = 0.02
+    )
+)
+
+plot_season(x_detrended, brks_mov)
+
+```
+
+```{r}
+
+curvefits(test_input, brks_mov) -> fits
+
+```
+
+```{r}
+
+#get_param(fits)
+
+get_GOF(fits)
+
+```
+
+```{r}
+
+get_pheno(fits, "Elmore", IsPlot = TRUE)
+
+```

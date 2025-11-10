@@ -1,0 +1,18 @@
+---
+title: "dc_tree_clean"
+format: html
+editor: visual
+---
+
+```{r}
+
+dc_tree <- read_rds("Urban_Forestry_Street_Trees.rds") %>% 
+   mutate(
+    species_sci = str_extract(SCI_NM, "^[A-Za-z]+\\s+x?\\s?[A-Za-z]+")
+  ) %>% 
+  group_by(species_sci) %>% 
+  summarise(dc_tree = TRUE) %>% 
+  write_csv2("dc_tree_species.csv")
+
+```
+

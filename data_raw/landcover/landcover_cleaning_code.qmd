@@ -1,0 +1,38 @@
+---
+title: "landcover_data_cleaning"
+format: pdf
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+
+#Nine land cover classes were mapped: (1) structures, (2) impervious surfaces, (3) water, (4) grassland/prairie, (5) tree canopy, (6) irrigated lands/turf, (7) barren/rock, (8) cropland, and (9) shrubland/scrubland
+
+read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>% 
+  rename(structures = class_1,
+         impervious_surfaces = class_2,
+         water = class_3,
+         prairie_grassland = class_4,
+         tree_canopy = class_5,
+         irrigated_land = class_6,
+         barren_rock = class_7,
+         cropland = class_8,
+         scrubland = class_9) %>% 
+  mutate(unirrigated = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), 
+                               na.rm = TRUE),
+         irrigated = rowSums(across(c(cropland, irrigated_land)), 
+                             na.rm = TRUE),
+         impervious = rowSums(across(c(structures, impervious_surfaces)), 
+                              na.rm = TRUE)) %>% 
+  select(UID, unirrigated, irrigated, impervious, tree_canopy, water) %>% 
+  write_rds("./cleaned_data/land_cover.rds")
+
+```
+
+```{r}
+
+read_rds("./cleaned_data/land_cover.rds")
+
+```

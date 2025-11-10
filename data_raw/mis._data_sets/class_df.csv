@@ -1,0 +1,9 @@
+value,color_hint,description,col
+1,FF0000,Structures,#FF0000
+2,B2B2B2,Impervious Surfaces,#B2B2B2
+3,00A9E6,Water,#00A9E6
+4,C7D79E,Prairie/Grassland/Natural Ground Cover,#C7D79E
+5,267300,Tree Canopy,#267300
+6,70A800,Turf/Irrigated Land,#70A800
+7,FFEBAF,Barren Land,#FFEBAF
+8,FFAE42,Cropland,#FFAE42

@@ -1,0 +1,49 @@
+---
+title: "disease_groups_processing"
+format: html
+editor: visual
+---
+
+## Classification created using AI according to the USDA/Forest Service disease classification. Spot checking done. Further checks will need to be done prior to publish.
+
+```{r}
+
+read_rds("..//denver_tree/tree_inventory_denver_20250911.rds")%>% 
+  group_by(disease_pest_def) %>% 
+  filter(disease_pest_def != "N/A",
+         disease_pest_def != "1 N/A",
+         disease_pest_def != "_N/A") %>% 
+  summarise(n = n()) %>% 
+  pull(disease_pest_def) -> disease
+
+tibble(
+  disease_pest_def = disease,
+  usda_disease_category = c(
+    "Insects/Arthropods", "Fungal Diseases", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Bacterial Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Animal/Mechanical Damage",
+    "Abiotic/Environmental Stress", "Fungal Diseases", "Abiotic/Environmental Stress",
+    "Fungal Diseases", "Insects/Arthropods", "Insects/Arthropods",
+    "Insects/Arthropods", "Insects/Arthropods", "Bacterial Diseases",
+    "Abiotic/Environmental Stress", "Insects/Arthropods", "Fungal Diseases",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Abiotic/Environmental Stress",
+    "Abiotic/Environmental Stress", "Insects/Arthropods", "Insects/Arthropods",
+    "Insects/Arthropods", "Abiotic/Environmental Stress", "Abiotic/Environmental Stress",
+    "Insects/Arthropods", "Insects/Arthropods", "Insects/Arthropods",
+    "Abiotic/Environmental Stress", "Fungal Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Other", "Fungal Diseases", "Insects/Arthropods",
+    "Other", "Fungal Diseases", "Insects/Arthropods", "Fungal Diseases",
+    "Animal/Mechanical Damage", "Insects/Arthropods", "Abiotic/Environmental Stress",
+    "Fungal Diseases", "Fungal Diseases", "Insects/Arthropods", "Animal/Mechanical Damage",
+    "Animal/Mechanical Damage", "Insects/Arthropods", "Abiotic/Environmental Stress",
+    "Insects/Arthropods", "Insects/Arthropods", "Fungal Diseases", "Insects/Arthropods",
+    "Insects/Arthropods", "Fungal Diseases", "Abiotic/Environmental Stress", "Animal/Mechanical Damage")
+  ) %>% 
+  write_csv2("usda_disease_categories")
+  
+
+```
+
+
+

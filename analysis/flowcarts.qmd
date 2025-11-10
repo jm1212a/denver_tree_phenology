@@ -1,0 +1,302 @@
+---
+title: "graphics"
+format: html
+editor: visual
+---
+
+```{dot}
+
+digraph WBS_Overview {
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing for better readability
+  nodesep=0.8;
+  ranksep=1.2;
+
+  // Root node
+  A [label="Denver Tree Phenology", fillcolor=lightblue, fontsize=16, fontname="Helvetica Bold"];
+
+  // Level 2 nodes
+  A1 [label="1. Literature Review", fontsize=14, fillcolor=lightyellow];
+  A2 [label="2. Identifying representative sample of trees", fontsize=14, fillcolor=lightyellow];
+  A3 [label="3. Processing Planetscope Data", fontsize=14, fillcolor=lightyellow];
+  A4 [label="4. Calculating phenological metrics", fontsize=14, fillcolor=lightyellow];
+  A5 [label="5. Statistical Modeling", fontsize=14, fillcolor=lightyellow];
+  A6 [label="6. Validating and Testing Hypotheses", fontsize=14, fillcolor=lightyellow];
+  A7 [label="7. Communicating Results", fontsize=14, fillcolor=lightyellow];
+
+  // Connect root to Level 2 nodes
+  A -> A1;
+  A -> A2;
+  A -> A3;
+  A -> A4;
+  A -> A5;
+  A -> A6;
+  A -> A7;
+
+  // Arrange Level 2 nodes horizontally
+  {rank=same; A1 A2 A3 A4 A5 A6 A7}
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="1. Literature Review";
+  labelloc="t";
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root nodes
+  A [label="Initial Set of Articles", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Apply research to research methodologies", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes
+  A1 [label="1.1 Identify further articles to enhance understanding", fontsize=14, fillcolor=lightyellow];
+  A2 [label="1.2 Read articles", fontsize=14, fillcolor=lightyellow];
+
+  // Horizontal arrangement
+  { rank=same; A1; A2; }
+
+  // Connect root to Level 2 nodes
+  A -> A1;
+  A1 -> A2;
+  A2 -> B;
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="2. Identifying representative sample of trees";
+  labelloc="t";  // t=top, b=bottom
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing for better readability
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root node
+  A [label="Denver tree inventory", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Sample the nᵗʰ trees from the jᵗʰ species, recording geolocation (latitude and longitude)", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes - now arranged vertically
+  A1 [label="2.1 Cleaning the data set (if necessary)", fontsize=14, fillcolor=lightyellow];
+  A2 [label="2.2 Merging Denver data set with common DC species", fontsize=14, fillcolor=lightyellow];
+  A3 [label="2.3 Develop rshiny App to easily visualize the distribution of trees across Denver by size and species", fontsize=14, fillcolor=lightyellow];
+  A4 [label="2.4 Identify species which are evenly spread throughout Denver", fontsize=14, fillcolor=lightyellow];
+  A5 [label="2.5 Plot ID'd species against potential explanatory variables (Condition | Neighborhood | Disease | etc.) to ensure even distribution/rep.", fontsize=14, fillcolor=lightyellow];
+  A6 [label="2.6 Check ID'd species against average crown size (≥ 9 m²)", fontsize=14, fillcolor=lightyellow];
+
+  // Connect root to Level 2 nodes - vertical flow
+  A -> A1;
+  A1 -> A2;
+  A2 -> A3;
+  A3 -> A4;
+  A4 -> A5;
+  A5 -> A6;
+  A6 -> B;
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="3. Processing PlanetScope Data";
+  labelloc="t";  // t=top, b=bottom
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing for better readability
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root nodes
+  A [label="PlanetScope daily images: 2018–2024", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Time series NDVI values for each tree in the dataset", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  C [label="Sample nᵗʰ trees from jᵗʰ species, recording geolocation (latitude/longitude)", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  
+  // Level 2 nodes
+  A1 [label="3.1 Combine all PlanetScope daily images", fontsize=14, fillcolor=lightyellow];
+  A2 [label="3.2 Add cloud, snow, and haze masks", fontsize=14, fillcolor=lightyellow];
+  A3 [label="3.3 Filter poorly georegistered images by regressing each pixel against a chosen high-quality image", fontsize=14, fillcolor=lightyellow]; #wont be doing
+  A4 [label="3.4 Radiometric normalization in NIR to a reference image", fontsize=14, fillcolor=lightyellow]; # wont be doing 
+  A5 [label="3.5 Calculate NDVI values for each pixel in the combined images", fontsize=12, fillcolor=lightyellow];
+  A6 [label="3.6 Extracting NDVI Data from the geolocated sample data", fontsize=12, fillcolor=lightyellow];
+  A7 [label="3.7 Filter top 25th percentile of NDVI pixels for a given tree location", fontsize=12, fillcolor=lightyellow];
+  A8 [label="3.8 Average pixel values for each tree canopy", fontsize=12, fillcolor=lightyellow];
+  
+  // Connections
+  A -> A1;
+  A1 -> A2;
+  A2 -> A3;
+  A3 -> A4;
+  A4 -> A5;
+  A5 -> A6;
+  C -> A6;
+  A6 -> A7;
+  A7 -> A8;
+  A8 -> B;
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="4. Calculating Phenological Metrics";
+  labelloc="t";  // t=top, b=bottom
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing for better readability
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root node
+  A [label="Time series NDVI values for each tree in the dataset", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Phenological metrics for each tree by year", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes - arranged vertically
+  A1 [label="4.1 De-spiking time series data (phenofit: σ² from nᵗʰ-point moving average)", fontsize=12, fillcolor=lightyellow];
+  A2 [label="4.2 Fitting phenological curves for each tree (phenofit: Elmore, spline, etc.)", fontsize=14, fillcolor=lightyellow];
+  A3 [label="4.3 Applying machine learning methods (k-fold/LOOCV) to select the best curve minimizing MSE, either across all trees or by species", fontsize=14, fillcolor=lightyellow];
+  A4 [label="4.4 Calculating phenological metrics using inflection points, thresholds, or derivatives (phenofit)", fontsize=14, fillcolor=lightyellow];
+
+  // Connect root to Level 2 nodes - vertical flow
+  A -> A1;
+  A1 -> A2;
+  A2 -> A3;
+  A3 -> A4;
+  A4 -> B;
+}
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="5. Statistical Modeling";
+  labelloc="t";  // t=top, b=bottom
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing for better readability
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root nodes
+  A [label="Phenological metrics for each tree by year", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Individual tree regressions, group regressions, and correlation coefficients", fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes - arranged vertically
+  A1 [label="5.1 Determining explanatory variables", fontsize=12, fillcolor=lightyellow];
+  A2 [label="5.2 Calculating variance-covariance matrix by species/study group between explanatory and phenological variables", fontsize=14, fillcolor=lightyellow];
+  A3 [label="5.3 Regressing phenological metrics on explanatory variables for each individual tree", fontsize=14, fillcolor=lightyellow];
+  A4 [label="5.4 Averaging individual regression coefficients to produce species or study group specific regressions", fontsize=14, fillcolor=lightyellow];
+
+  // Connect root to Level 2 nodes - vertical flow
+  A -> A1;
+  A1 -> A2;
+  A2 -> B;
+  A1 -> A3;
+  A3 -> A4;
+  A4 -> B;
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="6. Validating and Testing Hypotheses";
+  labelloc="t";  
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root nodes
+  A [label="Species/group regression results \n and correlation structures", 
+     fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Validated statistical relationships \n and hypothesis test results", 
+     fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes
+  A1 [label="6.1 Formulate null and alternative hypotheses", fontsize=12, fillcolor=lightyellow];
+  A2 [label="6.2 Perform significance testing \n (t-tests, ANOVA, correlation tests)", fontsize=14, fillcolor=lightyellow];
+  A3 [label="6.3 Assess model fit and residual diagnostics", fontsize=14, fillcolor=lightyellow];
+  A4 [label="6.4 Summarize supported vs. rejected hypotheses", fontsize=14, fillcolor=lightyellow];
+
+  // Flow connections
+  A -> A1;
+  A1 -> A2;
+  A2 -> A3;
+  A3 -> A4;
+  A4 -> B;
+}
+
+```
+
+```{dot}
+
+digraph WBS_Overview {
+  label="7. Communicating Results";
+  labelloc="t";  
+  fontsize=16;
+  fontname="Helvetica Bold";
+  
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", fontsize=12];
+  
+  // Increase spacing
+  nodesep=0.3;
+  ranksep=.5;
+
+  // Root nodes
+  A [label="Validated statistical relationships \n and hypothesis test results", 
+     fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+  B [label="Final deliverables: reports, visuals, \n and policy implications", 
+     fillcolor=lightblue, fontsize=14, fontname="Helvetica Bold"];
+
+  // Level 2 nodes
+  A1 [label="7.1 Create data visualizations \n (figures, tables, maps)", fontsize=14, fillcolor=lightyellow];
+  A2 [label="7.2 Develop written report including: \n • Introduction & background \n • Methods & data sources \n • Results with figures/tables \n • Discussion of findings \n • Limitations & future work", 
+      fontsize=14, fillcolor=lightyellow];
+  A3 [label="7.3 Present findings to stakeholders", fontsize=14, fillcolor=lightyellow];
+
+  // Flow connections
+  A -> A1;
+  A1 -> A2;
+  A2 -> A3;
+  A3 -> B;
+}
+
+```
