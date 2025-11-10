@@ -95,7 +95,7 @@ plot_year <- function(data, year, tree_id,
   }
   
   data %>% 
-    filter(flag == year) %>% 
+    filter(.data$year == !!year) %>% 
     filter(UID == tree_id) -> data_year
   
   data_year %>% 
