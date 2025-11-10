@@ -287,7 +287,6 @@ dev.off()
 
 ```
 
-
 # Mixed Effect Model top level regressions for each species, unique intercpes for each tree.
 
 ```{r}
