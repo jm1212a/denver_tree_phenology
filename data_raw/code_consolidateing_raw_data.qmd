@@ -7,6 +7,7 @@ editor: visual
 ```{r}
 
 library(tidyverse)
+library(sf)
 
 ```
 
@@ -42,13 +43,13 @@ anti_join(tree_ldc_metrics_climate, multi_cylce,
          x_long, y_lat, year, usda_disease_category, 9:10, DER.sos_doy:DER.eos_doy, 
          Greenup_doy:Dormancy_doy, DER.sos_date:DER.eos_date, 
          Greenup_date:Dormancy_date,  winter_prcp:late_fall_cumulative_prcp, 
-         unirrigated:water) %>% 
+         unirrigated_90m:water_250m) %>% 
   write_rds("../data/processed_trees_ndvi_lc_climate.rds")
 
 ```
+
 ```{r}
 
 names(tree_ldc_metrics_climate)
 
 ```
-

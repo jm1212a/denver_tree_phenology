@@ -21,6 +21,12 @@ read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_clim
 
 ```{r}
 
+
+```
+
+
+```{r}
+
 tree_ldc_metrics_climate %>%
   group_by(species_common, leaf_persistence) %>%
   summarize(n = length(unique(UID))) %>% 
@@ -41,20 +47,27 @@ tree_ldc_metrics_climate %>%
 names(tree_ldc_metrics_climate)
 
 tree_ldc_metrics_climate %>% 
-  filter(year < 2024,
+  filter(year < 2025 ,
          species_common == "Green Ash") %>% 
-  ggplot(aes(x = impervious, y = DER.sos_doy))+
+  ggplot(aes(x = impervious_90m, y = DER.sos_doy))+
   geom_point()+
   geom_smooth(method = lm)
 
 tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = impervious, y = DER.eos_doy))+
+  filter(year < 2025,
+         species_common == "Green Ash") %>% 
+  ggplot(aes(x = irrigated_90m, y = DER.sos_doy))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_90m, y = DER.eos_doy))+
   geom_point()+
   geom_smooth(method = lm)
 
 
 tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = irrigated, y = DER.eos_doy))+
+  ggplot(aes(x = irrigated_90m, y = DER.eos_doy))+
   geom_point()+
   geom_smooth(method = lm)
 
@@ -78,15 +91,15 @@ pheno_vars <- c("DER.sos_doy", "DER.eos_doy", "DER.pos_doy")
 sos_climate <- c("late_winter_prcp_days", "late_winter_temp", "late_winter_prcp", 
                  "winter_temp", "winter_prcp", "winter_prcp_days", 
                  "early_spring_temp", "early_spring_prcp_days", "early_spring_prcp",
-                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious")
+                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious_90m")
 
 eos_climate <- c("summer_temp", "summer_prcp", "summer_prcp_days","late_summer_prcp", 
                  "late_summer_prcp_days", "late_summer_temp", "fall_temp", 
                  "fall_prcp", "fall_prcp_days", "early_fall_prcp", 
                  "early_fall_prcp_days", "early_fall_temp",
-                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious")
+                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious_90m")
 
-pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious") 
+pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious_90m") 
 
 all_climate_vars <- unique(c(sos_climate, eos_climate, pos_climate))
 
