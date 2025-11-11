@@ -13,20 +13,39 @@ library(tidyverse)
 read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>% 
   rename(structures = class_1,
          impervious_surfaces = class_2,
-         water = class_3,
+         water_90m = class_3,
          prairie_grassland = class_4,
-         tree_canopy = class_5,
+         tree_canopy_90m = class_5,
          irrigated_land = class_6,
          barren_rock = class_7,
          cropland = class_8,
          scrubland = class_9) %>% 
-  mutate(unirrigated = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), 
+  mutate(unirrigated_90m = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), 
                                na.rm = TRUE),
-         irrigated = rowSums(across(c(cropland, irrigated_land)), 
+         irrigated_90m = rowSums(across(c(cropland, irrigated_land)), 
                              na.rm = TRUE),
-         impervious = rowSums(across(c(structures, impervious_surfaces)), 
+         impervious_90m = rowSums(across(c(structures, impervious_surfaces)), 
                               na.rm = TRUE)) %>% 
-  select(UID, unirrigated, irrigated, impervious, tree_canopy, water) %>% 
+  select(UID, unirrigated_90m, irrigated_90m, impervious_90m, tree_canopy_90m, water_90m) -> lc_90 
+  
+
+read_rds("./raw_extracts/lc_fracs_by_circle_FULL_250m.rds") %>% 
+  mutate(unirrigated_250m = rowSums(across(c(`lc_250m_Grassland/Prairie`, 
+                                              `lc_250m_Barren Rock`, 
+                                              `lc_250m_Scrubland/Shrubland`)), 
+                                    na.rm = TRUE),
+         irrigated_250m = rowSums(across(c(lc_250m_Cropland, 
+                                           `lc_250m_Irrigated Lands/Turf`)), 
+                                  na.rm = TRUE),
+         impervious_250m = rowSums(across(c(lc_250m_Structures, 
+                                            `lc_250m_Impervious Surfaces`)), 
+                                   na.rm = TRUE),
+         tree_canopy_250m = `lc_250m_Tree Canopy`,
+         water_250m = lc_250m_Water) %>% 
+  select(UID, unirrigated_250m, irrigated_250m, impervious_250m, 
+         tree_canopy_250m, water_250m) -> lc_250
+
+left_join(lc_90, lc_250, by = "UID") %>% 
   write_rds("./cleaned_data/land_cover.rds")
 
 ```
