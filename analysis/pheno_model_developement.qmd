@@ -22,6 +22,7 @@ read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_clim
 ```{r}
 
 
+
 ```
 
 
@@ -38,8 +39,7 @@ tree_ldc_metrics_climate %>%
 ```{r}
 
 tree_ldc_metrics_climate %>% 
-  filter(year <= 2022,
-         species_common == "Eastern Cottonwood") %>% 
+  filter(year <= 2022) %>% 
   ggplot(aes(x = early_spring_temp, y = DER.sos_doy))+
   geom_point()+
   geom_smooth(method = lm)
@@ -47,8 +47,7 @@ tree_ldc_metrics_climate %>%
 names(tree_ldc_metrics_climate)
 
 tree_ldc_metrics_climate %>% 
-  filter(year < 2025 ,
-         species_common == "Green Ash") %>% 
+  filter(year < 2025) %>% 
   ggplot(aes(x = impervious_90m, y = DER.sos_doy))+
   geom_point()+
   geom_smooth(method = lm)
@@ -67,7 +66,7 @@ tree_ldc_metrics_climate %>%
 
 
 tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = irrigated_90m, y = DER.eos_doy))+
+  ggplot(aes(x = unirrigated_90m, y = DER.eos_doy))+
   geom_point()+
   geom_smooth(method = lm)
 
@@ -281,22 +280,6 @@ df <- data.frame(
 ggplot(df, aes(x = t, y = y)) +
   geom_point(alpha = 0.5)+
   theme_minimal()
-
-```
-
-```{r}
-
-source("../R/plot_year.R")
-
-# Save inflection plot
-png("../images/yearly_pheno_cycle_inflection.png", width = 14, height = 10, units = "in", res = 300)
-plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection","DER.pos"))
-dev.off()
-
-# Save derivative plot
-png("../images/yearly_pheno_cycle_derivative.png", width = 14, height = 10, units = "in", res = 300)
-plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative"))
-dev.off()
 
 ```
 
