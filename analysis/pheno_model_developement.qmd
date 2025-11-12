@@ -10,6 +10,11 @@ library(tidyverse)
 library(phenofit)
 library(sf)
 library(patchwork)
+library(lme4)
+library(lmerTest)
+library(MuMIn)
+library(performance)
+library(caret)
 
 ```
 
@@ -21,67 +26,18 @@ read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_clim
 
 ```{r}
 
-
-
-```
-
-
-```{r}
-
 tree_ldc_metrics_climate %>%
   group_by(species_common, leaf_persistence) %>%
   summarize(n = length(unique(UID))) %>% 
   filter(n > 50) %>% 
   pull(1) -> species_list
 
-```
-
-```{r}
-
-tree_ldc_metrics_climate %>% 
-  filter(year <= 2022) %>% 
-  ggplot(aes(x = early_spring_temp, y = DER.sos_doy))+
-  geom_point()+
-  geom_smooth(method = lm)
-
-names(tree_ldc_metrics_climate)
-
-tree_ldc_metrics_climate %>% 
-  filter(year < 2025) %>% 
-  ggplot(aes(x = impervious_90m, y = DER.sos_doy))+
-  geom_point()+
-  geom_smooth(method = lm)
-
-tree_ldc_metrics_climate %>% 
-  filter(year < 2025,
-         species_common == "Green Ash") %>% 
-  ggplot(aes(x = irrigated_90m, y = DER.sos_doy))+
-  geom_point()+
-  geom_smooth(method = lm)
-
-tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = impervious_90m, y = DER.eos_doy))+
-  geom_point()+
-  geom_smooth(method = lm)
-
-
-tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = unirrigated_90m, y = DER.eos_doy))+
-  geom_point()+
-  geom_smooth(method = lm)
-
+pheno_vars <- c("DER.pos_doy", "Greenup_doy", "Maturity_doy", 
+                "Senescence_doy", "Dormancy_doy", "growing_season")
 
 ```
 
-```{r}
-
-tree_ldc_metrics_climate %>%
-  select(where(is.numeric)) %>%
-  names()
-
-```
-
-# Corrilation Matrixs by species
+# Corrilation Matrixs by species and dependent variables
 
 ```{r}
 
@@ -90,15 +46,15 @@ pheno_vars <- c("DER.sos_doy", "DER.eos_doy", "DER.pos_doy")
 sos_climate <- c("late_winter_prcp_days", "late_winter_temp", "late_winter_prcp", 
                  "winter_temp", "winter_prcp", "winter_prcp_days", 
                  "early_spring_temp", "early_spring_prcp_days", "early_spring_prcp",
-                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious_90m")
+                 "spring_prcp_days", "spring_temp", "spring_prcp", "impervious_90m", "irrigated_90m")
 
 eos_climate <- c("summer_temp", "summer_prcp", "summer_prcp_days","late_summer_prcp", 
                  "late_summer_prcp_days", "late_summer_temp", "fall_temp", 
                  "fall_prcp", "fall_prcp_days", "early_fall_prcp", 
                  "early_fall_prcp_days", "early_fall_temp",
-                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious_90m")
+                 "late_fall_prcp", "late_fall_prcp_days", "late_fall_temp", "impervious_90m", "irrigated_90m")
 
-pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious_90m") 
+pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", "impervious_90m", "irrigated_90m") 
 
 all_climate_vars <- unique(c(sos_climate, eos_climate, pos_climate))
 
@@ -166,30 +122,23 @@ all_cors %>%
 
 # Updated phenology variables to match your labels
 pheno_vars <- c("DER.pos_doy", "Greenup_doy", "Maturity_doy", 
-                "Senescence_doy", "Dormancy_doy")
+                "Senescence_doy", "Dormancy_doy", "growing_season")
 
 # Use only existing climate variables
-greenup_climate <- c("late_winter_prcp_days", "late_winter_temp", "late_winter_prcp", 
-                     "winter_temp", "winter_prcp", "winter_prcp_days", 
-                     "early_spring_temp", "early_spring_prcp_days", "early_spring_prcp",
-                     "spring_prcp_days", "spring_temp", "spring_prcp", "impervious")
+greenup_climate <- c("late_winter_temp", "late_winter_prcp")
 
-maturity_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days",
-                      "summer_temp", "summer_prcp", "summer_prcp_days", "impervious")
+maturity_climate <- c("late_spring_mean_tmax", "spring_prcp")
 
-senescence_climate <- c("late_summer_prcp", "late_summer_prcp_days", "late_summer_temp", 
-                        "fall_temp", "fall_prcp", "fall_prcp_days", 
-                        "early_fall_prcp", "early_fall_prcp_days", "early_fall_temp",
-                        "impervious")
+senescence_climate <- c("late_summer_prcp", "early_fall_mean_tmax")
 
-dormancy_climate <- c("late_fall_prcp", "late_fall_prcp_days", "late_fall_temp",
-                      "winter_temp", "winter_prcp", "winter_prcp_days", "impervious")
+dormancy_climate <- c("fall_cumulative_prcp", "fall_mean_tmax")
 
-pos_climate <- c("late_spring_temp", "late_spring_prcp", "late_spring_prcp_days", 
-                 "impervious")
+pos_climate <- c("late_spring_cumulative_prcp", "spring_temp")
+
+growing_climate <- c("irrigated_90m", "late_summer_prcp", "summer_temp")
 
 all_climate_vars <- unique(c(greenup_climate, maturity_climate, senescence_climate, 
-                             dormancy_climate, pos_climate))
+                             dormancy_climate, pos_climate, growing_climate))
 
 calc_species_cor <- function(species_name, data){
   data %>% 
@@ -204,9 +153,10 @@ calc_species_cor <- function(species_name, data){
     filter(
       (pheno_var == "Greenup_doy" & climate_var %in% greenup_climate) |
       (pheno_var == "Maturity_doy" & climate_var %in% maturity_climate) |
+      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate)|
       (pheno_var == "Senescence_doy" & climate_var %in% senescence_climate) |
       (pheno_var == "Dormancy_doy" & climate_var %in% dormancy_climate) |
-      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate)
+      (pheno_var == "growing_season" & climate_var %in% growing_climate)
     ) %>% 
     rename(!!species_name := correlation)
 }
@@ -222,11 +172,12 @@ pheno_labels <- c(
   "Greenup_doy" = "Green-up",
   "Maturity_doy" = "Maturity",
   "Senescence_doy" = "Senescence",
-  "Dormancy_doy" = "Dormancy"
+  "Dormancy_doy" = "Dormancy",
+  "growing_season" = "Growing Season"  
 )
 
 # Plot
-p <- all_cors %>% 
+all_cors %>% 
   pivot_longer(cols = -c(pheno_var, climate_var), 
                names_to = "species", 
                values_to = "correlation") %>% 
@@ -257,9 +208,6 @@ p <- all_cors %>%
   ) +
   labs(title = "Phenology-Climate Correlations Across Species")
 
-# Then save it
-ggsave("../images/correlation_plot.png", plot = p, width = 14, height = 10, dpi = 300)
-
 ```
 
 ```{r}
@@ -283,66 +231,579 @@ ggplot(df, aes(x = t, y = y)) +
 
 ```
 
-# Mixed Effect Model top level regressions for each species, unique intercpes for each tree.
+# Variable Selection for the Mixed Effect Panel Model
 
-```{r}
+```{r, warning=FALSE}
 
-species_list
+data_complete <- tree_ldc_metrics_climate %>% 
+  dplyr::select(Greenup_date:Dormancy_date, DER.pos_doy, UID, winter_prcp:water_250m, growing_season) %>% 
+  mutate(Greenup_date = as.numeric(Greenup_date),
+         Maturity_date = as.numeric(Maturity_date),
+         DER.pos_doy = as.numeric(DER.pos_doy),
+         Senescence_date = as.numeric(Senescence_date),
+         Dormancy_date = as.numeric(Dormancy_date)) %>%  
+  filter(complete.cases(.))
 
-tree_ldc_metrics_climate %>% 
-  filter(species_common == "Tree of heaven") %>%
-  filter(year < 2024) %>% 
-  mutate(
-    early_spring_prcp_z = scale(early_spring_prcp)[,1],
-    early_spring_temp_z = scale(early_spring_temp)[,1],
-    impervious_z = scale(impervious)[,1]
-  ) -> data
-
-
-library(lme4)
-library(lmerTest)
-
-sos_model <- lmer(
-  DER.sos_doy ~ early_spring_temp_z + impervious_z + early_spring_prcp_z +
-                (1 | UID),  # Tree effects
-  data = data,  # Only 1 or few species
-  REML = TRUE
+global_greening_model <- lmer(
+  Greenup_date ~ winter_prcp + winter_prcp_days + winter_temp + 
+    winter_mean_tmax + late_winter_prcp + late_winter_prcp_days + 
+    late_winter_temp + late_winter_mean_tmax + spring_prcp + 
+    spring_prcp_days + spring_temp + spring_mean_tmax + 
+    early_spring_prcp + early_spring_prcp_days + early_spring_temp + 
+    early_spring_mean_tmax + impervious_90m + irrigated_90m + 
+    later_winter_cumulative_prcp + spring_prcp_cumulative_prcp + 
+    early_spring_cumulative_prcp + (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
 )
 
-summary(sos_model)
+global_maturity_model <- lmer(
+  Maturity_date ~ spring_prcp + spring_temp + spring_mean_tmax +
+    late_spring_prcp + late_spring_temp + late_spring_mean_tmax +
+    summer_prcp + summer_temp + summer_mean_tmax +
+    spring_prcp_cumulative_prcp + late_spring_cumulative_prcp +
+    impervious_90m + irrigated_90m + water_250m +
+    (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
+)
+
+global_pos_model <- lmer(
+  DER.pos_doy ~ spring_prcp + spring_temp + spring_mean_tmax +
+    late_spring_prcp + late_spring_temp + late_spring_mean_tmax +
+    summer_prcp + summer_temp + summer_mean_tmax +
+    spring_prcp_cumulative_prcp + late_spring_cumulative_prcp +
+    impervious_90m + irrigated_90m + water_250m +
+    (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
+)
+
+global_senescence_model <- lmer(
+  Senescence_date ~ late_summer_prcp + 
+    #late_summer_temp + 
+    late_summer_mean_tmax +
+    summer_cumulative_prcp + 
+    late_summer_cumulative_prcp +
+    fall_prcp + 
+    #fall_temp + 
+    #fall_mean_tmax +
+    early_fall_prcp + 
+    early_fall_temp + 
+    early_fall_mean_tmax +
+    impervious_90m + irrigated_90m + water_250m +
+    (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
+)
+
+global_dormancy_model <- lmer(
+  Dormancy_date ~ fall_prcp + fall_temp + fall_mean_tmax +
+    late_fall_prcp + late_fall_temp + late_fall_mean_tmax +
+    fall_cumulative_prcp + late_fall_cumulative_prcp +
+    winter_prcp + winter_temp + winter_mean_tmax +
+    impervious_90m + irrigated_90m + water_250m +
+    (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
+)
+
+global_gs_model <- lmer(
+  growing_season ~ spring_prcp + spring_temp + 
+                   summer_prcp + summer_temp +
+                   late_summer_prcp + late_summer_temp +
+                   fall_prcp + fall_temp +
+                   spring_prcp_cumulative_prcp +
+                   late_spring_cumulative_prcp +
+                   summer_cumulative_prcp +
+                   late_summer_cumulative_prcp +
+                   fall_cumulative_prcp +
+                   impervious_90m + irrigated_90m + water_250m +
+                   (1 | UID),
+  data = data_complete,
+  REML = FALSE,
+  na.action = "na.fail"
+)
 
 ```
 
+## Stepwise to find the best combination of 4 variables
+
+```{r, warning=FALSE}
+
+# all_models_greening <- dredge(global_greening_model, m.max = 2)
+# all_maturity_models <- dredge(global_maturity_model, m.max = 4)
+# all_pos_models <- dredge(global_pos_model, m.max = 4)
+# all_senescence_models <- dredge(global_senescence_model, m.max = 4)
+# all_dormancy_models <- dredge(global_dormancy_model, m.max = 4)
+all_gs_models <- dredge(global_gs_model, m.max = 4)
+
+```
+
+## Overview of the top 10 Best Models
+
 ```{r}
 
-model_null <- lmer(
-  DER.sos_doy ~ 1 +
-                (1 | UID),  # Tree effects
-  data = data,  # Only 1 or few species
-  REML = TRUE
+#head(all_models_greening, 10)
+
+```
+
+## Finding the best model
+
+```{r}
+
+# best_greening <- get.models(all_models_greening, subset = 1)[[1]]
+# best_maturity <- get.models(all_maturity_models, subset = 1)[[1]]
+# best_pos <- get.models(all_pos_models, subset = 1)[[1]]
+# best_senescence <- get.models(all_senescence_models, subset = 1)[[1]]
+# best_dormancy <- get.models(all_dormancy_models, subset = 1)[[1]]
+best_season <- get.models(all_gs_models, subset = 1)[[1]]
+# 
+# summary(best_greening)
+# summary(best_maturity)
+# summary(best_pos)
+# summary(best_senescence)
+# summary(best_dormancy)
+summary(best_season)
+
+
+```
+
+# Mixed Effect Model top level regressions for each species, unique intercpes for each tree. Using k-fold cross validation to check model preforamance. 
+
+```{r}
+
+climate_vars <- list(
+  Greenup_doy = c("late_winter_temp_z", "late_winter_prcp_z"),
+  Maturity_doy = c("late_spring_mean_tmax_z", "spring_prcp_z"),
+  Senescence_doy = c("late_summer_prcp_z", "early_fall_mean_tmax_z"),
+  Dormancy_doy = c("fall_cumulative_prcp_z", "fall_mean_tmax_z"),
+  DER.pos_doy = c("late_spring_cumulative_prcp_z", "spring_temp_z"),
+  growing_season = c("irrigated_90m_z", "late_summer_prcp_z", "summer_temp_z")
+)
+
+# Function to test model assumptions
+test_assumptions <- function(model) {
+  # Get residuals and fitted values
+  resid <- residuals(model)
+  fitted_vals <- fitted(model)
+  
+  # 1. Normality of residuals (Shapiro-Wilk test)
+  # Note: Shapiro test limited to n <= 5000
+  if (length(resid) <= 5000) {
+    shapiro_test <- shapiro.test(resid)
+    normality_p <- shapiro_test$p.value
+  } else {
+    # Use Kolmogorov-Smirnov for large samples
+    ks_test <- ks.test(resid, "pnorm", mean(resid), sd(resid))
+    normality_p <- ks_test$p.value
+  }
+  
+  # 2. Homoscedasticity (Breusch-Pagan test)
+  # Test if variance of residuals is constant
+  # We'll use a simple test: correlation between |residuals| and fitted values
+  bp_cor <- cor.test(abs(resid), fitted_vals)
+  homoscedasticity_p <- bp_cor$p.value
+  
+  # 3. Normality of random effects
+  ranef_vals <- unlist(ranef(model))
+  if (length(ranef_vals) > 3 && length(ranef_vals) <= 5000) {
+    ranef_shapiro <- shapiro.test(ranef_vals)
+    ranef_normality_p <- ranef_shapiro$p.value
+  } else if (length(ranef_vals) > 5000) {
+    ranef_ks <- ks.test(ranef_vals, "pnorm", mean(ranef_vals), sd(ranef_vals))
+    ranef_normality_p <- ranef_ks$p.value
+  } else {
+    ranef_normality_p <- NA
+  }
+  
+  # 4. Check for outliers (standardized residuals > 3)
+  std_resid <- resid / sd(resid)
+  n_outliers <- sum(abs(std_resid) > 3)
+  prop_outliers <- n_outliers / length(resid)
+  
+  return(list(
+    normality_p = normality_p,
+    homoscedasticity_p = homoscedasticity_p,
+    ranef_normality_p = ranef_normality_p,
+    n_outliers = n_outliers,
+    prop_outliers = prop_outliers,
+    pass_normality = normality_p > 0.05,
+    pass_homoscedasticity = homoscedasticity_p > 0.05,
+    pass_ranef_normality = ifelse(is.na(ranef_normality_p), TRUE, ranef_normality_p > 0.05)
+  ))
+}
+
+# K-fold CV function (same as before)
+cv_lmer_both <- function(formula_str, data, k = 10, response_var) {
+  set.seed(123)
+  folds <- createFolds(1:nrow(data), k = k, returnTrain = FALSE)
+  
+  predictions_conditional <- numeric(nrow(data))
+  predictions_marginal <- numeric(nrow(data))
+  
+  for(fold_idx in 1:length(folds)) {
+    test_idx <- folds[[fold_idx]]
+    train_data <- data[-test_idx, ]
+    test_data <- data[test_idx, ]
+    
+    model <- tryCatch({
+      lmer(as.formula(formula_str), 
+           data = train_data, 
+           REML = FALSE)
+    }, error = function(e) {
+      return(NULL)
+    })
+    
+    if (!is.null(model)) {
+      predictions_conditional[test_idx] <- predict(model, newdata = test_data,
+                                                   allow.new.levels = TRUE)
+      predictions_marginal[test_idx] <- predict(model, newdata = test_data, 
+                                                re.form = NA)
+    } else {
+      predictions_conditional[test_idx] <- NA
+      predictions_marginal[test_idx] <- NA
+    }
+  }
+  
+  actual <- data[[response_var]]
+  valid_idx <- !is.na(predictions_conditional) & !is.na(predictions_marginal) & !is.na(actual)
+  
+  if (sum(valid_idx) > 0) {
+    cv_r2_conditional <- cor(actual[valid_idx], predictions_conditional[valid_idx])^2
+    rmse_conditional <- sqrt(mean((actual[valid_idx] - predictions_conditional[valid_idx])^2))
+    
+    cv_r2_marginal <- cor(actual[valid_idx], predictions_marginal[valid_idx])^2
+    rmse_marginal <- sqrt(mean((actual[valid_idx] - predictions_marginal[valid_idx])^2))
+  } else {
+    cv_r2_conditional <- cv_r2_marginal <- NA
+    rmse_conditional <- rmse_marginal <- NA
+  }
+  
+  return(list(
+    cv_r2_conditional = cv_r2_conditional,
+    cv_r2_marginal = cv_r2_marginal,
+    rmse_conditional = rmse_conditional,
+    rmse_marginal = rmse_marginal
+  ))
+}
+
+# Store results
+model_results <- list()
+
+for (i in pheno_vars) {
+  for (j in species_list) {
+    
+    cat("\nFitting", i, "for", j, "...\n")
+    
+    # Prepare data for this species
+    data <- tree_ldc_metrics_climate %>% 
+      filter(species_common == j, year <= 2024) %>% 
+      mutate(
+        late_winter_temp_z = scale(late_winter_temp)[,1],
+        late_winter_prcp_z = scale(late_winter_prcp)[,1],
+        late_spring_mean_tmax_z = scale(late_spring_mean_tmax)[,1],
+        spring_prcp_z = scale(spring_prcp)[,1],
+        late_summer_prcp_z = scale(late_summer_prcp)[,1],
+        early_fall_mean_tmax_z = scale(early_fall_mean_tmax)[,1],
+        fall_cumulative_prcp_z = scale(fall_cumulative_prcp)[,1],
+        fall_mean_tmax_z = scale(fall_mean_tmax)[,1],
+        late_spring_cumulative_prcp_z = scale(late_spring_cumulative_prcp)[,1],
+        spring_temp_z = scale(spring_temp)[,1],
+        irrigated_90m_z = scale(irrigated_90m)[,1],
+        summer_temp_z = scale(summer_temp)[,1],
+        late_summer_prcp_z = scale(late_summer_prcp)[,1]
+      )
+    
+    if (nrow(data) < 20 || sum(!is.na(data[[i]])) < 20) {
+      cat("  Skipping - insufficient data\n")
+      next
+    }
+    
+    predictors <- climate_vars[[i]]
+    formula_str <- paste(i, "~", paste(predictors, collapse = " + "), "+ (1 | UID)")
+    
+    # Fit full model
+    full_model <- tryCatch({
+      lmer(as.formula(formula_str), 
+           data = data, 
+           REML = TRUE)
+    }, error = function(e) {
+      message(paste("  Error fitting model:", e$message))
+      return(NULL)
+    })
+    
+    # Run k-fold CV
+    cv_results <- tryCatch({
+      cv_lmer_both(formula_str, data, k = 10, response_var = i)
+    }, error = function(e) {
+      message(paste("  Error in CV:", e$message))
+      return(NULL)
+    })
+    
+    # Test assumptions
+    assumptions <- tryCatch({
+      test_assumptions(full_model)
+    }, error = function(e) {
+      message(paste("  Error testing assumptions:", e$message))
+      return(NULL)
+    })
+    
+    # Store results
+    if (!is.null(full_model) && !is.null(cv_results) && !is.null(assumptions)) {
+      library(MuMIn)
+      r2_insample <- r.squaredGLMM(full_model)
+      
+      model_results[[paste(j, i, sep = "_")]] <- list(
+        species = j,
+        phenology = i,
+        n_obs = nrow(data),
+        n_trees = n_distinct(data$UID),
+        model = full_model,
+        summary = summary(full_model),
+        r2m_insample = r2_insample[1, "R2m"],
+        r2c_insample = r2_insample[1, "R2c"],
+        cv_r2_marginal = cv_results$cv_r2_marginal,
+        cv_r2_conditional = cv_results$cv_r2_conditional,
+        cv_rmse_marginal = cv_results$rmse_marginal,
+        cv_rmse_conditional = cv_results$rmse_conditional,
+        # Assumption test results
+        normality_p = assumptions$normality_p,
+        homoscedasticity_p = assumptions$homoscedasticity_p,
+        ranef_normality_p = assumptions$ranef_normality_p,
+        n_outliers = assumptions$n_outliers,
+        prop_outliers = assumptions$prop_outliers,
+        pass_normality = assumptions$pass_normality,
+        pass_homoscedasticity = assumptions$pass_homoscedasticity,
+        pass_ranef_normality = assumptions$pass_ranef_normality
+      )
+      
+      cat("  CV R²m:", round(cv_results$cv_r2_marginal, 3), 
+          "| R²c:", round(cv_results$cv_r2_conditional, 3), "\n")
+      cat("  Assumptions: Normality p =", round(assumptions$normality_p, 3),
+          "| Homoscedasticity p =", round(assumptions$homoscedasticity_p, 3), "\n")
+    }
+  }
+}
+
+```
+
+## Summarize and Results
+
+### R2, RMSE and Testing model assumptions for all the regression models
+
+```{r}
+
+results_table <- map_df(model_results, function(x) {
+  data.frame(
+    species = x$species,
+    phenology = x$phenology,
+    n_obs = x$n_obs,
+    n_trees = x$n_trees,
+    # R² metrics
+    r2m_insample = x$r2m_insample,
+    r2c_insample = x$r2c_insample,
+    cv_r2_marginal = x$cv_r2_marginal,
+    cv_r2_conditional = x$cv_r2_conditional,
+    # RMSE
+    cv_rmse_marginal = x$cv_rmse_marginal,
+    cv_rmse_conditional = x$cv_rmse_conditional,
+    # Random effect contribution
+    random_effect_contribution = x$cv_r2_conditional - x$cv_r2_marginal,
+    # Assumption tests
+    normality_p = x$normality_p,
+    homoscedasticity_p = x$homoscedasticity_p,
+    ranef_normality_p = x$ranef_normality_p,
+    n_outliers = x$n_outliers,
+    prop_outliers = x$prop_outliers,
+    # Pass/fail flags
+    pass_normality = x$pass_normality,
+    pass_homoscedasticity = x$pass_homoscedasticity,
+    pass_ranef_normality = x$pass_ranef_normality,
+    # Overall assessment
+    all_assumptions_met = x$pass_normality & x$pass_homoscedasticity & x$pass_ranef_normality,
+    row.names = NULL
   )
+})
+
+results_table
 
 ```
+
+### Breakdown by Table by Species or phenological metric
 
 ```{r}
 
-library(performance)
+# R² comparison - faceted by phenology
+results_table %>%
+  select(species, phenology, cv_r2_marginal, cv_r2_conditional) %>%
+  mutate(random_effect_contribution = cv_r2_conditional - cv_r2_marginal) %>%
+  pivot_longer(cols = starts_with("cv_r2"), 
+               names_to = "type", 
+               values_to = "r2") %>%
+  mutate(type = ifelse(type == "cv_r2_marginal", "Marginal (Climate only)", 
+                       "Conditional (Climate + Tree ID)")) %>%
+  ggplot(aes(x = reorder(species, random_effect_contribution), y = r2, fill = type)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~phenology, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = c("Marginal (Climate only)" = "coral", 
+                                "Conditional (Climate + Tree ID)" = "steelblue")) +
+  labs(title = "Cross-Validated R²: Climate vs Climate + Tree Identity",
+       subtitle = "Species ordered by tree identity contribution (gap size)",
+       x = "", y = "CV R²", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.text.y = element_text(size = 8))
 
-summary(sos_model)
+# RMSE comparison - faceted by phenology
+results_table %>%
+  select(species, phenology, cv_rmse_marginal, cv_rmse_conditional) %>%
+  pivot_longer(cols = starts_with("cv_rmse"), 
+               names_to = "type", 
+               values_to = "rmse") %>%
+  mutate(type = ifelse(type == "cv_rmse_marginal", "Marginal", "Conditional")) %>%
+  ggplot(aes(x = reorder(species, -rmse), y = rmse, fill = type)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~phenology, scales = "free_y", ncol = 2) +
+  scale_fill_manual(values = c("Marginal" = "coral", 
+                                "Conditional" = "steelblue")) +
+  labs(title = "Cross-Validated RMSE: Average Prediction Error",
+       subtitle = "By phenology stage",
+       x = "", y = "RMSE (days)", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.text.y = element_text(size = 8))
 
-summary(sos_model)$optinfo$conv$lme4$messages
-
-anova(model_null, sos_model) # test for variations between species
-
-r2(sos_model)
-
-AIC(model_null, sos_model)
-BIC(model_null, sos_model)
-
-plot(sos_model)  # Residuals
-qqnorm(resid(sos_model))  # Normality
-qqline(resid(sos_model))
-
-ranef(sos_model)$species_common
+# R² comparison - faceted by species
+results_table %>%
+  select(species, phenology, cv_r2_marginal, cv_r2_conditional) %>%
+  pivot_longer(cols = starts_with("cv_r2"), 
+               names_to = "type", 
+               values_to = "r2") %>%
+  mutate(type = ifelse(type == "cv_r2_marginal", "Marginal (Climate only)", 
+                       "Conditional (Climate + Tree ID)")) %>%
+  ggplot(aes(x = phenology, y = r2, fill = type)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  facet_wrap(~species, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("Marginal (Climate only)" = "coral", 
+                                "Conditional (Climate + Tree ID)" = "steelblue")) +
+  labs(title = "Cross-Validated R²: Climate vs Climate + Tree Identity",
+       subtitle = "By species",
+       x = "", y = "CV R²", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.text.y = element_text(size = 9))
 
 ```
+
+
+```{r}
+
+# Safer version with error checking
+check_model_visually <- function(species_name, pheno_var) {
+  model_name <- paste(species_name, pheno_var, sep = "_")
+  
+  # Check if model exists
+  if (!model_name %in% names(model_results)) {
+    cat("Model not found:", model_name, "\n")
+    cat("Available models:", head(names(model_results)), "\n")
+    return(NULL)
+  }
+  
+  model <- model_results[[model_name]]$model
+  
+  # Check if model is valid
+  if (is.null(model)) {
+    cat("Model is NULL for:", model_name, "\n")
+    return(NULL)
+  }
+  
+  # Get residuals and fitted values
+  resid <- residuals(model)
+  fitted_vals <- fitted(model)
+  
+  # Check if we have valid data
+  if (length(resid) == 0 || all(is.na(resid))) {
+    cat("No valid residuals for:", model_name, "\n")
+    return(NULL)
+  }
+  
+  par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+  
+  # 1. Q-Q plot (normality)
+  qqnorm(resid, main = paste(species_name, "-", pheno_var, "\nQ-Q Plot"),
+         pch = 16, col = rgb(0,0,0,0.2))
+  qqline(resid, col = "red", lwd = 2)
+  
+  # 2. Residuals vs Fitted (homoscedasticity)
+  plot(fitted_vals, resid,
+       main = "Residuals vs Fitted",
+       xlab = "Fitted", ylab = "Residuals",
+       pch = 16, col = rgb(0,0,0,0.2))
+  abline(h = 0, col = "red", lwd = 2)
+  lowess_fit <- lowess(fitted_vals, resid)
+  lines(lowess_fit, col = "blue", lwd = 2)
+  
+  # 3. Scale-Location (homoscedasticity)
+  plot(fitted_vals, sqrt(abs(resid)),
+       main = "Scale-Location",
+       xlab = "Fitted", ylab = "√|Residuals|",
+       pch = 16, col = rgb(0,0,0,0.2))
+  lowess_fit2 <- lowess(fitted_vals, sqrt(abs(resid)))
+  lines(lowess_fit2, col = "blue", lwd = 2)
+  
+  # 4. Histogram of residuals
+  hist(resid, breaks = 30, main = "Residual Distribution",
+       xlab = "Residuals", col = "lightblue")
+  curve(dnorm(x, mean = mean(resid), sd = sd(resid)) * length(resid) * diff(range(resid))/30,
+        add = TRUE, col = "red", lwd = 2)
+  
+  par(mfrow = c(1, 1))
+  
+  # Print summary stats
+  cat("\n=== Diagnostics for", species_name, "-", pheno_var, "===\n")
+  cat("Sample size:", length(resid), "\n")
+  cat("Residual range:", round(range(resid), 2), "\n")
+  cat("Residual SD:", round(sd(resid), 2), "\n")
+  cat("Shapiro p-value:", format(results_table %>% 
+                                   filter(species == species_name, phenology == pheno_var) %>% 
+                                   pull(normality_p), scientific = TRUE), "\n\n")
+}
+
+# Get worst 5 models
+worst_5 <- results_table %>%
+  arrange(normality_p) %>%
+  head(5)
+
+print(worst_5 %>% select(species, phenology, normality_p, cv_r2_conditional))
+
+# Check them one by one
+for(i in 1:nrow(worst_5)) {
+  cat("\n\n========== Model", i, "of", nrow(worst_5), "==========\n")
+  check_model_visually(worst_5$species[i], worst_5$phenology[i])
+  
+  if (i < nrow(worst_5)) {
+    response <- readline(prompt = "Press [enter] for next plot, or 'q' to quit: ")
+    if (tolower(response) == 'q') break
+  }
+}
+
+```
+
+# Generalized Additive Mixed Model 
+
+
+
+
+
+
+
+

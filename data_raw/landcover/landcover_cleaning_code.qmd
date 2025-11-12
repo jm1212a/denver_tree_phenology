@@ -20,28 +20,33 @@ read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
          barren_rock = class_7,
          cropland = class_8,
          scrubland = class_9) %>% 
-  mutate(unirrigated_90m = rowSums(across(c(prairie_grassland, barren_rock, scrubland)), 
+  mutate(unirrigated_90m = rowSums(across(c(prairie_grassland, scrubland)), 
                                na.rm = TRUE),
          irrigated_90m = rowSums(across(c(cropland, irrigated_land)), 
                              na.rm = TRUE),
-         impervious_90m = rowSums(across(c(structures, impervious_surfaces)), 
+         impervious_90m = rowSums(across(c(structures, impervious_surfaces, barren_rock)), 
+                              na.rm = TRUE),
+         pervious_90m = rowSums(across(c(prairie_grassland, scrubland, cropland, irrigated_land, tree_canopy_90m)), 
                               na.rm = TRUE)) %>% 
-  select(UID, unirrigated_90m, irrigated_90m, impervious_90m, tree_canopy_90m, water_90m) -> lc_90 
+  select(UID, unirrigated_90m, irrigated_90m, impervious_90m, pervious_90m, 
+         tree_canopy_90m, water_90m) -> lc_90 
   
 
 read_rds("./raw_extracts/lc_fracs_by_circle_FULL_250m.rds") %>% 
-  mutate(unirrigated_250m = rowSums(across(c(`lc_250m_Grassland/Prairie`, 
-                                              `lc_250m_Barren Rock`, 
-                                              `lc_250m_Scrubland/Shrubland`)), 
-                                    na.rm = TRUE),
-         irrigated_250m = rowSums(across(c(lc_250m_Cropland, 
-                                           `lc_250m_Irrigated Lands/Turf`)), 
-                                  na.rm = TRUE),
-         impervious_250m = rowSums(across(c(lc_250m_Structures, 
-                                            `lc_250m_Impervious Surfaces`)), 
-                                   na.rm = TRUE),
-         tree_canopy_250m = `lc_250m_Tree Canopy`,
-         water_250m = lc_250m_Water) %>% 
+  mutate(
+    unirrigated_250m = rowSums(across(c(`lc_250m_Grassland/Prairie`, 
+                                        `lc_250m_Barren Rock`, 
+                                        `lc_250m_Scrubland/Shrubland`)), 
+                               na.rm = TRUE),
+    irrigated_250m = rowSums(across(c(lc_250m_Cropland, 
+                                      `lc_250m_Irrigated Lands/Turf`)), 
+                             na.rm = TRUE),
+    impervious_250m = rowSums(across(c(lc_250m_Structures, 
+                                       `lc_250m_Impervious Surfaces`)), 
+                              na.rm = TRUE),
+    tree_canopy_250m = `lc_250m_Tree Canopy`,
+    water_250m = `lc_250m_Water`  # Add backticks if column name has spaces 
+    ) %>% 
   select(UID, unirrigated_250m, irrigated_250m, impervious_250m, 
          tree_canopy_250m, water_250m) -> lc_250
 
@@ -53,5 +58,14 @@ left_join(lc_90, lc_250, by = "UID") %>%
 ```{r}
 
 read_rds("./cleaned_data/land_cover.rds")
+
+```
+
+```{r}
+
+summary(lc_90$impervious_90m)
+
+lc_90 %>% 
+  slice_max(impervious_90m, n = 1)
 
 ```
