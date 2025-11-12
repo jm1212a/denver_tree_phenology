@@ -800,7 +800,20 @@ for(i in 1:nrow(worst_5)) {
 
 # Generalized Additive Mixed Model 
 
+```{r}
 
+library(mgcv)
+
+
+# STEP 2: Fit the full GAMM model
+bam_model <- bam(
+  Greenup_doy ~ s(late_winter_temp) + s(late_winter_prcp) + s(UID, bs = "re"),
+  data = ,
+  method = "REML"  # Recommended for mixed models
+)
+
+
+```
 
 
 
