@@ -25,7 +25,7 @@ Future precipitation patterns for Denver remain highly uncertain, compounding th
 
 ### 1.2 Objectives
 
-Using near-daily PlanetScope NDVI observations and daily climate data from 2018 to 2024, this study models individual tree phenological metrics (greenup, maturity, peak season, senescence, and dormancy) as functions of climate variables and land cover characteristics in an attempet to control for localized microclimates. We address three key research questions:
+Using near-daily PlanetScope NDVI observations and daily climate data from 2018 to 2024, this study models individual tree phenological metrics against climate variables and land cover in an attempet to control for localized microclimates. We address three key research questions:
 
 1. How do phenological metrics vary among tree species in Denver's semi-arid urban environment?
 2. Which climate variables best predict phenological timing for each species?
@@ -36,4 +36,108 @@ The study period captures years with temperatures and precipitation both above a
 By examining species-level variation in phenological responses, we identify which tree species may be more vulnerable or resilient to future climate conditions. These findings will inform species selection and management strategies for Denver and comparable semi-arid cities.
 
 ## 2. Methods & Materials
+
+### 2.1 Denver Tree Set
+
+Overview of the data set
+
+- sources 
+- number of trees ~300k across dener county 
+- variables included species size of the tree, diameter
+- also GPS location (enableign to remotely sense the idetified trees location)
+
+To narrow the sample down to a useable sample thhe trees were sampled based: 
+
+- diemiter 24"
+- Evenaly distributed throught the county 
+- Amoung the most popular trees in the county 
+- Considerations was given for different types of trees (conifers vs. disisduous) and intergenus (cottonwood) (native/invascive)
+- Finnaly Average crownzise for mature speices was also considered (usda) 
+
+- A shiny application was developed to added in identidifying of appropariate sample.
+
+- Results 23,779 Individual trees from 16 diferent speces (**chart** Species | Genus | n | Native/Invases)
+
+### 2.2 Remotely Sensed NDVI 
+
+- What is NDVI
+- Used to idntivie the greenness of the envioremnet and has bee used sence to studye the health and growing cycle of plants. 
+- 1. NDVI Raw Extracts, 2. Seasion Breakdown)
+- sensors on the planet scope statilighes
+- Near daily NDIV images were stiched together. 
+- normaization of the images was conduced with planet scope
+- NDVI was then extracted based on location of the id. over the 7 years of images.
+
+### 2.3 Extracted Phenological Metrics 
+
+- Metrics extracted using the Pheno-fit package to fit phenological curves to the raw NDVI values 
+- First NDVI values were despiked using 5 sd away from the mean 
+- Then a multi-season curve was fited to the data to derive the multi-year phenological cycle. 
+- For the most part these the caladar year, however for some years id. growning seasons from phenoy fit leak in to the begging of the next caladar year. 
+- To improve the accuracy of the multi-year cycle, the raw NDIV data was de-trended using a lm to account for the season over season increase of some / growing trees in the study.
+- Once idividual growing season were dervied, yearly phenolgocal curcves are fited. 
+- The fit of each curve was esseded using Adjusted r2. If any tree had an r2 of leass than .9 or a grwoing season detected in 6 years of. the 7 years, the tree was removed from the sample and phenolgocial metrics were not caluclated. 
+- Based on the critiria outlined aobove  tuning function was used to find the method for fiting a phenological curve to each tree and derviing the pphenologica season. 3 season and 4 curve
+- Elmore Curve with wWHIT season we used as the produced the most used able annual curves. 
+- bASED ON the curve the metrics were calucted useinf the (derivite, inflection, ...). Inflection point was used used becasue ..... 
+- All metrics were calueded and saved inthe final out put. Along wit the metadata for season and anncual curves for each observation in the data set. 
+- Custrom fuction was created to easly graph the annual curves and extracted metrics based on the metadata. Github
+- in total after processing, the 3450 trees tremained out of the initial sample. (chart) (plot of curve and metrics, )
+
+### 2.5 Climate Data 
+
+- Source NOAA daily from Denver Central Park (Old denver airport)
+- chosen becasue of it's centeral location 
+- TMAX, TMIN, PRCP AND SNOW, 
+- daily tmean was calculated (tmax + tmin/2)
+- These based observation were then used to caluctate seasonal avarages, totals and cumpulative totals
+
+- **chart** braking down the metrics the months they corsponde too.
+- consitance was strived for
+
+### 2.4 Landcover Data 
+
+- Denver LCD souce 
+- 1 meter reselutions
+- it breaks the region down in to 9 different land categories (chart)
+- A 90m and 250m buffered was created around the location of each tree in the sample.
+- Each individual pixel of the raster was counted to derive for a given category. This data was then turned into %
+- For our analysis we used methodogy similar to (crawford ), consolidated the 9 categories into 5 different catergories. 
+
+### 2.5 Methedologies 
+
+## 2.6 Statistical Analysis
+
+We used linear mixed-effects models (LMMs) to quantify the relationship between climate variables and phenological timing for each tree species. LMMs allow us to account for the hierarchical structure of our data, where multiple phenological observations are nested within individual trees, while estimating the fixed effects of climate predictors.
+
+### 2.6.1 Model Structure
+
+For each species and phenological metric combination, we fit separate models with the following general form:
+
+Y_ij = β_0 + β_1X_1ij + β_2X_2ij + ... + β_kX_kij + u_i + ε_ij
+
+where Y_ij is the phenological metric (in day of year) for tree i in year j, X_1...X_k are climate and land cover predictor variables, β_0...β_k are fixed effect coefficients, u_i is the random intercept for tree i (assumed u_i ~ N(0, σ²_u)), and ε_ij is the residual error (assumed ε_ij ~ N(0, σ²)).
+
+The random intercept structure accounts for tree-level variation in baseline phenological timing due to unmeasured factors such as microsite conditions, tree age, or genetic variation. This approach assumes that climate effects are consistent across trees within a species (i.e., fixed slopes), while allowing each tree to have its own baseline timing (random intercepts).
+
+### 2.6.2 Variable Selection
+
+We selected climate predictors through a combination of stepwise model selection and biological relevance to each phenological stage. Initial candidate predictors were chosen based on prior phenological research and mechanistic understanding of how temperature and precipitation influence leaf development and senescence. For each phenological metric, we identified seasonally relevant climate variables (e.g., late winter conditions for greenup, fall conditions for dormancy).
+
+We then applied a stepwise selection procedure to identify the most parsimonious set of predictors for each species-phenology combination. Starting with all biologically plausible candidate predictors, we used backward elimination based on AIC, retaining predictors that improved model fit and had biologically interpretable effects. This approach balanced statistical performance with ecological interpretability, ensuring that retained predictors had both empirical support and mechanistic justification.
+
+land cover variables (distance to irrigated areas within 90m and improviouse areas within 90m) to control for localized moisture availability that might influence phenological timing independently of broader climate patterns.
+
+### 2.6.3 Model Selection and Validation
+
+Models were fit using restricted maximum likelihood (REML) estimation in the lme4 package in R (Bates et al., 2015). We assessed model fit using Akaike Information Criterion (AIC) and calculated both marginal R² (variance explained by fixed effects only) and conditional R² (variance explained by both fixed and random effects) using the MuMIn package (Nakagawa & Schielzeth, 2013). 
+
+We evaluated multicollinearity among climate predictors using variance inflation factors (VIF), retaining only models where all VIF values were below 5. For models with highly correlated predictors (r > 0.7), we selected the predictor with stronger theoretical justification or better model fit.
+
+To assess predictive performance, we conducted k-fold cross-validation (k=5) where trees were randomly assigned to folds, ensuring that all observations from the same tree remained in the same fold. We calculated cross-validated R² and root mean square error (RMSE) to evaluate out-of-sample prediction accuracy.
+
+All analyses were conducted in R version 4.x (R Core Team, 2024) using the lme4, lmerTest, MuMIn, and tidyverse packages.
+
+
+### 2.6.3 Model Diagnostics and Challenges
 
