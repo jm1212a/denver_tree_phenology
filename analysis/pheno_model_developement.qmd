@@ -15,6 +15,7 @@ library(lmerTest)
 library(MuMIn)
 library(performance)
 library(caret)
+library(mgcv)
 
 ```
 
@@ -341,7 +342,7 @@ global_gs_model <- lmer(
 # all_pos_models <- dredge(global_pos_model, m.max = 4)
 # all_senescence_models <- dredge(global_senescence_model, m.max = 4)
 # all_dormancy_models <- dredge(global_dormancy_model, m.max = 4)
-all_gs_models <- dredge(global_gs_model, m.max = 4)
+#all_gs_models <- dredge(global_gs_model, m.max = 4)
 
 ```
 
@@ -362,19 +363,18 @@ all_gs_models <- dredge(global_gs_model, m.max = 4)
 # best_pos <- get.models(all_pos_models, subset = 1)[[1]]
 # best_senescence <- get.models(all_senescence_models, subset = 1)[[1]]
 # best_dormancy <- get.models(all_dormancy_models, subset = 1)[[1]]
-best_season <- get.models(all_gs_models, subset = 1)[[1]]
+#best_season <- get.models(all_gs_models, subset = 1)[[1]]
 # 
 # summary(best_greening)
 # summary(best_maturity)
 # summary(best_pos)
 # summary(best_senescence)
 # summary(best_dormancy)
-summary(best_season)
-
+#summary(best_season)
 
 ```
 
-# Mixed Effect Model top level regressions for each species, unique intercpes for each tree. Using k-fold cross validation to check model preforamance. 
+# Mixed Effect Model top level regressions for each species, unique intercpes for each tree. Using k-fold cross validation to check model preforamance.
 
 ```{r}
 
@@ -704,7 +704,6 @@ results_table %>%
 
 ```
 
-
 ```{r}
 
 # Safer version with error checking
@@ -798,25 +797,880 @@ for(i in 1:nrow(worst_5)) {
 
 ```
 
-# Generalized Additive Mixed Model 
+# Generalized Additive Mixed Model
 
 ```{r}
 
-library(mgcv)
+# Function to fit GAMM with CV for one species
+fit_gamm_with_cv <- function(species_name, pheno_var, climate_predictors, data) {
+  
+  # Prepare data
+  gamm_data <- data %>%
+    filter(species_common == species_name, year < 2025) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors))) 
+  
+  # Check sample size
+  if (nrow(gamm_data) < 20) {
+    return(NULL)
+  }
+  
+  # Build formula with smooth terms
+smooth_terms <- paste0("s(", climate_predictors, ", k = 6)", collapse = " + ")
+formula_str <- paste(pheno_var, "~", smooth_terms, "+ s(UID, bs = 're')")
+  
+  cat("\nFitting:", species_name, "-", pheno_var)
+  cat("\nFormula:", formula_str, "\n")
+  
+  # Fit full model
+  full_model <- bam(
+    as.formula(formula_str),
+    data = gamm_data,
+    method = "REML"
+  )
+  
+  # Cross-validation
+  set.seed(123)
+  folds <- createFolds(1:nrow(gamm_data), k = 10, returnTrain = FALSE)
+  
+  predictions <- numeric(nrow(gamm_data))
+  
+  for(fold_idx in 1:length(folds)) {
+    test_idx <- folds[[fold_idx]]
+    train_data <- gamm_data[-test_idx, ]
+    test_data <- gamm_data[test_idx, ]
+    
+    # Fit model on training fold
+    cv_model <- tryCatch({
+      bam(as.formula(formula_str),
+          data = train_data,
+          method = "REML")
+    }, error = function(e) {
+      return(NULL)
+    })
+    
+    if (!is.null(cv_model)) {
+      predictions[test_idx] <- predict(cv_model, newdata = test_data)
+    } else {
+      predictions[test_idx] <- NA
+    }
+  }
+  
+  # Calculate CV metrics
+  actual <- gamm_data[[pheno_var]]
+  valid_idx <- !is.na(predictions) & !is.na(actual)
+  
+  if (sum(valid_idx) > 0) {
+    cv_r2 <- cor(actual[valid_idx], predictions[valid_idx])^2
+    cv_rmse <- sqrt(mean((actual[valid_idx] - predictions[valid_idx])^2))
+  } else {
+    cv_r2 <- cv_rmse <- NA
+  }
+  
+  cat("CV R²:", round(cv_r2, 3), "| RMSE:", round(cv_rmse, 2), "\n")
+  
+  return(list(
+    species = species_name,
+    phenology = pheno_var,
+    n_obs = nrow(gamm_data),
+    n_trees = n_distinct(gamm_data$UID),
+    model = full_model,
+    cv_r2 = cv_r2,
+    cv_rmse = cv_rmse,
+    predictions = predictions,
+    actual = actual
+  ))
+}
 
-
-# STEP 2: Fit the full GAMM model
-bam_model <- bam(
-  Greenup_doy ~ s(late_winter_temp) + s(late_winter_prcp) + s(UID, bs = "re"),
-  data = ,
-  method = "REML"  # Recommended for mixed models
+# Define climate variables (same as before)
+climate_vars <- list(
+  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "impervious_90m"),
+  Maturity_doy = c("late_spring_mean_tmax", "spring_prcp",  "impervious_90m"),
+  Senescence_doy = c("late_summer_prcp", "early_fall_mean_tmax", "impervious_90m"),
+  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "impervious_90m"),
+  DER.pos_doy = c("late_spring_cumulative_prcp", "spring_temp", "impervious_90m"),
+  growing_season = c("impervious_90m", "late_summer_prcp", "summer_temp")
 )
 
+# Fit GAMM models
+gamm_results <- list()
+
+for (i in pheno_vars) {
+  for (j in species_list) {
+    
+    predictors <- climate_vars[[i]]
+    
+    result <- tryCatch({
+      fit_gamm_with_cv(j, i, predictors, tree_ldc_metrics_climate)
+    }, error = function(e) {
+      message(paste("Error:", e$message))
+      return(NULL)
+    })
+    
+    if (!is.null(result)) {
+      gamm_results[[paste(j, i, sep = "_")]] <- result
+    }
+  }
+}
+
+# Extract results
+gamm_table <- map_df(gamm_results, function(x) {
+  data.frame(
+    species = x$species,
+    phenology = x$phenology,
+    n_obs = x$n_obs,
+    n_trees = x$n_trees,
+    gamm_cv_r2 = x$cv_r2,
+    gamm_cv_rmse = x$cv_rmse,
+    row.names = NULL
+  )
+})
+
+print(gamm_table)
+
+```
+## Function to plot smooth effects pheno-metric
+
+```{r}
+
+plot_gamm_smooths <- function(model_name, gamm_results) {
+  
+  if (!model_name %in% names(gamm_results)) {
+    cat("Model not found:", model_name, "\n")
+    return(NULL)
+  }
+  
+  model <- gamm_results[[model_name]]$model
+  species <- gamm_results[[model_name]]$species
+  pheno <- gamm_results[[model_name]]$phenology
+  
+  # Get smooth terms, excluding random effect
+  smooth_labels <- sapply(model$smooth, function(x) x$label)
+  predictor_idx <- which(!grepl("UID", smooth_labels))
+  n_predictors <- length(predictor_idx)
+  
+  # Set layout
+  if (n_predictors == 2) {
+    par(mfrow = c(1, 2))
+  } else if (n_predictors <= 4) {
+    par(mfrow = c(2, 2))
+  } else {
+    par(mfrow = c(2, 3))
+  }
+  
+  # Plot smooths
+  for (i in 1:n_predictors) {
+    idx <- predictor_idx[i]
+    predictor_name <- model$smooth[[idx]]$term
+    
+    plot(model, 
+         select = idx, 
+         shade = TRUE, 
+         main = if(i == 1) paste(species, "-", pheno) else "",
+         xlab = predictor_name, 
+         ylab = "Effect on DOY",
+         rug = TRUE)
+  }
+  
+  par(mfrow = c(1, 1))
+  
+  # Print summary
+  print(summary(model))
+}
+
+# Usage
+plot_gamm_smooths("Silver Maple_Dormancy_doy", gamm_results)
 
 ```
 
+## COMPARE GAMM vs MIXED MODEL
 
+```{r}
 
+# Merge results
+comparison <- results_table %>%
+  select(species, phenology, 
+         mixed_cv_r2 = cv_r2_conditional, 
+         mixed_cv_rmse = cv_rmse_conditional) %>%
+  left_join(gamm_table, by = c("species", "phenology")) %>%
+  mutate(
+    gamm_improvement = gamm_cv_r2 - mixed_cv_r2,
+    rmse_improvement = mixed_cv_rmse - gamm_cv_rmse,  # Positive = GAMM better
+    gamm_wins = gamm_cv_r2 > mixed_cv_r2
+  )
 
+# Summary statistics
+cat("\n=== GAMM vs Mixed Model Comparison ===\n")
+cat("Total models:", nrow(comparison), "\n")
+cat("GAMM wins:", sum(comparison$gamm_wins, na.rm = TRUE), 
+    "out of", sum(!is.na(comparison$gamm_wins)), "\n")
+cat("\nMean CV R²:\n")
+cat("  Mixed Model:", round(mean(comparison$mixed_cv_r2, na.rm = TRUE), 3), "\n")
+cat("  GAMM:       ", round(mean(comparison$gamm_cv_r2, na.rm = TRUE), 3), "\n")
+cat("\nMean R² improvement:", round(mean(comparison$gamm_improvement, na.rm = TRUE), 3), "\n")
+cat("Mean RMSE improvement:", round(mean(comparison$rmse_improvement, na.rm = TRUE), 2), "days\n")
 
+# Save comparison
+write.csv(comparison, "gamm_vs_mixed_comparison.csv", row.names = FALSE)
+
+# ============================================================================
+# VISUALIZATIONS
+# ============================================================================
+
+library(ggplot2)
+library(tidyr)
+
+# 1. Boxplot comparison
+comparison %>%
+  select(species, phenology, mixed_cv_r2, gamm_cv_r2) %>%
+  pivot_longer(cols = ends_with("_r2"),
+               names_to = "method",
+               values_to = "cv_r2") %>%
+  mutate(method = ifelse(method == "mixed_cv_r2", "Mixed Model", "GAMM")) %>%
+  ggplot(aes(x = method, y = cv_r2, fill = method)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.3, size = 1) +
+  scale_fill_manual(values = c("Mixed Model" = "steelblue", "GAMM" = "forestgreen")) +
+  labs(title = "Cross-Validated R²: Mixed Model vs GAMM",
+       subtitle = paste(nrow(comparison), "models across 12 species and 6 phenology stages"),
+       x = "Method",
+       y = "CV R²") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggsave("gamm_vs_mixed_boxplot.png", width = 8, height = 6, dpi = 300)
+
+# 2. Scatter plot
+comparison %>%
+  ggplot(aes(x = mixed_cv_r2, y = gamm_cv_r2)) +
+  geom_point(aes(color = phenology), size = 3, alpha = 0.7) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  labs(title = "GAMM vs Mixed Model Performance",
+       subtitle = "Points above line = GAMM outperforms",
+       x = "Mixed Model CV R²",
+       y = "GAMM CV R²",
+       color = "Phenology") +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_minimal()
+
+ggsave("gamm_vs_mixed_scatter.png", width = 10, height = 8, dpi = 300)
+
+# 3. Improvement histogram
+comparison %>%
+  ggplot(aes(x = gamm_improvement)) +
+  geom_histogram(fill = "forestgreen", alpha = 0.7, bins = 20) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "GAMM Improvement over Mixed Models",
+       subtitle = "Positive values = GAMM better | Red line = no difference",
+       x = "ΔR² (GAMM - Mixed Model)",
+       y = "Count") +
+  theme_minimal()
+
+ggsave("gamm_improvement_histogram.png", width = 8, height = 6, dpi = 300)
+
+# 4. By phenology stage
+comparison %>%
+  group_by(phenology) %>%
+  summarise(
+    mean_mixed = mean(mixed_cv_r2, na.rm = TRUE),
+    mean_gamm = mean(gamm_cv_r2, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(cols = starts_with("mean_"),
+               names_to = "method",
+               values_to = "mean_r2") %>%
+  mutate(method = ifelse(method == "mean_mixed", "Mixed Model", "GAMM")) %>%
+  ggplot(aes(x = phenology, y = mean_r2, fill = method)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("Mixed Model" = "steelblue", "GAMM" = "forestgreen")) +
+  labs(title = "Mean CV R² by Phenology Stage",
+       x = "Phenology Stage",
+       y = "Mean CV R²",
+       fill = "Method") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("mean_r2_by_phenology.png", width = 10, height = 6, dpi = 300)
+
+# 5. Top improvements
+cat("\n=== Top 10 Models Where GAMM Improves Most ===\n")
+comparison %>%
+  arrange(desc(gamm_improvement)) %>%
+  head(10) %>%
+  select(species, phenology, mixed_cv_r2, gamm_cv_r2, gamm_improvement) %>%
+  print()
+
+# 6. Models where Mixed Model wins
+cat("\n=== Models Where Mixed Model Wins ===\n")
+comparison %>%
+  filter(!gamm_wins) %>%
+  arrange(gamm_improvement) %>%
+  select(species, phenology, mixed_cv_r2, gamm_cv_r2, gamm_improvement) %>%
+  print()
+
+# ============================================================================
+# VISUALIZE SMOOTH EFFECTS FOR KEY MODELS
+# ============================================================================
+
+# Function to plot smooth effects
+plot_gamm_smooths <- function(model_name) {
+  
+  if (!model_name %in% names(gamm_results)) {
+    cat("Model not found:", model_name, "\n")
+    return(NULL)
+  }
+  
+  model <- gamm_results[[model_name]]$model
+  species <- gamm_results[[model_name]]$species
+  pheno <- gamm_results[[model_name]]$phenology
+  
+  # Create filename
+  filename <- paste0(gsub(" ", "_", tolower(species)), "_", 
+                    tolower(pheno), "_smooths.png")
+  
+  # Save plot
+  png(filename, width = 10, height = 5, units = "in", res = 300)
+  par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+  
+  # Plot each smooth
+  plot(model, select = 1, shade = TRUE, shade.col = "lightgreen",
+       main = paste(species, "-", pheno),
+       xlab = names(model$smooth)[1], 
+       ylab = "Effect on DOY (days)",
+       cex.main = 1)
+  
+  plot(model, select = 2, shade = TRUE, shade.col = "lightblue",
+       main = "",
+       xlab = names(model$smooth)[2],
+       ylab = "Effect on DOY (days)")
+  
+  par(mfrow = c(1, 1))
+  dev.off()
+  
+  cat("Saved:", filename, "\n")
+}
+
+# Plot for Tree of Heaven
+cat("\n=== Creating smooth plots for key models ===\n")
+if ("Tree of heaven_Greenup_doy" %in% names(gamm_results)) {
+  plot_gamm_smooths("Tree of heaven_Greenup_doy")
+}
+
+# Plot for best improvement models
+top_improvements <- comparison %>%
+  arrange(desc(gamm_improvement)) %>%
+  head(3)
+
+for(i in 1:nrow(top_improvements)) {
+  model_name <- paste(top_improvements$species[i], 
+                     top_improvements$phenology[i], sep = "_")
+  if (model_name %in% names(gamm_results)) {
+    plot_gamm_smooths(model_name)
+  }
+}
+
+cat("\n=== Analysis Complete! ===\n")
+cat("Files created:\n")
+cat("  - gamm_cv_results.csv\n")
+cat("  - gamm_vs_mixed_comparison.csv\n")
+cat("  - gamm_vs_mixed_boxplot.png\n")
+cat("  - gamm_vs_mixed_scatter.png\n")
+cat("  - gamm_improvement_histogram.png\n")
+cat("  - mean_r2_by_phenology.png\n")
+cat("  - [species]_[phenology]_smooths.png (multiple files)\n")
+
+```
+
+```{r}
+
+# Function to tune k parameter with CV
+tune_gamm_k <- function(species_name, pheno_var, climate_predictors, data, 
+                        k_values = c(3, 4, 5, 6), cv_folds = 10) {
+  
+  # Prepare data
+  gamm_data <- data %>%
+    filter(species_common == species_name, year < 2024) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors)))
+  
+  # Check sample size
+  if (nrow(gamm_data) < 20) {
+    return(NULL)
+  }
+  
+  cat("\nTuning k for:", species_name, "-", pheno_var, "\n")
+  
+  # Set up CV folds once
+  set.seed(123)
+  folds <- createFolds(1:nrow(gamm_data), k = cv_folds, returnTrain = FALSE)
+  
+  # Storage for results
+  k_results <- data.frame(
+    k = integer(),
+    cv_r2 = numeric(),
+    cv_rmse = numeric(),
+    aic = numeric(),
+    edf = numeric()
+  )
+  
+  # Try each k value
+  for (k_val in k_values) {
+    
+    # Build formula with current k
+    smooth_terms <- paste0("s(", climate_predictors, ", k = ", k_val, ")", 
+                          collapse = " + ")
+    formula_str <- paste(pheno_var, "~", smooth_terms, "+ s(UID, bs = 're')")
+    
+    # Try fitting full model first to check feasibility
+    full_model <- tryCatch({
+      bam(as.formula(formula_str), data = gamm_data, method = "REML")
+    }, error = function(e) {
+      NULL
+    })
+    
+    if (is.null(full_model)) {
+      cat("  k =", k_val, ": Failed to fit\n")
+      next
+    }
+    
+    # Cross-validation
+    predictions <- numeric(nrow(gamm_data))
+    
+    for(fold_idx in 1:length(folds)) {
+      test_idx <- folds[[fold_idx]]
+      train_data <- gamm_data[-test_idx, ]
+      test_data <- gamm_data[test_idx, ]
+      
+      cv_model <- tryCatch({
+        bam(as.formula(formula_str), data = train_data, method = "REML")
+      }, error = function(e) NULL)
+      
+      if (!is.null(cv_model)) {
+        predictions[test_idx] <- predict(cv_model, newdata = test_data)
+      } else {
+        predictions[test_idx] <- NA
+      }
+    }
+    
+    # Calculate CV metrics
+    actual <- gamm_data[[pheno_var]]
+    valid_idx <- !is.na(predictions) & !is.na(actual)
+    
+    if (sum(valid_idx) > 0) {
+      cv_r2 <- cor(actual[valid_idx], predictions[valid_idx])^2
+      cv_rmse <- sqrt(mean((actual[valid_idx] - predictions[valid_idx])^2))
+    } else {
+      cv_r2 <- cv_rmse <- NA
+    }
+    
+    # Get model info
+    aic_val <- AIC(full_model)
+    total_edf <- sum(full_model$edf)
+    
+    k_results <- rbind(k_results, data.frame(
+      k = k_val,
+      cv_r2 = cv_r2,
+      cv_rmse = cv_rmse,
+      aic = aic_val,
+      edf = total_edf
+    ))
+    
+    cat("  k =", k_val, "| CV R² =", round(cv_r2, 3), 
+        "| RMSE =", round(cv_rmse, 2), 
+        "| AIC =", round(aic_val, 1), "\n")
+  }
+  
+  # Select best k (prioritize CV R², but check for overfitting)
+  if (nrow(k_results) > 0) {
+    # Remove rows with NA
+    k_results <- k_results[complete.cases(k_results), ]
+    
+    # Select best by CV R²
+    best_k <- k_results$k[which.max(k_results$cv_r2)]
+    
+    cat("  → Best k:", best_k, "\n")
+    
+    return(list(
+      best_k = best_k,
+      k_results = k_results
+    ))
+  } else {
+    return(NULL)
+  }
+}
+
+# Modified fitting function using tuned k
+fit_gamm_with_tuned_k <- function(species_name, pheno_var, climate_predictors, 
+                                   data, k_values = c(3, 4, 5, 6)) {
+  
+  # First tune k
+  tune_result <- tune_gamm_k(species_name, pheno_var, climate_predictors, 
+                             data, k_values)
+  
+  if (is.null(tune_result)) {
+    return(NULL)
+  }
+  
+  best_k <- tune_result$best_k
+  
+  # Prepare data
+  gamm_data <- data %>%
+    filter(species_common == species_name, year < 2024) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors)))
+  
+  # Build formula with best k #"tp", "cr", "cs"
+  smooth_terms <- paste0("s(", climate_predictors,", bs = tp", ", k = ", best_k, ")", 
+                        collapse = " + ")
+  formula_str <- paste(pheno_var, "~", smooth_terms, "+ s(UID, bs = 're')")
+  
+  # Fit final model
+  full_model <- bam(as.formula(formula_str), data = gamm_data, method = "REML")
+  
+  # Get best CV metrics from tuning
+  best_metrics <- tune_result$k_results[tune_result$k_results$k == best_k, ]
+  
+  return(list(
+    species = species_name,
+    phenology = pheno_var,
+    n_obs = nrow(gamm_data),
+    n_trees = n_distinct(gamm_data$UID),
+    model = full_model,
+    best_k = best_k,
+    cv_r2 = best_metrics$cv_r2,
+    cv_rmse = best_metrics$cv_rmse,
+    k_tuning_results = tune_result$k_results
+  ))
+}
+
+```
+
+```{r}
+tune_gamm_comprehensive <- function(species_name, pheno_var, climate_predictors, data) {
+  
+  gamm_data <- data %>%
+    filter(species_common == species_name, year < 2025) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors)))
+  
+  if (nrow(gamm_data) < 20) return(NULL)
+  
+  cat("\n=== Tuning:", species_name, "-", pheno_var, "===\n")
+  
+  # Parameter grid
+  param_grid <- expand.grid(
+    k = c(3, 4, 5, 6),
+    bs = c("tp", "cr", "cs"),
+    interaction = c(FALSE, TRUE),
+    stringsAsFactors = FALSE
+  )
+  
+  set.seed(123)
+  folds <- createFolds(1:nrow(gamm_data), k = 5, returnTrain = FALSE)
+  
+  results <- data.frame()
+  
+  for (i in 1:nrow(param_grid)) {
+    
+    # Build formula
+    if (param_grid$interaction[i]) {
+      formula_str <- paste0(pheno_var, " ~ te(", 
+                           paste(climate_predictors, collapse = ", "),
+                           ", k = ", param_grid$k[i], ", bs = '", param_grid$bs[i], 
+                           "') + s(UID, bs = 're')")
+    } else {
+      smooth_terms <- paste0("s(", climate_predictors, 
+                            ", k = ", param_grid$k[i], 
+                            ", bs = '", param_grid$bs[i], "')", 
+                            collapse = " + ")
+      formula_str <- paste(pheno_var, "~", smooth_terms, "+ s(UID, bs = 're')")
+    }
+    
+    # CV
+    predictions <- numeric(nrow(gamm_data))
+    
+    for(fold_idx in 1:length(folds)) {
+      test_idx <- folds[[fold_idx]]
+      train_data <- gamm_data[-test_idx, ]
+      test_data <- gamm_data[test_idx, ]
+      
+      cv_model <- tryCatch({
+        bam(as.formula(formula_str), data = train_data, method = "REML")
+      }, error = function(e) NULL)
+      
+      if (!is.null(cv_model)) {
+        predictions[test_idx] <- predict(cv_model, newdata = test_data)
+      } else {
+        predictions[test_idx] <- NA
+      }
+    }
+    
+    actual <- gamm_data[[pheno_var]]
+    valid_idx <- !is.na(predictions) & !is.na(actual)
+    
+    if (sum(valid_idx) > 10) {
+      cv_r2 <- cor(actual[valid_idx], predictions[valid_idx])^2
+      cv_rmse <- sqrt(mean((actual[valid_idx] - predictions[valid_idx])^2))
+      
+      # Fit full model for AIC
+      full_model <- tryCatch({
+        bam(as.formula(formula_str), data = gamm_data, method = "REML")
+      }, error = function(e) NULL)
+      
+      if (!is.null(full_model)) {
+        results <- rbind(results, data.frame(
+          k = param_grid$k[i],
+          bs = param_grid$bs[i],
+          interaction = param_grid$interaction[i],
+          cv_r2 = cv_r2,
+          cv_rmse = cv_rmse,
+          aic = AIC(full_model),
+          edf = sum(full_model$edf)
+        ))
+      }
+    }
+  }
+  
+  if (nrow(results) > 0) {
+    results <- results[order(-results$cv_r2), ]
+    cat("\nTop 5 configurations:\n")
+    print(head(results, 5))
+    
+    return(list(
+      best_params = results[1, ],
+      all_results = results
+    ))
+  } else {
+    return(NULL)
+  }
+}
+
+```
+
+```{r}
+
+tuning_result <- tune_gamm_comprehensive(
+  "Green Ash", 
+  "Greenup_doy", 
+  c("late_winter_temp", "late_winter_prcp"),
+  tree_ldc_metrics_climate
+)
+
+```
+## Checking Assumptions 
+
+```{r}
+
+# Comprehensive GAMM diagnostics
+check_gamm_assumptions <- function(model, model_data, model_name = "") {
+  
+  cat("\n======================================\n")
+  cat("GAMM Diagnostics:", model_name, "\n")
+  cat("======================================\n\n")
+  
+  # Basic gam.check (gives residual plots and k' test)
+  cat("1. Basic GAM diagnostics:\n")
+  gam.check(model)
+  
+  # Extract residuals and fitted values
+  resid <- residuals(model, type = "deviance")
+  fitted <- fitted(model)
+  
+  # Set up plotting grid
+  par(mfrow = c(2, 3))
+  
+  # 1. Residuals vs Fitted (homoscedasticity)
+  plot(fitted, resid,
+       xlab = "Fitted values", ylab = "Residuals",
+       main = "Residuals vs Fitted")
+  abline(h = 0, col = "red", lty = 2)
+  lines(lowess(fitted, resid), col = "blue", lwd = 2)
+  
+  # 2. Q-Q plot (normality of residuals)
+  qqnorm(resid, main = "Normal Q-Q Plot")
+  qqline(resid, col = "red")
+  
+  # 3. Scale-Location (homoscedasticity)
+  plot(fitted, sqrt(abs(resid)),
+       xlab = "Fitted values", ylab = "√|Residuals|",
+       main = "Scale-Location")
+  lines(lowess(fitted, sqrt(abs(resid))), col = "blue", lwd = 2)
+  
+  # 4. Histogram of residuals (normality)
+  hist(resid, breaks = 30, freq = FALSE,
+       main = "Residual Distribution",
+       xlab = "Residuals")
+  curve(dnorm(x, mean = mean(resid), sd = sd(resid)), 
+        add = TRUE, col = "red", lwd = 2)
+  
+  # 5. Residuals vs Index (independence)
+  plot(1:length(resid), resid,
+       xlab = "Observation Order", ylab = "Residuals",
+       main = "Residuals vs Order")
+  abline(h = 0, col = "red", lty = 2)
+  
+  # 6. ACF of residuals (temporal correlation)
+  acf(resid, main = "ACF of Residuals")
+  
+  par(mfrow = c(1, 1))
+  
+  # Statistical tests
+  cat("\n2. Statistical Tests:\n")
+  
+  # Shapiro-Wilk test for normality (if n < 5000)
+  if (length(resid) < 5000) {
+    shapiro_test <- shapiro.test(resid)
+    cat("Shapiro-Wilk normality test: p =", round(shapiro_test$p.value, 4))
+    if (shapiro_test$p.value < 0.05) {
+      cat(" (FAIL - residuals not normal)\n")
+    } else {
+      cat(" (PASS)\n")
+    }
+  }
+  
+  # Breusch-Pagan test for homoscedasticity
+  # Simple version: correlation between squared residuals and fitted values
+  bp_test <- cor.test(fitted, resid^2)
+  cat("Homoscedasticity test: r =", round(bp_test$estimate, 3), 
+      ", p =", round(bp_test$p.value, 4))
+  if (bp_test$p.value < 0.05) {
+    cat(" (WARNING - possible heteroscedasticity)\n")
+  } else {
+    cat(" (PASS)\n")
+  }
+  
+  # Check concurvity (multicollinearity for smooths)
+  cat("\n3. Concurvity Check (should be < 0.8):\n")
+  conc <- concurvity(model, full = FALSE)$estimate
+  smooth_labels <- sapply(model$smooth, function(x) x$label)
+  predictor_idx <- which(!grepl("UID", smooth_labels))
+  
+  if (length(predictor_idx) > 1) {
+    conc_subset <- conc[predictor_idx, predictor_idx]
+    predictor_names <- smooth_labels[predictor_idx]
+    rownames(conc_subset) <- colnames(conc_subset) <- predictor_names
+    print(round(conc_subset, 3))
+    
+    # Check for high concurvity
+    high_conc <- which(conc_subset > 0.8 & conc_subset < 1, arr.ind = TRUE)
+    if (nrow(high_conc) > 0) {
+      cat("\nWARNING: High concurvity (>0.8) detected!\n")
+    }
+  }
+  
+  # Check k (basis dimension)
+  cat("\n4. Basis Dimension Check:\n")
+  cat("If k-index < 1.0 or p-value < 0.05, increase k\n")
+  k_check <- k.check(model)
+  print(k_check)
+  
+  # Random effects diagnostics
+  cat("\n5. Random Effects:\n")
+  random_effects <- coef(model)[grepl("UID", names(coef(model)))]
+  cat("Number of trees:", length(random_effects), "\n")
+  cat("Random effect SD:", round(sd(random_effects), 2), "\n")
+  cat("Random effect range:", round(range(random_effects), 2), "\n")
+  
+  # Plot random effects
+  par(mfrow = c(1, 2))
+  hist(random_effects, breaks = 20, 
+       main = "Random Effects Distribution",
+       xlab = "Tree-level intercept adjustment")
+  qqnorm(random_effects, main = "Random Effects Q-Q Plot")
+  qqline(random_effects, col = "red")
+  par(mfrow = c(1, 1))
+  
+  # Overall summary
+  cat("\n======================================\n")
+  cat("Summary:\n")
+  cat("Model converged:", model$converged, "\n")
+  cat("Deviance explained:", round(summary(model)$dev.expl * 100, 1), "%\n")
+  cat("R-squared:", round(summary(model)$r.sq, 3), "\n")
+  cat("======================================\n\n")
+  
+  # Return diagnostic metrics
+  invisible(list(
+    shapiro_p = if(length(resid) < 5000) shapiro_test$p.value else NA,
+    homoscedasticity_p = bp_test$p.value,
+    max_concurvity = if(length(predictor_idx) > 1) max(conc_subset[conc_subset < 1]) else NA,
+    converged = model$converged
+  ))
+}
+
+# Usage
+check_gamm_assumptions(
+  gamm_results[["Tree of heaven_DER.pos_doy"]]$model,
+  tree_ldc_metrics_climate,
+  "Tree of heaven - DER.pos_doy"
+)
+
+```
+
+```{r}
+
+# Function to get concurvity metrics for all models
+check_all_concurvity <- function(gamm_results) {
+  
+  concurvity_table <- data.frame()
+  
+  for (model_name in names(gamm_results)) {
+    
+    model <- gamm_results[[model_name]]$model
+    species <- gamm_results[[model_name]]$species
+    pheno <- gamm_results[[model_name]]$phenology
+    
+    # Get predictor smooths only
+    smooth_labels <- sapply(model$smooth, function(x) x$label)
+    predictor_idx <- which(!grepl("UID", smooth_labels))
+    
+    if (length(predictor_idx) > 1) {
+      conc <- concurvity(model, full = FALSE)$estimate
+      conc_mat <- conc[predictor_idx, predictor_idx]
+      
+      # Get max concurvity (excluding diagonal)
+      diag(conc_mat) <- 0
+      max_concurvity <- max(conc_mat)
+      
+      # Find which pair has max concurvity
+      max_idx <- which(conc_mat == max_concurvity, arr.ind = TRUE)[1,]
+      predictor_names <- smooth_labels[predictor_idx]
+      pair <- paste(predictor_names[max_idx[1]], "<->", predictor_names[max_idx[2]])
+      
+      # Flag if problematic
+      flag <- ifelse(max_concurvity > 0.8, "HIGH", 
+                    ifelse(max_concurvity > 0.6, "MODERATE", "OK"))
+      
+    } else {
+      max_concurvity <- NA
+      pair <- "Single predictor"
+      flag <- "N/A"
+    }
+    
+    concurvity_table <- rbind(concurvity_table, data.frame(
+      species = species,
+      phenology = pheno,
+      n_predictors = length(predictor_idx),
+      max_concurvity = round(max_concurvity, 3),
+      worst_pair = pair,
+      flag = flag,
+      r2 = round(summary(model)$r.sq, 3),
+      deviance_expl = round(summary(model)$dev.expl, 3)
+    ))
+  }
+  
+  return(concurvity_table)
+}
+
+# Run for all models
+concurvity_results <- check_all_concurvity(gamm_results)
+
+# View results
+print(concurvity_results)
+
+# See only problematic models
+concurvity_results %>%
+  filter(flag == "HIGH") %>%
+  arrange(desc(max_concurvity))
+
+# Save to CSV
+write.csv(concurvity_results, "gamm_concurvity_check.csv", row.names = FALSE)
+
+```
 
