@@ -52,7 +52,7 @@ An interactive Shiny application was developed to facilitate sample selection an
 \[Table 1: Summary of selected tree species with sample sizes and ecological characteristics\]
 
 | Scientific Name | Common Name | Genus | n | Status | Leaf Type |
-|-------------------|------------------|----------|-------|----------|---------|
+|-------------------|-------------------|---------|-------|----------|---------|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
 | *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
