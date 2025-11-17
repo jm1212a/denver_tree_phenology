@@ -1048,8 +1048,6 @@ comparison %>%
   theme_minimal() +
   theme(legend.position = "none")
 
-ggsave("gamm_vs_mixed_boxplot.png", width = 8, height = 6, dpi = 300)
-
 # 2. Scatter plot
 comparison %>%
   ggplot(aes(x = mixed_cv_r2, y = gamm_cv_r2)) +
@@ -1064,8 +1062,6 @@ comparison %>%
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   theme_minimal()
 
-ggsave("gamm_vs_mixed_scatter.png", width = 10, height = 8, dpi = 300)
-
 # 3. Improvement histogram
 comparison %>%
   ggplot(aes(x = gamm_improvement)) +
@@ -1076,8 +1072,6 @@ comparison %>%
        x = "ΔR² (GAMM - Mixed Model)",
        y = "Count") +
   theme_minimal()
-
-ggsave("gamm_improvement_histogram.png", width = 8, height = 6, dpi = 300)
 
 # 4. By phenology stage
 comparison %>%
@@ -1100,8 +1094,6 @@ comparison %>%
        fill = "Method") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggsave("mean_r2_by_phenology.png", width = 10, height = 6, dpi = 300)
 
 # 5. Top improvements
 cat("\n=== Top 10 Models Where GAMM Improves Most ===\n")
@@ -1135,10 +1127,7 @@ plot_gamm_smooths <- function(model_name) {
   species <- gamm_results[[model_name]]$species
   pheno <- gamm_results[[model_name]]$phenology
   
-  # Create filename
-  filename <- paste0(gsub(" ", "_", tolower(species)), "_", 
-                    tolower(pheno), "_smooths.png")
-  
+
   # Save plot
   png(filename, width = 10, height = 5, units = "in", res = 300)
   par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
@@ -1180,15 +1169,128 @@ for(i in 1:nrow(top_improvements)) {
   }
 }
 
-cat("\n=== Analysis Complete! ===\n")
-cat("Files created:\n")
-cat("  - gamm_cv_results.csv\n")
-cat("  - gamm_vs_mixed_comparison.csv\n")
-cat("  - gamm_vs_mixed_boxplot.png\n")
-cat("  - gamm_vs_mixed_scatter.png\n")
-cat("  - gamm_improvement_histogram.png\n")
-cat("  - mean_r2_by_phenology.png\n")
-cat("  - [species]_[phenology]_smooths.png (multiple files)\n")
+```
+# XGBoost (Gradient Boosted Machines)
+
+```{r}
+
+library(xgboost)
+library(caret)
+
+
+fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data) {
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name, year < 2024) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors))) %>%
+    na.omit()
+  
+  if (nrow(xgb_data) < 20) return(NULL)
+  
+  # Add tree-level features to capture hierarchy
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[pheno_var]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  # Create feature matrix
+  feature_cols <- c(climate_predictors, "tree_mean_pheno", "tree_n_obs", "UID_numeric")
+  X <- as.matrix(xgb_data %>% select(all_of(feature_cols)))
+  y <- xgb_data[[pheno_var]]
+  
+  # 10-fold CV
+  set.seed(123)
+  folds <- createFolds(1:nrow(xgb_data), k = 10, returnTrain = FALSE)
+  predictions <- numeric(nrow(xgb_data))
+  
+  for(fold_idx in 1:length(folds)) {
+    test_idx <- folds[[fold_idx]]
+    train_idx <- setdiff(1:nrow(xgb_data), test_idx)
+    
+    dtrain <- xgb.DMatrix(data = X[train_idx, ], label = y[train_idx])
+    dtest <- xgb.DMatrix(data = X[test_idx, ], label = y[test_idx])
+    
+    xgb_model <- xgb.train(
+      data = dtrain,
+      nrounds = 100,
+      objective = "reg:squarederror",
+      max_depth = 6,
+      eta = 0.1,
+      subsample = 0.8,
+      colsample_bytree = 0.8,
+      verbose = 0
+    )
+    
+    predictions[test_idx] <- predict(xgb_model, dtest)
+  }
+  
+  # Calculate CV metrics
+  cv_r2 <- cor(y, predictions)^2
+  cv_rmse <- sqrt(mean((y - predictions)^2))
+  
+  return(list(
+    species = species_name,
+    phenology = pheno_var,
+    n_obs = nrow(xgb_data),
+    cv_r2 = cv_r2,
+    cv_rmse = cv_rmse
+  ))
+}
+
+# Run for all models
+xgb_results <- list()
+
+for (i in pheno_vars) {
+  for (j in species_list) {
+    cat("\nFitting XGBoost:", i, "for", j, "...")
+    
+    result <- tryCatch({
+      fit_xgboost_model(j, i, climate_vars[[i]], tree_ldc_metrics_climate)
+    }, error = function(e) NULL)
+    
+    if (!is.null(result)) {
+      xgb_results[[paste(j, i, sep = "_")]] <- result
+      cat(" CV R²:", round(result$cv_r2, 3))
+    }
+  }
+}
+
+# Extract results
+xgb_table <- map_df(xgb_results, function(x) {
+  data.frame(
+    species = x$species,
+    phenology = x$phenology,
+    n_obs = x$n_obs,
+    xgb_cv_r2 = x$cv_r2,
+    xgb_cv_rmse = x$cv_rmse
+  )
+})
+
+# Compare to mixed models
+comparison_xgb <- results_table %>%
+  select(species, phenology, 
+         mixed_cv_r2 = cv_r2_conditional,
+         mixed_cv_rmse = cv_rmse_conditional) %>%
+  left_join(xgb_table, by = c("species", "phenology")) %>%
+  mutate(
+    # Improvements
+    r2_improvement = xgb_cv_r2 - mixed_cv_r2,
+    rmse_improvement = mixed_cv_rmse - xgb_cv_rmse,  # Positive = XGBoost better
+    
+    # Which model wins
+    xgb_wins = xgb_cv_r2 > mixed_cv_r2
+  )
+
+```
+
+```{r}
+
+
 
 ```
 
