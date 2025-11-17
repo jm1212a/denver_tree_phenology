@@ -25,7 +25,7 @@ Future precipitation patterns for Denver remain highly uncertain, compounding th
 
 ### 1.2 Objectives
 
-Using near-daily PlanetScope NDVI observations and daily climate data from 2018 to 2024, this study models individual tree phenological metrics against climate variables and land cover in an attempet to control for localized microclimates. We address three key research questions:
+Using near-daily PlanetScope NDVI observations and daily climate data from 2018 to 2024, this study models individual tree phenological metrics against climate variables and land cover in an attempt to control for localized microclimates. We address three key research questions:
 
 1.  How do phenological metrics vary among tree species in Denver's semi-arid urban environment?
 2.  Which climate variables best predict phenological timing for each species?
@@ -39,30 +39,35 @@ By examining species-level variation in phenological responses, we identify whic
 
 ### 2.1 Materials
 
-#### 2.1.1 Denver Tree Set
+#### 2.1.1 Denver Tree Inventory and Tree Sample Selection
 
-Overview of the data set
+The City and County of Denver's *Tree Inventory Denver* is a publicly available urban forestry database containing detailed records for approximately 300,000 trees across Denver County. The inventory includes species identification, tree size measurements, health assessments (disease and pest observations), and precise GPS coordinates for each tree. This comprehensive dataset enabled our remote sensing analysis by allowing us to link individual trees in the inventory to their corresponding locations in satellite imagery.
 
--   sources
--   number of trees \~300k across dener county
--   variables included species size of the tree, diameter
--   also GPS location (enableign to remotely sense the idetified trees location)
+Our analysis focused exclusively on trees within Denver County boundaries west of longitude -104.7302°. This spatial filter excluded outlier trees that, while technically within county boundaries, exist in radically different environments such as prairie grasslands near the airport.
 
-To narrow the sample down to a useable sample thhe trees were sampled based:
+From this spatially filtered inventory, we implemented a four-part sampling approach to select trees suitable for satellite-based remote sensing phenology analysis. First, we restricted the sample to mature trees with diameters of 24 inches or greater, as larger trees have crown sizes more readily detectable in moderate-resolution satellite imagery. Second, we selected 15 species based on their abundance in the Denver urban forest, ensuring adequate sample sizes for species-specific modeling. Third, we prioritized species diversity by including both deciduous and coniferous species, representatives from multiple genera with intra-genus variation (e.g., multiple *Populus* species), and a mix of native and non-native species to capture variation in climate sensitivity and adaptation. Fourth, we considered average mature crown size for each species based on USDA Forest Service Urban Tree Database classifications to ensure trees would be adequately resolved in PlanetScope imagery (3-meter spatial resolution).
 
--   diemiter 24"
+An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County. The final sample consisted of 23,779 individual trees from 15 species representing 11 genera, including 11 native species, 2 non-native species, and 2 invasive species (Table X).
 
--   Evenaly distributed throught the county
+\[Table 1: Summary of selected tree species with sample sizes and ecological characteristics\]
 
--   Amoung the most popular trees in the county
-
--   Considerations was given for different types of trees (conifers vs. disisduous) and intergenus (cottonwood) (native/invascive)
-
--   Finnaly Average crownzise for mature speices was also considered (usda)
-
--   A shiny application was developed to added in identidifying of appropariate sample.
-
--   Results 23,779 Individual trees from 16 diferent speces (**chart** Species \| Genus \| n \| Native/Invases)
+| Scientific Name | Common Name | Genus | n | Status | Leaf Type |
+|-------------------|------------------|----------|-------|----------|---------|
+| *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
+| *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
+| *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
+| *Celtis occidentalis* | Common Hackberry | *Celtis* | 656 | Native | Deciduous |
+| *Fraxinus pennsylvanica* | Green Ash | *Fraxinus* | 2,369 | Native | Deciduous |
+| *Gleditsia triacanthos* | Honey Locust | *Gleditsia* | 2,642 | Native | Deciduous |
+| *Pinus nigra* | Austrian Pine | *Pinus* | 957 | Non-native | Conifer |
+| *Pinus ponderosa* | Ponderosa Pine | *Pinus* | 521 | Native | Conifer |
+| *Populus deltoides* | Eastern Cottonwood | *Populus* | 871 | Native | Deciduous |
+| *Populus sargentii* | Plains Cottonwood | *Populus* | 1,070 | Native | Deciduous |
+| *Quercus rubra* | Northern Red Oak | *Quercus* | 481 | Native | Deciduous |
+| *Tilia americana* | American Linden | *Tilia* | 655 | Native | Deciduous |
+| *Tilia cordata* | Littleleaf Linden | *Tilia* | 405 | Non-native | Deciduous |
+| *Ulmus americana* | American Elm | *Ulmus* | 2,794 | Native | Deciduous |
+| *Ulmus pumila* | Siberian Elm | *Ulmus* | 2,919 | Invasive | Deciduous |
 
 #### 2.1.2 Remotely Sensed NDVI
 
@@ -118,13 +123,21 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 
 ### 2.2 Methedologies
 
-#### 2.2.1 Person Corrilation Coeffecents
+#### 2.2.1 Pearson Correlation Analysis
 
-#### 2.2.2 XGBoost Gradient Boosted Trees Model
+Prior to formal modeling, we conducted exploratory correlation analysis to assess the strength and direction of relationships between climate variables and phenological metrics across species. We calculated Pearson correlation coefficients between each phenological metric and its biologically relevant climate predictors using pairwise complete observations to handle missing data. This approach allowed us to examine preliminary patterns while accommodating the unbalanced nature of our dataset.
+
+For each species, we computed correlations between six phenological metrics (POS, green-up, maturity, senescence, dormancy, and growing season length) and their corresponding climate variables selected based on seasonal relevance. This dual approach allowed us to assess both the consistency of climate effects across species and the degree of species-specific variation in climate sensitivity. Results are visualized as a heatmap showing individual species correlations alongside the cross-species average.
+
+#### 2.2.2 XGBoost Gradient Boosted Model
 
 We used XGBoost (Extreme Gradient Boosting) to model the relationship between climate variables and phenological timing for each tree species. XGBoost is a machine learning algorithm that builds an ensemble of decision trees sequentially, where each new tree learns to correct the errors of previous trees. Unlike traditional parametric models, XGBoost makes no distributional assumptions about residuals and can automatically capture non-linear relationships and complex interactions between predictors.
 
-For each species and phenological metric combination, XGBoost learns a function where $Y = f(X_1, X_2, ..., X_k, \text{tree features})$, with $Y$ representing the phenological metric (day of year), $X_1...X_k$ representing climate predictors, and tree_features capturing individual tree characteristics. The function $f()$ is learned through an ensemble of regression trees, with each tree making sequential improvements to minimize prediction error.
+For each species and phenological metric combination, XGBoost learns a function where:
+
+$$Y = f(X_1, X_2, ..., X_k, \text{tree features})$$
+
+with $Y$ representing the phenological metric (day of year), $X_1...X_k$ representing climate predictors, and tree_features capturing individual tree characteristics. The function $f()$ is learned through an ensemble of regression trees, with each tree making sequential improvements to minimize prediction error.
 
 Each model included two categories of features. First, we incorporated 2-3 climate variables per model, selecting seasonally relevant temperature and precipitation variables based on biological relevance to each phenological stage. For example, greenup models used late winter temperature and precipitation, while dormancy models used fall temperature and cumulative precipitation. Second, we included tree-specific features to account for repeated measures on individual trees, analogous to random effects in mixed models. These features included tree_mean_pheno (historical average phenology timing for each tree), tree_n_obs (number of observation years per tree), and UID_numeric (numeric tree identifier). These tree-specific features allow the model to capture consistent early or late timing in individual trees due to microsite conditions, genetics, or tree health, while climate variables capture year-to-year variation.
 
@@ -134,7 +147,11 @@ We evaluated model performance using 10-fold cross-validation. Data were randoml
 
 #### 2.2.3 Linear Mixed Models: Comparison and Limitations
 
-We initially attempted to model climate-phenology relationships using linear mixed-effects models (LMMs), which are standard in phenological research due to their interpretability. LMMs were specified as $Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$, where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
+We initially attempted to model climate-phenology relationships using linear mixed-effects models (LMMs), which are standard in phenological research due to their interpretability. LMMs were specified as
+
+$$Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$$
+
+where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
 
 However, diagnostic tests revealed severe assumption violations across 97% of models (69/72). Only 2.8% (2/72) passed tests for normality, homoscedasticity, and random effect normality. The mean proportion of outliers ($|\text{standardized residual}| > 3$) was X.X%, approximately 2-3× higher than expected under perfect normality. Visual diagnostics showed heavy-tailed residual distributions and heteroscedasticity, raising concerns about the reliability of standard errors and coefficient estimates despite large sample sizes (336-5,359 observations per model).
 
@@ -142,4 +159,6 @@ While large sample sizes and cross-validation suggested LMMs remained reasonable
 
 XGBoost was selected for several critical advantages over parametric approaches. First, it makes no distributional assumptions about normality, homoscedasticity, or residual distributions, eliminating concerns about assumption violations that plagued the LMM analysis. Second, tree-based methods naturally handle extreme values without requiring transformations or robust standard errors, addressing the outlier issues observed in the data. Third, XGBoost automatically detects non-linear relationships if present while still performing well when relationships are linear, providing flexibility without requiring manual specification of functional forms. Fourth, the ensemble approach can capture complex interactions between climate variables and tree characteristics without explicit interaction terms. Finally, cross-validation provides assumption-free assessment of predictive accuracy, ensuring model reliability regardless of distributional properties.
 
-While XGBoost sacrifices the interpretable effect sizes of LMMs (e.g., "2.3 days earlier per °C"), it provides reliable predictions and feature importance rankings that identify which climate variables most strongly influence phenology. For exploratory analysis of climate-phenology relationships in a complex urban environment with substantial individual tree variation, XGBoost's flexibility and robustness made it the most appropriate choice. All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, caret, and tidyverse packages.
+While XGBoost sacrifices the interpretable effect sizes of LMMs (e.g., "2.3 days earlier per °C"), it provides reliable predictions and feature importance rankings that identify which climate variables most strongly influence phenology. For exploratory analysis of climate-phenology relationships in a complex urban environment with substantial individual tree variation, XGBoost's flexibility and robustness made it the most appropriate choice.
+
+All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, caret, and tidyverse packages.
