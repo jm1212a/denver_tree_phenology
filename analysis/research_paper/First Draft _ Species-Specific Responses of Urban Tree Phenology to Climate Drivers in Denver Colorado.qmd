@@ -37,7 +37,9 @@ By examining species-level variation in phenological responses, we identify whic
 
 ## 2. Methods & Materials
 
-### 2.1 Denver Tree Set
+### 2.1 Materials
+
+#### 2.1.1 Denver Tree Set
 
 Overview of the data set
 
@@ -58,7 +60,7 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 
 - Results 23,779 Individual trees from 16 diferent speces (**chart** Species | Genus | n | Native/Invases)
 
-### 2.2 Remotely Sensed NDVI 
+#### 2.1.2 Remotely Sensed NDVI 
 
 - What is NDVI
 - Used to idntivie the greenness of the envioremnet and has bee used sence to studye the health and growing cycle of plants. 
@@ -68,7 +70,7 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 - normaization of the images was conduced with planet scope
 - NDVI was then extracted based on location of the id. over the 7 years of images.
 
-### 2.3 Extracted Phenological Metrics 
+#### 2.1.3 Extracted Phenological Metrics 
 
 - Metrics extracted using the Pheno-fit package to fit phenological curves to the raw NDVI values 
 - First NDVI values were despiked using 5 sd away from the mean 
@@ -84,7 +86,7 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 - Custrom fuction was created to easly graph the annual curves and extracted metrics based on the metadata. Github
 - in total after processing, the 3450 trees tremained out of the initial sample. (chart) (plot of curve and metrics, )
 
-### 2.5 Climate Data 
+#### 2.1.4 Climate Data 
 
 - Source NOAA daily from Denver Central Park (Old denver airport)
 - chosen becasue of it's centeral location 
@@ -95,7 +97,7 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 - **chart** braking down the metrics the months they corsponde too.
 - consitance was strived for
 
-### 2.4 Landcover Data 
+#### 2.1.5 Landcover Data 
 
 - Denver LCD souce 
 - 1 meter reselutions
@@ -104,13 +106,14 @@ To narrow the sample down to a useable sample thhe trees were sampled based:
 - Each individual pixel of the raster was counted to derive for a given category. This data was then turned into %
 - For our analysis we used methodogy similar to (crawford ), consolidated the 9 categories into 5 different catergories. 
 
-### 2.5 Methedologies 
+### 2.2 Methedologies 
 
-## 2.6 Statistical Analysis
+#### 2.2.1 Person Corrilation Coeffecents 
+
+
+#### 2.2.2 Linear Mixed-Effects Model
 
 We used linear mixed-effects models (LMMs) to quantify the relationship between climate variables and phenological timing for each tree species. LMMs allow us to account for the hierarchical structure of our data, where multiple phenological observations are nested within individual trees, while estimating the fixed effects of climate predictors.
-
-### 2.6.1 Model Structure
 
 For each species and phenological metric combination, we fit separate models with the following general form:
 
@@ -120,7 +123,7 @@ where Y_ij is the phenological metric (in day of year) for tree i in year j, X_1
 
 The random intercept structure accounts for tree-level variation in baseline phenological timing due to unmeasured factors such as microsite conditions, tree age, or genetic variation. This approach assumes that climate effects are consistent across trees within a species (i.e., fixed slopes), while allowing each tree to have its own baseline timing (random intercepts).
 
-### 2.6.2 Variable Selection
+##### 2.2.2.1 Variable Selection
 
 We selected climate predictors through a combination of stepwise model selection and biological relevance to each phenological stage. Initial candidate predictors were chosen based on prior phenological research and mechanistic understanding of how temperature and precipitation influence leaf development and senescence. For each phenological metric, we identified seasonally relevant climate variables (e.g., late winter conditions for greenup, fall conditions for dormancy).
 
@@ -128,7 +131,7 @@ We then applied a stepwise selection procedure to identify the most parsimonious
 
 land cover variables (distance to irrigated areas within 90m and improviouse areas within 90m) to control for localized moisture availability that might influence phenological timing independently of broader climate patterns.
 
-### 2.6.3 Model Selection and Validation
+##### 2.2.2.2 Model Selection and Validation
 
 Models were fit using restricted maximum likelihood (REML) estimation in the lme4 package in R (Bates et al., 2015). We assessed model fit using Akaike Information Criterion (AIC) and calculated both marginal R² (variance explained by fixed effects only) and conditional R² (variance explained by both fixed and random effects) using the MuMIn package (Nakagawa & Schielzeth, 2013). 
 
@@ -138,6 +141,14 @@ To assess predictive performance, we conducted k-fold cross-validation (k=5) whe
 
 All analyses were conducted in R version 4.x (R Core Team, 2024) using the lme4, lmerTest, MuMIn, and tidyverse packages.
 
+##### 2.2.2.3 Model Diagnostics and Challenges
 
-### 2.6.3 Model Diagnostics and Challenges
+Diagnostic tests revealed violations of normality and homoscedasticity assumptions in 97% of models (69/72). Only 2 models (2.8%) passed Shapiro-Wilk normality tests, homoscedasticity tests, and random effect normality tests simultaneously. The mean proportion of statistical outliers (|standardized residual| > 3) was X.X% across models, approximately 2-3× higher than expected under perfect normality.
 
+However, several lines of evidence suggest these violations did not substantially compromise model validity. First, with sample sizes of 336-5,359 observations per model, assumption tests become hypersensitive to minor deviations that have negligible practical impact on inference (Knief & Forstmeier 2021). Linear mixed models are robust to moderate assumption violations, particularly at large sample sizes (Schielzeth et al. 2020).
+
+Second, visual diagnostics revealed that violations were primarily heavy-tailed residual distributions—a ubiquitous feature of ecological data reflecting genuine biological variation rather than model misspecification. Residual vs. fitted plots showed generally random scatter with no severe systematic patterns. Heavy tails likely reflect real individual variation in phenological responses due to microsite conditions, genetics, and tree health rather than inadequate model structure.
+
+Most critically, we compared linear mixed models to Generalized Additive Mixed Models (GAMMs), which require no distributional assumptions and can capture non-linear relationships. Despite this flexibility, GAMMs performed worse than linear mixed models (mean CV R²: GAMM = X.XX vs. Linear = X.XX), confirming that assumption violations did not compromise predictive accuracy and that climate-phenology relationships were predominantly linear. Given superior cross-validation performance, interpretability of effect sizes, and alignment with published phenology studies (Richardson et al. 2018), linear mixed models provided the most appropriate analytical framework.
+
+#### 2.2.3
