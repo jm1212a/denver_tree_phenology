@@ -47,12 +47,12 @@ Our analysis focused exclusively on trees within Denver County boundaries west o
 
 From this spatially filtered inventory, we implemented a four-part sampling approach to select trees suitable for satellite-based remote sensing phenology analysis. First, we restricted the sample to mature trees with diameters of 24 inches or greater, as larger trees have crown sizes more readily detectable in moderate-resolution satellite imagery. Second, we selected 15 species based on their abundance in the Denver urban forest, ensuring adequate sample sizes for species-specific modeling. Third, we prioritized species diversity by including both deciduous and coniferous species, representatives from multiple genera with intra-genus variation (e.g., multiple *Populus* species), and a mix of native and non-native species to capture variation in climate sensitivity and adaptation. Fourth, we considered average mature crown size for each species based on USDA Forest Service Urban Tree Database classifications to ensure trees would be adequately resolved in PlanetScope imagery (3-meter spatial resolution).
 
-An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County. The final sample consisted of 23,779 individual trees from 15 species representing 11 genera, including 11 native species, 2 non-native species, and 2 invasive species (Table X).
+An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County. The final sample consisted of 23,779 individual trees from 15 species representing 11 genera, including 11 native species, 2 non-native species, and 2 invasive species (Table 1).
 
 \[Table 1: Summary of selected tree species with sample sizes and ecological characteristics\]
 
-| Scientific Name | Common Name | Genus | n | Status | Leaf Type |
-|-------------------|-------------------|---------|-------|----------|---------|
+| Scientific Name | Common Name | Genus | Obs. | Status | Leaf Type |
+|------------|------------|------------|------------|------------|------------|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
 | *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
@@ -69,16 +69,21 @@ An interactive Shiny application was developed to facilitate sample selection an
 | *Ulmus americana* | American Elm | *Ulmus* | 2,794 | Native | Deciduous |
 | *Ulmus pumila* | Siberian Elm | *Ulmus* | 2,919 | Invasive | Deciduous |
 
-#### 2.1.2 Remotely Sensed NDVI
+#### 2.1.2 Remotely Sensed NDVI Data
 
--   What is NDVI
--   Used to idntivie the greenness of the envioremnet and has bee used sence to studye the health and growing cycle of plants.
--   
-    1.  NDVI Raw Extracts, 2. Seasion Breakdown)
--   sensors on the planet scope statilighes
--   Near daily NDIV images were stiched together.
--   normaization of the images was conduced with planet scope
--   NDVI was then extracted based on location of the id. over the 7 years of images.
+The Normalized Difference Vegetation Index (NDVI) is a widely used spectral index that measures vegetation greenness by comparing the difference between near-infrared (strongly reflected by vegetation) and red light (absorbed by vegetation). This relationship emerges from fundamental plant physiology: chlorophyll in leaves strongly absorbs red light for photosynthesis, while the cellular structure of healthy leaves strongly reflects near-infrared radiation. The index ranges from -1 to +1, with higher values indicating greater photosynthetic activity and canopy density.
+
+Since its development in the 1970s, NDVI has become one of the most widely applied metrics in vegetation remote sensing. It has been used to monitor crop health, assess drought impacts, track deforestation, and map global vegetation dynamics across scales from individual plants to entire biomes. For phenological applications specifically, NDVI provides a continuous, objective measure of canopy greenness that directly reflects the seasonal cycles of leaf emergence, maturation, and senescence.
+
+The studies NDVI observations were obtained from PlanetScope's imagery in the red (590-670 nm) and near-infrared (780-860 nm) bands.
+
+Because of the images fine resolution, multiple daily images had to be mosaicked togeather to create continuous spatial coverage over Denver County, with scene overlaps resolved by selecting the highest quality pixels based on image acquisition geometry and radiometric quality. Quality assessment layers provided by PlanetScope were used to mask clouds, snow, and haze, automatically detecting atmospheric interference that would compromise NDVI accuracy. NDVI was calculated for each masked image using the standard formula:
+
+$$NDVI = (NIR - Red) / (NIR + Red)$$
+
+Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. For each tree, we created a circular buffer around the GPS coordinates sized to approximate the tree crown based on species-specific mature crown diameter estimates. To capture canopy pixels rather than understory or adjacent features, we filtered each tree-date observation to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level that served as the foundation for phenological curve fitting and metric extraction. Below is an example of the NDVI values extracted for an individual tree.
+
+![Figure 1: Example multi-year NDVI time series for one tree from our sample of 23,779 trees. ](images/multiseason_tree_ndvi_plot.png)
 
 #### 2.1.3 Extracted Phenological Metrics
 

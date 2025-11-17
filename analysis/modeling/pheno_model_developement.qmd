@@ -231,15 +231,30 @@ plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative"))
 
 # Create a data frame from the input object
 df <- data.frame(
-  t = tree_ldc_metrics_climate$season_data[[1]]$t,
-  y = tree_ldc_metrics_climate$season_data[[1]]$y
+  t = tree_ldc_metrics_climate$season_data[[10]]$t,
+  y = tree_ldc_metrics_climate$season_data[[10]]$y
 )
 
 # Plot with smoother
-ggplot(df, aes(x = t, y = y)) +
-  geom_point(alpha = 0.5)+
-  theme_minimal()
 
+
+ggplot(df, aes(x = t, y = y)) +
+  geom_point(alpha = 0.6, size = 2, color = "#2E8B57") +
+  labs(
+    title = "NDVI Temporal Trends",
+    x = "Date",
+    y = "NDVI"
+  ) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    axis.title = element_text(size = 12, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    plot.margin = margin(10, 10, 10, 10, "mm"))
+    
+    
 ```
 
 # Variable Selection for the Mixed Effect Panel Model
@@ -992,184 +1007,6 @@ plot_gamm_smooths <- function(model_name, gamm_results) {
 plot_gamm_smooths("Silver Maple_Dormancy_doy", gamm_results)
 
 ```
-
-## COMPARE GAMM vs MIXED MODEL
-
-```{r}
-
-# Merge results
-comparison <- results_table %>%
-  select(species, phenology, 
-         mixed_cv_r2 = cv_r2_conditional, 
-         mixed_cv_rmse = cv_rmse_conditional) %>%
-  left_join(gamm_table, by = c("species", "phenology")) %>%
-  mutate(
-    gamm_improvement = gamm_cv_r2 - mixed_cv_r2,
-    rmse_improvement = mixed_cv_rmse - gamm_cv_rmse,  # Positive = GAMM better
-    gamm_wins = gamm_cv_r2 > mixed_cv_r2
-  )
-
-# Summary statistics
-cat("\n=== GAMM vs Mixed Model Comparison ===\n")
-cat("Total models:", nrow(comparison), "\n")
-cat("GAMM wins:", sum(comparison$gamm_wins, na.rm = TRUE), 
-    "out of", sum(!is.na(comparison$gamm_wins)), "\n")
-cat("\nMean CV R²:\n")
-cat("  Mixed Model:", round(mean(comparison$mixed_cv_r2, na.rm = TRUE), 3), "\n")
-cat("  GAMM:       ", round(mean(comparison$gamm_cv_r2, na.rm = TRUE), 3), "\n")
-cat("\nMean R² improvement:", round(mean(comparison$gamm_improvement, na.rm = TRUE), 3), "\n")
-cat("Mean RMSE improvement:", round(mean(comparison$rmse_improvement, na.rm = TRUE), 2), "days\n")
-
-# Save comparison
-write.csv(comparison, "gamm_vs_mixed_comparison.csv", row.names = FALSE)
-
-# ============================================================================
-# VISUALIZATIONS
-# ============================================================================
-
-library(ggplot2)
-library(tidyr)
-
-# 1. Boxplot comparison
-comparison %>%
-  select(species, phenology, mixed_cv_r2, gamm_cv_r2) %>%
-  pivot_longer(cols = ends_with("_r2"),
-               names_to = "method",
-               values_to = "cv_r2") %>%
-  mutate(method = ifelse(method == "mixed_cv_r2", "Mixed Model", "GAMM")) %>%
-  ggplot(aes(x = method, y = cv_r2, fill = method)) +
-  geom_boxplot(alpha = 0.7) +
-  geom_jitter(width = 0.2, alpha = 0.3, size = 1) +
-  scale_fill_manual(values = c("Mixed Model" = "steelblue", "GAMM" = "forestgreen")) +
-  labs(title = "Cross-Validated R²: Mixed Model vs GAMM",
-       subtitle = paste(nrow(comparison), "models across 12 species and 6 phenology stages"),
-       x = "Method",
-       y = "CV R²") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-# 2. Scatter plot
-comparison %>%
-  ggplot(aes(x = mixed_cv_r2, y = gamm_cv_r2)) +
-  geom_point(aes(color = phenology), size = 3, alpha = 0.7) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
-  geom_smooth(method = "lm", se = TRUE, color = "black") +
-  labs(title = "GAMM vs Mixed Model Performance",
-       subtitle = "Points above line = GAMM outperforms",
-       x = "Mixed Model CV R²",
-       y = "GAMM CV R²",
-       color = "Phenology") +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  theme_minimal()
-
-# 3. Improvement histogram
-comparison %>%
-  ggplot(aes(x = gamm_improvement)) +
-  geom_histogram(fill = "forestgreen", alpha = 0.7, bins = 20) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red", linewidth = 1) +
-  labs(title = "GAMM Improvement over Mixed Models",
-       subtitle = "Positive values = GAMM better | Red line = no difference",
-       x = "ΔR² (GAMM - Mixed Model)",
-       y = "Count") +
-  theme_minimal()
-
-# 4. By phenology stage
-comparison %>%
-  group_by(phenology) %>%
-  summarise(
-    mean_mixed = mean(mixed_cv_r2, na.rm = TRUE),
-    mean_gamm = mean(gamm_cv_r2, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  pivot_longer(cols = starts_with("mean_"),
-               names_to = "method",
-               values_to = "mean_r2") %>%
-  mutate(method = ifelse(method == "mean_mixed", "Mixed Model", "GAMM")) %>%
-  ggplot(aes(x = phenology, y = mean_r2, fill = method)) +
-  geom_col(position = "dodge") +
-  scale_fill_manual(values = c("Mixed Model" = "steelblue", "GAMM" = "forestgreen")) +
-  labs(title = "Mean CV R² by Phenology Stage",
-       x = "Phenology Stage",
-       y = "Mean CV R²",
-       fill = "Method") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# 5. Top improvements
-cat("\n=== Top 10 Models Where GAMM Improves Most ===\n")
-comparison %>%
-  arrange(desc(gamm_improvement)) %>%
-  head(10) %>%
-  select(species, phenology, mixed_cv_r2, gamm_cv_r2, gamm_improvement) %>%
-  print()
-
-# 6. Models where Mixed Model wins
-cat("\n=== Models Where Mixed Model Wins ===\n")
-comparison %>%
-  filter(!gamm_wins) %>%
-  arrange(gamm_improvement) %>%
-  select(species, phenology, mixed_cv_r2, gamm_cv_r2, gamm_improvement) %>%
-  print()
-
-# ============================================================================
-# VISUALIZE SMOOTH EFFECTS FOR KEY MODELS
-# ============================================================================
-
-# Function to plot smooth effects
-plot_gamm_smooths <- function(model_name) {
-  
-  if (!model_name %in% names(gamm_results)) {
-    cat("Model not found:", model_name, "\n")
-    return(NULL)
-  }
-  
-  model <- gamm_results[[model_name]]$model
-  species <- gamm_results[[model_name]]$species
-  pheno <- gamm_results[[model_name]]$phenology
-  
-
-  # Save plot
-  png(filename, width = 10, height = 5, units = "in", res = 300)
-  par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
-  
-  # Plot each smooth
-  plot(model, select = 1, shade = TRUE, shade.col = "lightgreen",
-       main = paste(species, "-", pheno),
-       xlab = names(model$smooth)[1], 
-       ylab = "Effect on DOY (days)",
-       cex.main = 1)
-  
-  plot(model, select = 2, shade = TRUE, shade.col = "lightblue",
-       main = "",
-       xlab = names(model$smooth)[2],
-       ylab = "Effect on DOY (days)")
-  
-  par(mfrow = c(1, 1))
-  dev.off()
-  
-  cat("Saved:", filename, "\n")
-}
-
-# Plot for Tree of Heaven
-cat("\n=== Creating smooth plots for key models ===\n")
-if ("Tree of heaven_Greenup_doy" %in% names(gamm_results)) {
-  plot_gamm_smooths("Tree of heaven_Greenup_doy")
-}
-
-# Plot for best improvement models
-top_improvements <- comparison %>%
-  arrange(desc(gamm_improvement)) %>%
-  head(3)
-
-for(i in 1:nrow(top_improvements)) {
-  model_name <- paste(top_improvements$species[i], 
-                     top_improvements$phenology[i], sep = "_")
-  if (model_name %in% names(gamm_results)) {
-    plot_gamm_smooths(model_name)
-  }
-}
-
-```
 # XGBoost (Gradient Boosted Machines)
 
 ```{r}
@@ -1290,7 +1127,13 @@ comparison_xgb <- results_table %>%
 
 ```{r}
 
+mean(comparison_xgb$xgb_cv_rmse)
 
+mean(comparison_xgb$xgb_cv_r2)
+
+mean(comparison_xgb$mixed_cv_rmse)
+
+mean(comparison_xgb$mixed_cv_r2)
 
 ```
 
