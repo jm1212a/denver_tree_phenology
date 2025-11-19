@@ -1,5 +1,5 @@
 ---
-title: "Species-Specific Responses of Urban Tree Phenology to Climate Drivers in Denver, Colorado"
+title: "Species-Specific Responses of Urban Tree Phenology to Climate Drivers a Semi-Arid Environment"
 author: "Jared Martin"
 format: pdf
 editor: visual
@@ -83,7 +83,7 @@ $$NDVI = (NIR - Red) / (NIR + Red)$$
 
 Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. For each tree, we created a circular buffer around the GPS coordinates sized to approximate the tree crown based on species-specific mature crown diameter estimates. To capture canopy pixels rather than understory or adjacent features, we filtered each tree-date observation to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level that served as the foundation for phenological curve fitting and metric extraction. Below is an example of the NDVI values extracted for an individual tree.
 
-![Figure 1: Example multi-year NDVI time series for one tree from our sample of 23,779 trees. ](images/multiseason_tree_ndvi_plot.png)
+![Figure 1: Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png)
 
 #### 2.1.3 Extracted Phenological Metrics
 
@@ -134,7 +134,7 @@ Prior to formal modeling, we conducted exploratory correlation analysis to asses
 
 For each species, we computed correlations between six phenological metrics (POS, green-up, maturity, senescence, dormancy, and growing season length) and their corresponding climate variables selected based on seasonal relevance. This dual approach allowed us to assess both the consistency of climate effects across species and the degree of species-specific variation in climate sensitivity. Results are visualized as a heatmap showing individual species correlations alongside the cross-species average.
 
-#### 2.2.2 XGBoost Gradient Boosted Model
+#### 2.2.2 Extreme Gradient Boosted Model
 
 We used XGBoost (Extreme Gradient Boosting) to model the relationship between climate variables and phenological timing for each tree species. XGBoost is a machine learning algorithm that builds an ensemble of decision trees sequentially, where each new tree learns to correct the errors of previous trees. Unlike traditional parametric models, XGBoost makes no distributional assumptions about residuals and can automatically capture non-linear relationships and complex interactions between predictors.
 

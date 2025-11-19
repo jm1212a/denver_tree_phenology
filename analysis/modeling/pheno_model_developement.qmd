@@ -16,6 +16,7 @@ library(MuMIn)
 library(performance)
 library(caret)
 library(mgcv)
+library(xgboost)
 
 ```
 
@@ -33,8 +34,17 @@ tree_ldc_metrics_climate %>%
   filter(n > 50) %>% 
   pull(1) -> species_list
 
-pheno_vars <- c("DER.pos_doy", "Greenup_doy", "Maturity_doy", 
-                "Senescence_doy", "Dormancy_doy", "growing_season")
+pheno_vars <- c("Greenup_doy", "Maturity_doy", 
+                "Senescence_doy", "Dormancy_doy")
+
+# Define climate variables (same as before)
+climate_vars <- list(
+  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "impervious_90m", "irrigated_90m"),
+  Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax", "impervious_90m", "irrigated_90m"), 
+  Senescence_doy = c("late_summer_prcp", "early_fall_mean_tmax", "early_fall_temp", "impervious_90m", "irrigated_90m"),
+  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m"),
+  DER.pos_doy = c("late_spring_cumulative_prcp", "spring_temp", "late_spring_mean_tmax","impervious_90m", "irrigated_90m")
+)
 
 ```
 
@@ -229,19 +239,25 @@ plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection","D
 plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative")) 
 
 
-# Create a data frame from the input object
-df <- data.frame(
-  t = tree_ldc_metrics_climate$season_data[[10]]$t,
-  y = tree_ldc_metrics_climate$season_data[[10]]$y
-)
 
 # Plot with smoother
 
+df <- data.frame(
+  t = tree_ldc_metrics_climate$season_data[[10]]$t,
+  y = tree_ldc_metrics_climate$season_data[[10]]$y,
+  lat = tree_ldc_metrics_climate$y_lat[10],
+  long = tree_ldc_metrics_climate$x_long[10],
+  species_botanice = tree_ldc_metrics_climate$species_botanic[10],
+  species_common = tree_ldc_metrics_climate$species_common[10]  # adjust column name as needed
+)%>%
+  filter(year(t) < 2025)
 
+# Plot with smoother
 ggplot(df, aes(x = t, y = y)) +
-  geom_point(alpha = 0.6, size = 2, color = "#2E8B57") +
+  geom_point(alpha = 0.6, size = 2, color = "black") +
   labs(
-    title = "NDVI Temporal Trends",
+    title = paste(df$species_botanice[1], "-", df$species_common[1]),
+    subtitle = paste("Lat: ", round(df$lat[1], 4), "° | Long: ", round(df$long[1], 4), "°"),
     x = "Date",
     y = "NDVI"
   ) +
@@ -251,8 +267,13 @@ ggplot(df, aes(x = t, y = y)) +
     axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
     axis.title = element_text(size = 12, face = "bold"),
     plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 11, hjust = 0.5),
     panel.grid.minor = element_blank(),
-    plot.margin = margin(10, 10, 10, 10, "mm"))
+    plot.margin = margin(10, 10, 10, "mm")
+  ) 
+
+
+  ggsave("../../images/multiseason_tree_ndvi_plot.png", width = 10, height = 6, dpi = 300)
     
     
 ```
@@ -402,15 +423,6 @@ global_gs_model <- lmer(
 # Mixed Effect Model top level regressions for each species, unique intercpes for each tree. Using k-fold cross validation to check model preforamance.
 
 ```{r}
-
-climate_vars <- list(
-  Greenup_doy = c("late_winter_temp_z", "late_winter_prcp_z"),
-  Maturity_doy = c("late_spring_mean_tmax_z", "spring_prcp_z"),
-  Senescence_doy = c("late_summer_prcp_z", "early_fall_mean_tmax_z"),
-  Dormancy_doy = c("fall_cumulative_prcp_z", "fall_mean_tmax_z"),
-  DER.pos_doy = c("late_spring_cumulative_prcp_z", "spring_temp_z"),
-  growing_season = c("irrigated_90m_z", "late_summer_prcp_z", "summer_temp_z")
-)
 
 # Function to test model assumptions
 test_assumptions <- function(model) {
@@ -906,16 +918,6 @@ formula_str <- paste(pheno_var, "~", smooth_terms, "+ s(UID, bs = 're')")
   ))
 }
 
-# Define climate variables (same as before)
-climate_vars <- list(
-  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "impervious_90m"),
-  Maturity_doy = c("late_spring_mean_tmax", "spring_prcp",  "impervious_90m"),
-  Senescence_doy = c("late_summer_prcp", "early_fall_mean_tmax", "impervious_90m"),
-  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "impervious_90m"),
-  DER.pos_doy = c("late_spring_cumulative_prcp", "spring_temp", "impervious_90m"),
-  growing_season = c("impervious_90m", "late_summer_prcp", "summer_temp")
-)
-
 # Fit GAMM models
 gamm_results <- list()
 
@@ -1011,15 +1013,11 @@ plot_gamm_smooths("Silver Maple_Dormancy_doy", gamm_results)
 
 ```{r}
 
-library(xgboost)
-library(caret)
-
-
 fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data) {
   
   # Prepare data
   xgb_data <- data %>%
-    filter(species_common == species_name, year < 2024) %>%
+    filter(species_common == species_name, year < 2025) %>%
     select(all_of(c(pheno_var, "UID", climate_predictors))) %>%
     na.omit()
   
@@ -1030,7 +1028,11 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
     group_by(UID) %>%
     mutate(
       tree_mean_pheno = mean(.data[[pheno_var]], na.rm = TRUE),
-      tree_n_obs = n()
+      tree_sd_pheno = sd(.data[[pheno_var]], na.rm = TRUE),
+      tree_n_obs = n(),
+      temp_precip_interaction = if("temperature" %in% climate_predictors && 
+                                   "precipitation" %in% climate_predictors) 
+                                temperature * precipitation else 0
     ) %>%
     ungroup() %>%
     mutate(UID_numeric = as.numeric(as.factor(UID)))
@@ -1044,6 +1046,7 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
   set.seed(123)
   folds <- createFolds(1:nrow(xgb_data), k = 10, returnTrain = FALSE)
   predictions <- numeric(nrow(xgb_data))
+  actuals <- y
   
   for(fold_idx in 1:length(folds)) {
     test_idx <- folds[[fold_idx]]
@@ -1054,12 +1057,12 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
     
     xgb_model <- xgb.train(
       data = dtrain,
-      nrounds = 100,
+      nrounds = 500,
       objective = "reg:squarederror",
-      max_depth = 6,
-      eta = 0.1,
-      subsample = 0.8,
-      colsample_bytree = 0.8,
+      max_depth = 4,
+      eta = 0.01,
+      subsample = 0.7,
+      colsample_bytree = 0.7,
       verbose = 0
     )
     
@@ -1067,15 +1070,23 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
   }
   
   # Calculate CV metrics
-  cv_r2 <- cor(y, predictions)^2
-  cv_rmse <- sqrt(mean((y - predictions)^2))
+  errors <- actuals - predictions
+  cv_r2 <- cor(actuals, predictions)^2
+  cv_rmse <- sqrt(mean(errors^2))
+  cv_mae <- mean(abs(errors))
+  cv_mape <- mean(abs(errors / actuals)) * 100 
   
   return(list(
     species = species_name,
     phenology = pheno_var,
     n_obs = nrow(xgb_data),
     cv_r2 = cv_r2,
-    cv_rmse = cv_rmse
+    cv_rmse = cv_rmse,
+    cv_mae = cv_mae,
+    cv_mape = cv_mape,
+    predictions = predictions,
+    actuals = actuals,
+    errors = errors
   ))
 }
 
@@ -1103,37 +1114,52 @@ xgb_table <- map_df(xgb_results, function(x) {
     species = x$species,
     phenology = x$phenology,
     n_obs = x$n_obs,
-    xgb_cv_r2 = x$cv_r2,
-    xgb_cv_rmse = x$cv_rmse
+    RMSE = x$cv_rmse,
+    MAE = x$cv_mae,
+    MAPE = x$cv_mape,
+    R2 = x$cv_r2
   )
 })
-
-# Compare to mixed models
-comparison_xgb <- results_table %>%
-  select(species, phenology, 
-         mixed_cv_r2 = cv_r2_conditional,
-         mixed_cv_rmse = cv_rmse_conditional) %>%
-  left_join(xgb_table, by = c("species", "phenology")) %>%
-  mutate(
-    # Improvements
-    r2_improvement = xgb_cv_r2 - mixed_cv_r2,
-    rmse_improvement = mixed_cv_rmse - xgb_cv_rmse,  # Positive = XGBoost better
-    
-    # Which model wins
-    xgb_wins = xgb_cv_r2 > mixed_cv_r2
-  )
 
 ```
 
 ```{r}
 
-mean(comparison_xgb$xgb_cv_rmse)
+xgb_table %>% 
+  group_by(phenology) %>% 
+  summarize(mean_RMSE = mean(RMSE),
+            mean_MAE = mean(MAE),
+            RMSE_MAE_ratio = mean_RMSE / mean_MAE,
+            outlier_impact = (mean_RMSE^2 - mean_MAE^2) / mean_MAE^2)
 
-mean(comparison_xgb$xgb_cv_r2)
+mean(xgb_table$RMSE)
+mean(xgb_table$MAE)
 
-mean(comparison_xgb$mixed_cv_rmse)
 
-mean(comparison_xgb$mixed_cv_r2)
+```
+
+```{r}
+
+for (result_name in names(xgb_results)) {
+  result <- xgb_results[[result_name]]
+  
+  # Get the actual data
+  actual_data <- tree_ldc_metrics_climate %>%
+    filter(species_common == result$species, year < 2024) %>%
+    pull(result$phenology) %>%
+    na.omit()
+  
+  # Calculate baseline metrics
+  data_sd <- sd(actual_data)
+  data_range <- diff(range(actual_data))
+  
+  cat("\n", result$species, "-", result$phenology, "\n")
+  cat("RMSE:", round(result$cv_rmse, 2), "days\n")
+  cat("Data SD:", round(data_sd, 2), "days\n")
+  cat("Data Range:", round(data_range, 2), "days\n")
+  cat("RMSE/SD ratio:", round(result$cv_rmse / data_sd, 3), "\n")
+  cat("R²:", round(result$cv_r2, 3), "\n\n")
+}
 
 ```
 
