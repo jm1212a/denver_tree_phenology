@@ -39,11 +39,10 @@ pheno_vars <- c("Greenup_doy", "Maturity_doy",
 
 # Define climate variables (same as before)
 climate_vars <- list(
-  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "impervious_90m", "irrigated_90m"),
+  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","impervious_90m", "irrigated_90m"),
   Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax", "impervious_90m", "irrigated_90m"), 
   Senescence_doy = c("late_summer_prcp", "early_fall_mean_tmax", "early_fall_temp", "impervious_90m", "irrigated_90m"),
-  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m"),
-  DER.pos_doy = c("late_spring_cumulative_prcp", "spring_temp", "late_spring_mean_tmax","impervious_90m", "irrigated_90m")
+  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m")
 )
 
 ```
@@ -1038,7 +1037,8 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
     mutate(UID_numeric = as.numeric(as.factor(UID)))
   
   # Create feature matrix
-  feature_cols <- c(climate_predictors, "tree_mean_pheno", "tree_n_obs", "UID_numeric")
+  feature_cols <- c(climate_predictors, "tree_mean_pheno", "tree_n_obs", "UID_numeric",
+                    "temp_precip_interaction")
   X <- as.matrix(xgb_data %>% select(all_of(feature_cols)))
   y <- xgb_data[[pheno_var]]
   
@@ -1140,26 +1140,34 @@ mean(xgb_table$MAE)
 
 ```{r}
 
-for (result_name in names(xgb_results)) {
-  result <- xgb_results[[result_name]]
-  
-  # Get the actual data
-  actual_data <- tree_ldc_metrics_climate %>%
-    filter(species_common == result$species, year < 2024) %>%
-    pull(result$phenology) %>%
-    na.omit()
-  
-  # Calculate baseline metrics
-  data_sd <- sd(actual_data)
-  data_range <- diff(range(actual_data))
-  
-  cat("\n", result$species, "-", result$phenology, "\n")
-  cat("RMSE:", round(result$cv_rmse, 2), "days\n")
-  cat("Data SD:", round(data_sd, 2), "days\n")
-  cat("Data Range:", round(data_range, 2), "days\n")
-  cat("RMSE/SD ratio:", round(result$cv_rmse / data_sd, 3), "\n")
-  cat("R²:", round(result$cv_r2, 3), "\n\n")
-}
+data.frame(
+  Phenological_Stage = names(climate_vars),
+  Variables = sapply(climate_vars, function(x) paste(x, collapse = ", "))
+)
+
+xgb_table %>%
+  group_by(phenology) %>%
+  summarise(
+    N_Species = n(),
+    Total_Obs = sum(n_obs),
+    Mean_R2 = mean(R2, na.rm = TRUE),
+    Mean_RMSE = mean(RMSE, na.rm = TRUE),
+    Mean_MAE = mean(MAE, na.rm = TRUE)
+  ) %>%
+  arrange(Mean_RMSE)
+
+xgb_table %>%
+  group_by(phenology, species) %>%
+  summarise(
+    N_Species = n(),
+    Total_Obs = sum(n_obs),
+    Mean_R2 = mean(R2, na.rm = TRUE),
+    Mean_RMSE = mean(RMSE, na.rm = TRUE),
+    Mean_MAE = mean(MAE, na.rm = TRUE)
+  ) %>%
+  arrange(Mean_RMSE)
+
 
 ```
+
 
