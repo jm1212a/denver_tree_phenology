@@ -184,119 +184,229 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
 
 ```
 
-
 ```{r}
 
 climate_baseline %>%
   filter((month %in% c(1, 2, 12))) %>%
   mutate(winter_year = ifelse(month == 12, year + 1, year)) %>%
-  group_by(station_id) %>% 
-  summarise(winter_prcp = mean(prcp, na.rm = TRUE), #months chosen 12,1,2
-            winter_prcp_days = mean(prcp != 0, na.rm = TRUE),
-            winter_temp = mean(mean_temp, na.rm = TRUE),
-            winter_mean_tmax = mean(tmax, na.rm = TRUE)) -> winter_metrics
+  group_by(station_id, winter_year) %>%  # Group by YEAR AND STATION
+  summarise(
+    winter_prcp = sum(prcp, na.rm = TRUE),  # Sum within each year
+    winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
+    winter_temp = mean(mean_temp, na.rm = TRUE),
+    winter_mean_tmax = mean(tmax, na.rm = TRUE),
+    .groups = "drop") %>%
+  group_by(station_id) %>%  # Now group just by station
+  summarise(
+    winter_prcp = mean(winter_prcp, na.rm = TRUE),  # MEAN across years
+    winter_prcp_days = mean(winter_prcp_days, na.rm = TRUE),
+    winter_temp = mean(winter_temp, na.rm = TRUE),
+    winter_mean_tmax = mean(winter_mean_tmax, na.rm = TRUE),
+    .groups = "drop") -> winter_metrics
 
 climate_baseline %>%
-  filter((month %in% c(2, 3))) %>% 
-  group_by(station_id) %>% 
-  summarise(late_winter_prcp = sum(prcp, na.rm = TRUE), #months chosen 2,3
-            late_winter_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            late_winter_temp = mean(mean_temp, na.rm = TRUE),
-            late_winter_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_winter_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    late_winter_prcp = sum(prcp[month %in% c(2, 3)], na.rm = TRUE),
+    late_winter_prcp_days = sum(prcp[month %in% c(2, 3)] != 0, na.rm = TRUE),
+    late_winter_temp = mean(mean_temp[month %in% c(2, 3)], na.rm = TRUE),
+    late_winter_mean_tmax = mean(tmax[month %in% c(2, 3)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    late_winter_prcp = mean(late_winter_prcp, na.rm = TRUE),
+    late_winter_prcp_days = mean(late_winter_prcp_days, na.rm = TRUE),
+    late_winter_temp = mean(late_winter_temp, na.rm = TRUE),
+    late_winter_mean_tmax = mean(late_winter_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> late_winter_metrics
 
 climate_baseline %>%
-  filter((month %in% c(3, 4, 5))) %>% 
+  filter(month %in% c(3, 4, 5)) %>% 
+  group_by(station_id, year) %>% 
+  summarise(
+    spring_prcp = sum(prcp, na.rm = TRUE),
+    spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
+    spring_temp = mean(mean_temp, na.rm = TRUE),
+    spring_mean_tmax = mean(tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% 
   group_by(station_id) %>% 
-  summarise(spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
-            spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            spring_temp = mean(mean_temp, na.rm = TRUE),
-            spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> spring_metrics
+  summarise(
+    spring_prcp       = mean(spring_prcp, na.rm = TRUE),
+    spring_prcp_days  = mean(spring_prcp_days, na.rm = TRUE),
+    spring_temp       = mean(spring_temp, na.rm = TRUE),
+    spring_mean_tmax  = mean(spring_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> spring_metrics 
 
 climate_baseline %>%
-  filter((month %in% c(3, 4))) %>% 
-  group_by(station_id) %>% 
-  summarise(early_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 3,4
-            early_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            early_spring_temp = mean(mean_temp, na.rm = TRUE),
-            early_spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> early_spring_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    early_spring_prcp = sum(prcp[month %in% c(3, 4)], na.rm = TRUE),
+    early_spring_prcp_days = sum(prcp[month %in% c(3, 4)] != 0, na.rm = TRUE),
+    early_spring_temp = mean(mean_temp[month %in% c(3, 4)], na.rm = TRUE),
+    early_spring_mean_tmax = mean(tmax[month %in% c(3, 4)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    early_spring_prcp = mean(early_spring_prcp, na.rm = TRUE),
+    early_spring_prcp_days = mean(early_spring_prcp_days, na.rm = TRUE),
+    early_spring_temp = mean(early_spring_temp, na.rm = TRUE),
+    early_spring_mean_tmax = mean(early_spring_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> early_spring_metrics
 
+# Late Spring (May-Jun)
 climate_baseline %>%
-  filter((month %in% c(5, 6))) %>% 
-  group_by(station_id) %>% 
-  summarise(late_spring_prcp = sum(prcp, na.rm = TRUE), #months chosen 5,6
-            late_spring_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            late_spring_temp = mean(mean_temp, na.rm = TRUE),
-            late_spring_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_spring_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    late_spring_prcp = sum(prcp[month %in% c(5, 6)], na.rm = TRUE),
+    late_spring_prcp_days = sum(prcp[month %in% c(5, 6)] != 0, na.rm = TRUE),
+    late_spring_temp = mean(mean_temp[month %in% c(5, 6)], na.rm = TRUE),
+    late_spring_mean_tmax = mean(tmax[month %in% c(5, 6)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    late_spring_prcp = mean(late_spring_prcp, na.rm = TRUE),
+    late_spring_prcp_days = mean(late_spring_prcp_days, na.rm = TRUE),
+    late_spring_temp = mean(late_spring_temp, na.rm = TRUE),
+    late_spring_mean_tmax = mean(late_spring_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> late_spring_metrics
 
+# Summer (Jun-Jul-Aug)
 climate_baseline %>%
-  filter((month %in% c(6, 7, 8))) %>% 
-  group_by(station_id) %>% 
-  summarise(summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 6,7,8
-            summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            summer_temp = mean(mean_temp, na.rm = TRUE),
-            summer_mean_tmax = mean(tmax, na.rm = TRUE)) -> summer_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    summer_prcp = sum(prcp[month %in% c(6, 7, 8)], na.rm = TRUE),
+    summer_prcp_days = sum(prcp[month %in% c(6, 7, 8)] != 0, na.rm = TRUE),
+    summer_temp = mean(mean_temp[month %in% c(6, 7, 8)], na.rm = TRUE),
+    summer_mean_tmax = mean(tmax[month %in% c(6, 7, 8)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    summer_prcp = mean(summer_prcp, na.rm = TRUE),
+    summer_prcp_days = mean(summer_prcp_days, na.rm = TRUE),
+    summer_temp = mean(summer_temp, na.rm = TRUE),
+    summer_mean_tmax = mean(summer_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> summer_metrics
 
+# Late Summer (Jul-Aug)
 climate_baseline %>%
-  filter((month %in% c(7, 8))) %>% 
-  group_by(station_id) %>% 
-  summarise(late_summer_prcp = sum(prcp, na.rm = TRUE), #months chosen 8,9
-            late_summer_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            late_summer_temp = mean(mean_temp, na.rm = TRUE),
-            late_summer_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_summer_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    late_summer_prcp = sum(prcp[month %in% c(7, 8)], na.rm = TRUE),
+    late_summer_prcp_days = sum(prcp[month %in% c(7, 8)] != 0, na.rm = TRUE),
+    late_summer_temp = mean(mean_temp[month %in% c(7, 8)], na.rm = TRUE),
+    late_summer_mean_tmax = mean(tmax[month %in% c(7, 8)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    late_summer_prcp = mean(late_summer_prcp, na.rm = TRUE),
+    late_summer_prcp_days = mean(late_summer_prcp_days, na.rm = TRUE),
+    late_summer_temp = mean(late_summer_temp, na.rm = TRUE),
+    late_summer_mean_tmax = mean(late_summer_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> late_summer_metrics
 
+# Fall (Sep-Oct-Nov)
 climate_baseline %>%
-  filter((month %in% c(9, 10, 11))) %>% 
-  group_by(station_id) %>% 
-  summarise(fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10,11
-            fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            fall_temp = mean(mean_temp, na.rm = TRUE),
-            fall_mean_tmax = mean(tmax, na.rm = TRUE)) -> fall_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    fall_prcp = sum(prcp[month %in% c(9, 10, 11)], na.rm = TRUE),
+    fall_prcp_days = sum(prcp[month %in% c(9, 10, 11)] != 0, na.rm = TRUE),
+    fall_temp = mean(mean_temp[month %in% c(9, 10, 11)], na.rm = TRUE),
+    fall_mean_tmax = mean(tmax[month %in% c(9, 10, 11)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    fall_prcp = mean(fall_prcp, na.rm = TRUE),
+    fall_prcp_days = mean(fall_prcp_days, na.rm = TRUE),
+    fall_temp = mean(fall_temp, na.rm = TRUE),
+    fall_mean_tmax = mean(fall_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> fall_metrics
 
+# Early Fall (Sep-Oct)
 climate_baseline %>%
-  filter((month %in% c(9, 10))) %>% 
-  group_by(station_id) %>% 
-  summarise(early_fall_prcp = sum(prcp, na.rm = TRUE), #months chosen 9,10
-            early_fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            early_fall_temp = mean(mean_temp, na.rm = TRUE),
-            early_fall_mean_tmax = mean(tmax, na.rm = TRUE)) -> early_fall_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    early_fall_prcp = sum(prcp[month %in% c(9, 10)], na.rm = TRUE),
+    early_fall_prcp_days = sum(prcp[month %in% c(9, 10)] != 0, na.rm = TRUE),
+    early_fall_temp = mean(mean_temp[month %in% c(9, 10)], na.rm = TRUE),
+    early_fall_mean_tmax = mean(tmax[month %in% c(9, 10)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    early_fall_prcp = mean(early_fall_prcp, na.rm = TRUE),
+    early_fall_prcp_days = mean(early_fall_prcp_days, na.rm = TRUE),
+    early_fall_temp = mean(early_fall_temp, na.rm = TRUE),
+    early_fall_mean_tmax = mean(early_fall_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> early_fall_metrics
 
+# Late Fall (Nov-Dec)
 climate_baseline %>%
-  filter((month %in% c(11, 12))) %>% 
-  group_by(station_id) %>% 
-  summarise(late_fall_prcp = sum(prcp, na.rm = TRUE), # months chosen 11,12
-            late_fall_prcp_days = sum(prcp != 0, na.rm = TRUE),
-            late_fall_temp = mean(mean_temp, na.rm = TRUE),
-            late_fall_mean_tmax = mean(tmax, na.rm = TRUE)) -> late_fall_metrics
+  group_by(station_id, year) %>%
+  summarise(
+    late_fall_prcp = sum(prcp[month %in% c(11, 12)], na.rm = TRUE),
+    late_fall_prcp_days = sum(prcp[month %in% c(11, 12)] != 0, na.rm = TRUE),
+    late_fall_temp = mean(mean_temp[month %in% c(11, 12)], na.rm = TRUE),
+    late_fall_mean_tmax = mean(tmax[month %in% c(11, 12)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    late_fall_prcp = mean(late_fall_prcp, na.rm = TRUE),
+    late_fall_prcp_days = mean(late_fall_prcp_days, na.rm = TRUE),
+    late_fall_temp = mean(late_fall_temp, na.rm = TRUE),
+    late_fall_mean_tmax = mean(late_fall_mean_tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) -> late_fall_metrics
 
+# Cumulative Precipitation (year-to-date sums)
 climate_baseline %>%
-  group_by(station_id) %>% 
-  summarise(later_winter_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3)], 
-                                               na.rm = TRUE),
-            spring_prcp_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4 , 5)], 
-                                                   na.rm = TRUE),
-            early_spring_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4)], 
-                                                    na.rm = TRUE),
-            late_spring_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5)], 
-                                                   na.rm = TRUE),
-            summer_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8)], 
-                                                   na.rm = TRUE),
-            late_summer_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9)], 
-                                                   na.rm = TRUE),
-            early_fall_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9,10)], 
-                                                   na.rm = TRUE),
-            fall_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9,10,11)], 
-                                                   na.rm = TRUE),
-            late_fall_cumulative_prcp = mean(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12)], 
-                                                   na.rm = TRUE)) -> cumulative_prcp
+  group_by(station_id, year) %>%
+  summarise(
+    later_winter_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3)], na.rm = TRUE),
+    spring_prcp_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5)], na.rm = TRUE),
+    early_spring_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4)], na.rm = TRUE),
+    late_spring_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5)], na.rm = TRUE),
+    summer_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8)], na.rm = TRUE),
+    late_summer_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9)], na.rm = TRUE),
+    early_fall_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)], na.rm = TRUE),
+    fall_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)], na.rm = TRUE),
+    late_fall_cumulative_prcp = sum(prcp[month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(station_id) %>%
+  summarise(
+    later_winter_cumulative_prcp = mean(later_winter_cumulative_prcp, na.rm = TRUE),
+    spring_prcp_cumulative_prcp = mean(spring_prcp_cumulative_prcp, na.rm = TRUE),
+    early_spring_cumulative_prcp = mean(early_spring_cumulative_prcp, na.rm = TRUE),
+    late_spring_cumulative_prcp = mean(late_spring_cumulative_prcp, na.rm = TRUE),
+    summer_cumulative_prcp = mean(summer_cumulative_prcp, na.rm = TRUE),
+    late_summer_cumulative_prcp = mean(late_summer_cumulative_prcp, na.rm = TRUE),
+    early_fall_cumulative_prcp = mean(early_fall_cumulative_prcp, na.rm = TRUE),
+    fall_cumulative_prcp = mean(fall_cumulative_prcp, na.rm = TRUE),
+    late_fall_cumulative_prcp = mean(late_fall_cumulative_prcp, na.rm = TRUE),
+    .groups = "drop"
+  ) -> cumulative_prcp
 
 list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
-     late_spring_metrics,summer_metrics, late_summer_metrics, fall_metrics,
+     late_spring_metrics, summer_metrics, late_summer_metrics, fall_metrics,
      early_fall_metrics, late_fall_metrics, cumulative_prcp) %>% 
-  reduce(left_join, by = "station_id") %>% 
+  reduce(left_join, by = "station_id")%>% 
   write_csv("./climate_variables/climate_baseline.csv")
 
 
 ```
-
-
-
