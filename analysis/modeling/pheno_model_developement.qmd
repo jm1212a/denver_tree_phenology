@@ -39,11 +39,51 @@ pheno_vars <- c("Greenup_doy", "Maturity_doy",
 
 # Define climate variables (same as before)
 climate_vars <- list(
-  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","impervious_90m", "irrigated_90m"),
-  Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax", "impervious_90m", "irrigated_90m"), 
-  Senescence_doy = c("late_summer_prcp", "early_fall_mean_tmax", "early_fall_temp", "impervious_90m", "irrigated_90m"),
-  Dormancy_doy = c("fall_cumulative_prcp", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m")
+  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","late_winter_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
+  Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax","late_spring_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"), 
+  Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp","impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
+  Dormancy_doy = c("fall_cumulative_prcp", "fall_prcp_days", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
 )
+
+```
+
+```{r}
+
+all_predictors <- c(
+  "winter_temp", "winter_mean_tmax",
+  "late_winter_temp", "late_winter_mean_tmax",
+  "spring_temp", "spring_mean_tmax",
+  "early_spring_temp", "early_spring_mean_tmax",
+  "late_spring_temp", "late_spring_mean_tmax",
+  "summer_temp", "summer_mean_tmax",
+  "late_summer_temp", "late_summer_mean_tmax",
+  "fall_temp", "fall_mean_tmax",
+  "early_fall_temp", "early_fall_mean_tmax",
+  "late_fall_temp",
+  "winter_prcp", "winter_prcp_days",
+  "late_winter_prcp", "late_winter_prcp_days",
+  "spring_prcp", "spring_prcp_days",
+  "early_spring_prcp", "early_spring_prcp_days",
+  "late_spring_prcp", "late_spring_prcp_days",
+  "summer_prcp", "summer_prcp_days",
+  "late_summer_prcp", "late_summer_prcp_days",
+  "fall_prcp", "fall_prcp_days",
+  "early_fall_prcp", "early_fall_prcp_days",
+  "late_fall_prcp", "late_fall_prcp_days",
+  "later_winter_cumulative_prcp",
+  "spring_prcp_cumulative_prcp",
+  "early_spring_cumulative_prcp",
+  "late_spring_cumulative_prcp",
+  "summer_cumulative_prcp",
+  "late_summer_cumulative_prcp",
+  "early_fall_cumulative_prcp",
+  "fall_cumulative_prcp",
+  "late_fall_cumulative_prcp",
+  "impervious_90m",
+  "irrigated_90m", 
+  "unirrigated_90m", 
+  "tree_canopy_90m", 
+  "water_90m")
 
 ```
 
@@ -234,7 +274,7 @@ all_cors %>%
 
 source("../../R/plot_year.R")
 
-plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection","DER.pos")) 
+plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection")) 
 plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative")) 
 
 
@@ -1323,7 +1363,7 @@ temp_vars <- c("late_winter_temp", "late_winter_mean_tmax", "late_spring_temp",
                "late_spring_mean_tmax","early_fall_temp", "early_fall_mean_tmax",
                "fall_mean_tmax","late_fall_temp" )
 
-landcover_vars <- c("impervious_90m", "irrigated_90m")
+landcover_vars <- c("impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
 
 # Scenario 1: Baseline (current average)
 scenario_baseline <- expand_grid(
@@ -1332,41 +1372,54 @@ scenario_baseline <- expand_grid(
   ) %>%
   left_join(
     tree_ldc_metrics_climate %>%
-      select(UID, species_common, all_of(landcover_vars)) %>%
+      select(UID, species_common, species_siall_of(landcover_vars)) %>%
       distinct(),
     by = "UID") 
+
+current_warm <- scenario_baseline %>%
+  mutate(across(all_of(temp_vars), ~.x + 1.1),
+         impervious_90m = mean(impervious_90m, na.rm = TRUE),
+         irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
+         unirrigated_90m = mean(unirrigated_90m),
+         water_90m = mean(water_90m),
+         tree_canopy_90m = mean(tree_canopy_90m)
+         )
 
 # +2°C (modify ALL temperature variables)
 scenario_warm <- scenario_baseline %>%
   mutate(across(all_of(temp_vars), ~.x + 2),
          impervious_90m = mean(impervious_90m, na.rm = TRUE),
-         irrigated_90m = mean(irrigated_90m, na.rm = TRUE))
+         irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
+         unirrigated_90m = mean(unirrigated_90m),
+         water_90m = mean(water_90m),
+         tree_canopy_90m = mean(tree_canopy_90m)
+         )
 
 # +2°C + 10% more precipitation
 scenario_warm_wet <- scenario_warm %>%
-  mutate(across(all_of(prcp_vars), ~.x * 1.1))
+  mutate(across(all_of(prcp_vars), ~.x * 1.07))
 
 # +2°C - 10% less precipitation
 scenario_warm_dry <- scenario_warm %>%
-  mutate(across(all_of(prcp_vars), ~.x * 0.9))
+  mutate(across(all_of(prcp_vars), ~.x * 0.93))
 
 # ===== Predict all scenarios =====
 cat("\n\n===== Predicting Climate Scenarios =====\n")
 
 predictions_baseline <- predict_climate_scenario(xgb_models, scenario_baseline, "Baseline")
+predictions_actual <- predict_climate_scenario(xgb_models, current_warm, "Actual Warming +1.1C")
 predictions_warm <- predict_climate_scenario(xgb_models, scenario_warm, "+2C")
-predictions_warm_wet <- predict_climate_scenario(xgb_models, scenario_warm_wet, "+2C +10% precip")
-predictions_warm_dry <- predict_climate_scenario(xgb_models, scenario_warm_dry, "+2C -10% precip")
+predictions_warm_wet <- predict_climate_scenario(xgb_models, scenario_warm_wet, "+2C +7% precip")
+predictions_warm_dry <- predict_climate_scenario(xgb_models, scenario_warm_dry, "+2C -7% precip")
 
 # Combine all scenarios
 all_scenario_predictions <- bind_rows(
   predictions_baseline,
+  predictions_actual,
   predictions_warm,
   predictions_warm_wet,
   predictions_warm_dry
 )
-
-cat("\n\nScenario predictions saved!\n")
 
 ```
 
@@ -1374,9 +1427,10 @@ cat("\n\nScenario predictions saved!\n")
 
 all_scenario_predictions %>% 
   group_by(species, phenology, scenario) %>% 
-  summarise(mean_doy = mean(predicted_doy)) %>% 
-  filter(species == "American Linden",
-         scenario %in% c("Baseline", "+2C"))
+  summarise(mean_doy = mean(predicted_doy),
+            sd = sd(predicted_doy)) 
+  
+
 
 ```
 
@@ -1393,7 +1447,7 @@ all_scenario_predictions %>%
   facet_wrap(~phenology, ncol = 1, scales = "free_y", strip.position = "right") +
   scale_y_continuous(n.breaks = 6) +
   labs(
-    x = "Species",
+    x = "",
     y = "Day of Year",
     fill = "Scenario"
   ) +
@@ -1401,13 +1455,90 @@ all_scenario_predictions %>%
   theme_minimal() +
   theme(
     legend.position = "bottom",
+    legend.key.size = unit(.5, "lines"),
+    legend.background = element_rect(fill = "white", color = "grey80"),
     axis.text.x = element_text(angle = 45, hjust = 1),
     strip.text.y.right = element_text(angle = 90, face = "bold", size = 11),
     strip.background = element_rect(fill = "grey95", color = "grey80"),
     panel.spacing = unit(0.5, "lines")
-  )
+  ) 
+  ggsave("../../images/climatechange_impact.png", width = 10, height = 10, dpi = 300)
 
 ```
+
+```{r}
+all_scenario_predictions %>% 
+  group_by(species, phenology, scenario) %>% 
+  summarise(mean = mean(predicted_doy),
+            sd = sd(predicted_doy),
+            .groups = "drop") 
+```
+
+```{r}
+# Fix syntax errors and add suffixes
+all_scenario_predictions %>% 
+  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
+  group_by(species, phenology) %>% 
+  summarise(
+    t_stat_1.1C = round(t.test(Baseline, `Actual Warming +1.1C`, paired = TRUE)$statistic, 2),
+    p_value_1.1C = round(t.test(Baseline, `Actual Warming +1.1C`, paired = TRUE)$p.value, 3),
+    mean_baseline_1.1C = round(mean(Baseline, na.rm = TRUE), 2),
+    mean_warming_1.1C = round(mean(`Actual Warming +1.1C`, na.rm = TRUE), 2),
+    mean_diff_1.1C = round(mean(`Actual Warming +1.1C` - Baseline, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) -> t_tables_1.1
+
+all_scenario_predictions %>% 
+  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
+  group_by(species, phenology) %>% 
+  summarise(
+    t_stat_2C = round(t.test(Baseline, `+2C`, paired = TRUE)$statistic, 2),
+    p_value_2C = round(t.test(Baseline, `+2C`, paired = TRUE)$p.value, 3),
+    mean_baseline_2C = round(mean(Baseline, na.rm = TRUE), 2),
+    mean_warming_2C = round(mean(`+2C`, na.rm = TRUE), 2),
+    mean_diff_2C = round(mean(`+2C` - Baseline, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) -> t_tables_2C
+
+all_scenario_predictions %>% 
+  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
+  group_by(species, phenology) %>% 
+  summarise(
+    t_stat_2C_dry = round(t.test(Baseline, `+2C -7% precip`, paired = TRUE)$statistic, 2),
+    p_value_2C_dry = round(t.test(Baseline, `+2C -7% precip`, paired = TRUE)$p.value, 3),
+    mean_baseline_2C_dry = round(mean(Baseline, na.rm = TRUE), 2),
+    mean_warming_2C_dry = round(mean(`+2C -7% precip`, na.rm = TRUE), 2),
+    mean_diff_2C_dry = round(mean(`+2C -7% precip` - Baseline, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) -> t_tables_2C_dry
+
+all_scenario_predictions %>% 
+  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
+  group_by(species, phenology) %>% 
+  summarise(
+    t_stat_2C_wet = round(t.test(Baseline, `+2C +7% precip`, paired = TRUE)$statistic, 2),
+    p_value_2C_wet = round(t.test(Baseline, `+2C +7% precip`, paired = TRUE)$p.value, 3),
+    mean_baseline_2C_wet = round(mean(Baseline, na.rm = TRUE), 2),
+    mean_warming_2C_wet = round(mean(`+2C +7% precip`, na.rm = TRUE), 2),
+    mean_diff_2C_wet = round(mean(`+2C +7% precip` - Baseline, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) -> t_tables_2C_wet
+
+# Join all tables
+t_tables_1.1 %>%
+  left_join(t_tables_2C, by = c("species", "phenology")) %>%
+  left_join(t_tables_2C_dry, by = c("species", "phenology")) %>%
+  left_join(t_tables_2C_wet, by = c("species", "phenology")) %>% 
+  select(-contains("t_stat")) %>% 
+  select(species, phenology, mean_baseline_1.1C, mean_warming_1.1C, mean_diff_1.1C, p_value_1.1C,
+         mean_warming_2C,mean_diff_2C , p_value_2C, mean_warming_2C_dry, mean_diff_2C_dry, p_value_2C_dry,
+         mean_warming_2C_wet, mean_diff_2C_wet, p_value_2C_wet) %>% 
+  rename(baseline_1970to2000 = mean_baseline_1.1C) %>% 
+  write_csv("summary_table_climate_senarios")
+ 
+```
+
+
 
 
 

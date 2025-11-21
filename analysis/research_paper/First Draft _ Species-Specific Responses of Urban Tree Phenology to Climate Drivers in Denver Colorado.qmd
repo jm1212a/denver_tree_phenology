@@ -3,6 +3,10 @@ title: "Species-Specific Responses of Urban Tree Phenology to Climate Drivers a 
 author: "Jared Martin"
 format: pdf
 editor: visual
+execute:
+  echo: false
+  warning: false
+  message: false
 ---
 
 ## Abstract
@@ -17,25 +21,25 @@ Precipitation patterns add another layer of complexity. Spring drought can delay
 
 Monitoring and predicting these phenological responses require appropriate observational tools. The body of research on urban phenology has evolved along multiple scales of observation. Coarse-scale studies often rely on remote sensing platforms such as MODIS, which provide high temporal but low spatial resolution data to monitor citywide phenological trends and seasonal canopy dynamics (Zhang et al., 2004; Melaas et al., 2016). At the opposite end of the spectrum, fine-scale studies use in-situ observations or near-surface imaging networks like PhenoCam to capture species-level variation and microclimate effects that are often obscured at broader scales (Richardson et al., 2018; Klosterman et al., 2018). More recently, high-resolution satellite constellations such as PlanetScope have emerged as a valuable intermediate approach, combining the spatial precision needed to monitor the location of individually identified trees with the temporal frequency required to monitor phenological changes at an almost daily bases (Bolton et al., 2020; Alonzo et al., 2020). Researchers can now study urban vegetation across large urban areas on an unprecedented detail and scale. This new approach also allows researchers to simulate and predict how different urban tree species may respond to future climate conditions, supporting proactive planning for urban resilience and heat mitigation.
 
-### 1.1 Study Context
+### 1.1 Objectives
 
-These new methodological advances are particularly valuable for cities facing significant projected climate changes. Denver, Colorado provides a compelling case study, as the city confronts both substantial warming and precipitation uncertainty that will directly affect urban tree phenology and the cooling services trees provide. Understanding these dynamics is critical not only for Denver but also for similarly positioned mid-latitude cities experiencing rapid warming and uncertain precipitation futures. According to Colorado State University's Colorado Climate Center's most recent Climate Change in Colorado report, by mid-century, Denver is projected to see temperatures rise between 1.4°C and 3.1°C compared to the 1971–2000 baseline. The city has already warmed by approximately 1.1°C over the past 30 years, with the most pronounced increases occurring during summer and fall. Under moderate emissions scenarios, Denver's climate will resemble that of Pueblo, Colorado today, whereas higher emissions scenarios could make it feel more like Albuquerque, New Mexico. Summer and fall are expected to warm slightly more than winter and spring, with summer temperatures increasing by 2.2–3.3°C and winter by 1.7–2.2°C. This warming is projected to drive dramatic increases in extreme heat events: by mid-century, Denver could experience an average of 7 days per year exceeding 37.8°C (100°F) and roughly 35 days above 35°C (95°F), compared to very few such days historically. In essence, the typical year in 2050 may be as warm as the hottest years on record today.
+This study leverages near-daily PlanetScope NDVI observations of urban trees in Denver, Colorado, daily climate data from 2018 to 2024, and land cover data to investigate how urban tree phenology responds to environmental drivers and how these responses may shift under future climate scenarios. Specifically, this research addresses three key questions:
+
+1.  Do species show differential phenological sensitivities to temperature versus precipitation drivers, and which climate variables most strongly influence the timing of greenup, maturity, senescence, and dormancy across twelve common Denver tree species?
+2.  How does land cover—such as impervious surfaces versus irrigated landscapes—affect tree phenology?
+3.  How will different tree species respond to moderate climate change scenarios?
+
+### 1.2 Study Area
+
+Denver, Colorado provides a compelling case study, as the city confronts both substantial warming and precipitation uncertainty that will directly affect urban tree phenology and the cooling services trees provide. Understanding these dynamics is critical not only for Denver but also for similarly positioned mid-latitude cities experiencing rapid warming and uncertain precipitation futures. According to Colorado State University's Colorado Climate Center's most recent Climate Change in Colorado report, by mid-century, Denver is projected to see temperatures rise between 1.4°C and 3.1°C compared to the 1971–2000 baseline. The city has already warmed by approximately 1.1°C over the past 30 years, with the most pronounced increases occurring during summer and fall. Under moderate emissions scenarios, Denver's climate will resemble that of Pueblo, Colorado today, whereas higher emissions scenarios could make it feel more like Albuquerque, New Mexico. Summer and fall are expected to warm slightly more than winter and spring, with summer temperatures increasing by 2.2–3.3°C and winter by 1.7–2.2°C. This warming is projected to drive dramatic increases in extreme heat events: by mid-century, Denver could experience an average of 7 days per year exceeding 37.8°C (100°F) and roughly 35 days above 35°C (95°F), compared to very few such days historically. In essence, the typical year in 2050 may be as warm as the hottest years on record today.
 
 Future precipitation patterns for Denver remain highly uncertain, compounding the challenge for urban forest managers. Climate models (CMIP5 and CMIP6 under RCP 4.5 scenarios) disagree on whether precipitation will increase or decrease, with projections ranging from -7% to +7% by 2050. While northern Front Range projections, including Denver, are generally shifted toward wetter outcomes compared to southern Colorado, the consensus is weak outside of winter, when most models project an increase in precipitation. Overall, the share of precipitation falling during heavy downpours is expected to rise from about 46% to 50% by mid-century. Despite these potential increases, warmer temperatures may offset benefits by pulling more moisture from snowpacks, soils, and plants, compounding the risk of drought and reducing water availability. This risk is not hypothetical: Denver has already experienced persistent dry conditions in the 21st century, with four of the five driest years in the 128-year record occurring since 2000.
 
-### 1.2 Objectives
-
-Using near-daily PlanetScope NDVI observations and daily climate data from 2018 to 2024, this study models individual tree phenological metrics against climate variables and land cover in an attempt to control for localized microclimates. We address three key research questions:
-
-1.  How do phenological metrics vary among tree species in Denver's semi-arid urban environment?
-2.  Which climate variables best predict phenological timing for each species?
-3.  Do species show differential sensitivities to temperature versus precipitation drivers?
-
-The study period captures years with temperatures and precipitation both above and below the 1971-2000 baseline. Notably, 2024 was Denver's third warmest year on record, with temperatures 1.8°C above baseline—approximating mid-century projections—while 2019 and 2020 were notably drier than average. This climate variability enables us to model how Denver's urban trees respond to conditions projected for 2050.
-
-By examining species-level variation in phenological responses, we identify which tree species may be more vulnerable or resilient to future climate conditions. These findings will inform species selection and management strategies for Denver and comparable semi-arid cities.
+The study period of this paper (2018 to 2024), captures years with temperatures and precipitation both above and below the 1971-2000 baseline. Notably, 2024 was Denver's third warmest year on record, with temperatures 1.8°C above baseline—approximating mid-century projections—while 2019 and 2020 were notably drier than average. This climate variability enables us to model how Denver's urban trees respond to conditions projected for 2050.
 
 ## 2. Methods & Materials
+
+This study models individual tree phenological metrics against corresponding land cover characteristics and seasonal climate variables using machine learning methods. We combined near-daily PlanetScope NDVI observations from 2018-2024 with Denver's municipal tree inventory, daily climate records, and high-resolution land cover data to create a comprehensive dataset linking individual tree phenology to environmental drivers. XGBoost models were fit separately for each species and phenological stage (greenup, maturity, senescence, dormancy) to quantify climate and land cover effects, with model predictions then used to simulate phenological responses under future climate scenarios.
 
 ### 2.1 Materials
 
@@ -71,7 +75,7 @@ An interactive Shiny application was developed to facilitate sample selection an
 
 #### 2.1.2 Remotely Sensed NDVI Data
 
-The Normalized Difference Vegetation Index (NDVI) is a widely used spectral index that measures vegetation greenness by comparing the difference between near-infrared (strongly reflected by vegetation) and red light (absorbed by vegetation). This relationship emerges from fundamental plant physiology: chlorophyll in leaves strongly absorbs red light for photosynthesis, while the cellular structure of healthy leaves strongly reflects near-infrared radiation. The index ranges from -1 to +1, with higher values indicating greater photosynthetic activity and canopy density.
+The Normalized Difference Vegetation Index (NDVI) is a widely used spectral index that measures vegetation greenness by comparing the difference between near-infrared (strongly reflected by vegetation) and red light (absorbed by vegetation). This relationship emerges from plant physiology: chlorophyll in leaves strongly absorbs red light for photosynthesis, while the cellular structure of healthy leaves strongly reflects near-infrared radiation. The index ranges from -1 to +1, with higher values indicating greater photosynthetic activity and canopy density.
 
 Since its development in the 1970s, NDVI has become one of the most widely applied metrics in vegetation remote sensing. It has been used to monitor crop health, assess drought impacts, track deforestation, and map global vegetation dynamics across scales from individual plants to entire biomes. For phenological applications specifically, NDVI provides a continuous, objective measure of canopy greenness that directly reflects the seasonal cycles of leaf emergence, maturation, and senescence.
 
@@ -87,44 +91,55 @@ Tree-level NDVI values were extracted by overlaying tree locations from the Denv
 
 #### 2.1.3 Extracted Phenological Metrics
 
--   Metrics extracted using the Pheno-fit package to fit phenological curves to the raw NDVI values
--   First NDVI values were despiked using 5 sd away from the mean
--   Then a multi-season curve was fited to the data to derive the multi-year phenological cycle.
--   For the most part these the caladar year, however for some years id. growning seasons from phenoy fit leak in to the begging of the next caladar year.
--   To improve the accuracy of the multi-year cycle, the raw NDIV data was de-trended using a lm to account for the season over season increase of some / growing trees in the study.
--   Once idividual growing season were dervied, yearly phenolgocal curcves are fited.
--   The fit of each curve was esseded using Adjusted r2. If any tree had an r2 of leass than .9 or a grwoing season detected in 6 years of. the 7 years, the tree was removed from the sample and phenolgocial metrics were not caluclated.
--   Based on the critiria outlined aobove tuning function was used to find the method for fiting a phenological curve to each tree and derviing the pphenologica season. 3 season and 4 curve
--   Elmore Curve with wWHIT season we used as the produced the most used able annual curves.
--   bASED ON the curve the metrics were calucted useinf the (derivite, inflection, ...). Inflection point was used used becasue .....
--   All metrics were calueded and saved inthe final out put. Along wit the metadata for season and anncual curves for each observation in the data set.
--   Custrom fuction was created to easly graph the annual curves and extracted metrics based on the metadata. Github
--   in total after processing, the 3450 trees tremained out of the initial sample. (chart) (plot of curve and metrics, )
+Phenological metrics were extracted from the raw NDVI time series using the `phenofit` package in R [@kong2022], which implements multiple curve-fitting methods and automated quality control procedures for vegetation phenology analysis. The extraction process involved several preprocessing steps, curve fitting procedures, and quality filters to ensure robust metric derivation. Raw NDVI values were first despiked to remove anomalous observations caused by residual cloud contamination, sensor noise, or atmospheric interference using a median-based despike filter with a 3-point window and 5 standard deviation threshold from the `oce` package [@kelley2022].
+
+Individual growing seasons were identified from the NDVI time series using the `season_mov()` function with weighted Whittaker (wWHIT) smoothing [@eilers2003], which automatically detects seasonal boundaries by identifying local minima in smoothed NDVI curves. To improve the accuracy of growing season detection, particularly for trees exhibiting multi-year growth trends, NDVI time series were detrended using a linear model regressing NDVI against time. The fitted trend was removed while preserving the mean NDVI value, allowing the season detection algorithm to isolate seasonal phenological cycles from inter-annual growth patterns. While growing seasons generally corresponded to calendar years, the algorithm occasionally detected seasons spanning year boundaries, particularly for trees with extended dormancy periods or delayed spring greenup. For each detected growing season, we fitted phenological curves using the double-logistic Elmore function [@elmore2012], which models vegetation greenness as $y(t) = c + (d - c) \left[\frac{1}{1 + e^{a_1(t - b_1)}} - \frac{1}{1 + e^{a_2(t - b_2)}}\right]$, where $c$ is the baseline NDVI, $d$ is the peak NDVI, $(a_1, b_1)$ control spring greenup rate and timing, and $(a_2, b_2)$ control fall senescence rate and timing. The Elmore curve was selected after testing multiple curve types (double-logistic, asymmetric Gaussian, Beck) because it consistently produced the most reliable fits across species and provided biologically interpretable parameters for both greenup and senescence phases.
+
+Curve fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least 6 growing seasons successfully detected over the 7-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal due to crown damage, sensor artifacts, or persistent cloud cover. Four phenological stage dates were extracted from each annual curve using the inflection point method [@zhang2003], which identifies the dates of maximum rate of change in the NDVI trajectory: (1) **Greenup** - spring inflection point marking rapid leaf emergence, (2) **Maturity** - the date of peak NDVI when maximum canopy development is reached, (3) **Senescence** - fall inflection point marking rapid leaf loss, and (4) **Dormancy** - the date when NDVI reaches its winter minimum. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they are less sensitive to baseline NDVI variations and provide consistent timing estimates across species with different canopy densities. All extracted metrics, fitted curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub repository link\]. After quality filtering, 3,450 trees acrross 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period.
 
 #### 2.1.4 Climate Data
 
--   Source NOAA daily from Denver Central Park (Old denver airport)
+Daily climate observations were obtained from the National Oceanic and Atmospheric Administration (NOAA) Global Historical Climatology Network-Daily (GHCN-Daily) database for station USW00023062, located within Denver Central Park (formerly Stapleton International Airport). This station was selected due to its central location within Denver County. Three core meteorological variables were extracted: maximum daily temperature (TMAX), minimum daily temperature (TMIN), and daily precipitation (PRCP). From these variables, Daily mean temperature was calculated as the arithmetic mean of TMAX and TMIN.
 
--   chosen becasue of it's centeral location
+To align climate variables with the biological timing of phenological stages, daily observations were aggregated into seasonal summaries corresponding to key periods of tree development. Temperature metrics included both seasonal mean temperatures and seasonal mean maximum temperatures, capturing both average thermal conditions and peak daytime heat stress. Precipitation was summarized in two ways: seasonal totals (e.g., spring precipitation sum) to capture resource availability during active growth periods, and year-to-date cumulative totals to represent antecedent moisture conditions that influence phenological timing through soil water storage. These seasonal windows were defined to capture climate conditions during biologically relevant periods preceding or coinciding with each phenological stage. For example, greenup timing was modeled using late winter and early spring climate (February-April), while senescence timing incorporated summer and early fall conditions (June-October).
 
--   TMAX, TMIN, PRCP AND SNOW,
+The resulting climate dataset included 10 distinct seasonal periods (winter, late winter, spring, early spring, late spring, summer, late summer, fall, early fall, late fall) with corresponding temperature and precipitation metrics. This temporal structure was designed to maximize consistency across phenological stages while preserving sufficient climate variation to detect species-specific sensitivities to temperature versus precipitation drivers. Table \[##\] provides a complete breakdown of seasonal climate variables, their corresponding months, and which phenological were selected as predictors for modeling.
 
--   daily tmean was calculated (tmax + tmin/2)
+**Table X: Climate Variable Definitions and Seasonal Aggregations**
 
--   These based observation were then used to caluctate seasonal avarages, totals and cumpulative totals
+| Seasonal Period | Months | Climate Metrics | Rationale |
+|------------------|------------------|-------------------|------------------|
+| **Winter** | Dec-Jan-Feb\* | Mean temp, Mean Tmax, Total precip, Precip days | Winter chilling requirements and moisture storage |
+| **Late Winter** | Feb-Mar | Mean temp^G^, Mean Tmax^G^, Total precip^G^, Precip days^G^, YTD cumulative precip | Transition to spring; pre-greenup conditions |
+| **Spring** | Mar-Apr-May | Mean temp, Mean Tmax, Total precip^M^, Precip days, YTD cumulative precip | Primary growing season onset |
+| **Early Spring** | Mar-Apr | Mean temp, Mean Tmax, Total precip, Precip days, YTD cumulative precip | Critical leaf-out period |
+| **Late Spring** | May-Jun | Mean temp^M^, Mean Tmax^M^, Total precip, Precip days^M^, YTD cumulative precip | Canopy development and peak growth |
+| **Summer** | Jun-Jul-Aug | Mean temp, Mean Tmax, Total precip, Precip days, YTD cumulative precip | Peak growing season and heat stress |
+| **Late Summer** | Jul-Aug | Mean temp, Mean Tmax, Total precip^S^, Precip days^S^, YTD cumulative precip | Transition to dormancy preparation |
+| **Fall** | Sep-Oct-Nov | Mean temp, Mean Tmax^D^, Total precip, Precip days^D^, YTD cumulative precip^D^ | Leaf senescence period |
+| **Early Fall** | Sep-Oct | Mean temp^S^, Mean Tmax^S^, Total precip, Precip days, YTD cumulative precip | Primary leaf color change and drop |
+| **Late Fall** | Nov-Dec | Mean temp^D^, Mean Tmax, Total precip, Precip days, YTD cumulative precip | Final leaf drop and winter preparation |
 
--   **chart** braking down the metrics the months they corsponde too.
+\* December values assigned to following year to maintain biological relevance\
+^G^ Used in Greenup models \| ^M^ Used in Maturity models \| ^S^ Used in Senescence models \| ^D^ Used in Dormancy models
 
--   consitance was strived for
+**Note:** All models also included land cover variables (impervious surface, irrigated surface, unirrigated surface, tree canopy, and water at 90m buffer) which are detailed in Section 2.1.5.
 
 #### 2.1.5 Landcover Data
 
--   Denver LCD souce
--   1 meter reselutions
--   it breaks the region down in to 9 different land categories (chart)
--   A 90m and 250m buffered was created around the location of each tree in the sample.
--   Each individual pixel of the raster was counted to derive for a given category. This data was then turned into %
--   For our analysis we used methodogy similar to (crawford ), consolidated the 9 categories into 5 different catergories.
+Land cover characteristics surrounding each tree were derived from the City and County of Denver's high-resolution land cover dataset, which provides 1-meter spatial resolution classification of the urban landscape. This dataset classifies the region into nine distinct land cover categories: (1) structures, (2) impervious surfaces, (3) water, (4) grassland/prairie, (5) tree canopy, (6) irrigated lands/turf, (7) barren/rock, (8) cropland, and (9) shrubland/scrubland. The fine spatial resolution of this dataset allows for precise characterization of the immediate environment surrounding individual trees, capturing the heterogeneity of urban landscapes that influences tree microclimate and resource availability.
+
+To quantify local land cover context for each tree, circular buffers of 90 meters were created around each tree's GPS coordinates. These buffer sizes were selected to capture both immediate microsite conditions on tree phenology. Within each buffer, the number of pixels belonging to each land cover class was tallied and converted to percentages, representing the proportion of the surrounding landscape occupied by each cover type. Following methodology similar to Crawford et al. [@crawford2016], the nine original land cover classes were consolidated into five ecologically meaningful categories to simplify interpretation and reduce model complexity (Table X). The 90-meter buffer land cover variables were used as predictors in all XGBoost models to account for local environmental context effects on phenological timing.
+
+**Table X: Land Cover Classification Consolidation**
+
+| Final Category          | Original Classes Included                    |
+|-------------------------|----------------------------------------------|
+| **Impervious Surface**  | Structures, Impervious Surfaces, Barren/Rock |
+| **Irrigated Surface**   | Cropland, Irrigated Lands/Turf               |
+| **Unirrigated Surface** | Grassland/Prairie, Shrubland/Scrubland       |
+| **Tree Canopy**         | Tree Canopy                                  |
+| **Water**               | Water                                        |
 
 ### 2.2 Methedologies
 
@@ -136,7 +151,7 @@ For each species, we computed correlations between four phenological metrics (gr
 
 #### 2.2.2 Extreme Gradient Boosted Model
 
-We used XGBoost (Extreme Gradient Boosting) to model the relationship between environmental predictors and phenological timing for each tree species. XGBoost is a machine learning algorithm that builds an ensemble of decision trees sequentially, where each new tree learns to correct the errors of previous trees. Unlike traditional parametric models, XGBoost makes no distributional assumptions about residuals and can automatically capture non-linear relationships and complex interactions between predictors. Individual models were fitted for all four of the phenological metrics for each of the 12 species (48 models in total). 
+We used XGBoost (Extreme Gradient Boosting) to model the relationship between environmental predictors and phenological timing for each tree species. XGBoost is a machine learning algorithm that builds an ensemble of decision trees sequentially, where each new tree learns to correct the errors of previous trees. Unlike traditional parametric models, XGBoost makes no distributional assumptions about residuals and can automatically capture non-linear relationships and complex interactions between predictors. Individual models were fitted for all four of the phenological metrics for each of the 12 species (48 models in total).
 
 For each if model, XGBoost learns a function where:
 
@@ -144,7 +159,7 @@ $$Y = f(X_1, X_2, ..., X_k)$$
 
 with $Y$ representing the phenological metric (day of year), $X_1...X_k$ representing environmental predictors (climate and land cover variables), and tree features capturing individual tree characteristics. The function $f()$ is learned through an ensemble of regression trees, with each tree making sequential improvements to minimize prediction error.
 
-Each model included two categories of features. First, we incorporated environmental predictors specific to each phonological stage, including 3 climate variables (seasonally relevant temperature mean, mean max temperature and precipitation either year-to-date cumulative or cumulative within a given season) and land cover variables (percent impervious surface and percent of irrigated surfaces). Climate variables captured regional meteorological conditions and year-to-year variation, while land cover variables represented local environmental context including urban heat island effects, altered water availability, and differences in solar radiation exposure. When both temperature and precipitation variables were included for a phenological stage, we also created an interaction term (temperature × precipitation) to allow the model to capture synergistic or antagonistic effects between these climate drivers. For instance, the phenological response to warm temperatures may differ under wet versus dry conditions. Below is a breakdown of the climate and land cover variables used to models each of the phonological metrics.  
+Each model included two categories of features. First, we incorporated environmental predictors specific to each phonological stage, including 3 climate variables (seasonally relevant temperature mean, mean max temperature and precipitation either year-to-date cumulative or cumulative within a given season) and land cover variables (percent impervious surface and percent of irrigated surfaces). Climate variables captured regional meteorological conditions and year-to-year variation, while land cover variables represented local environmental context including urban heat island effects, altered water availability, and differences in solar radiation exposure. When both temperature and precipitation variables were included for a phenological stage, we also created an interaction term (temperature × precipitation) to allow the model to capture synergistic or antagonistic effects between these climate drivers. For instance, the phenological response to warm temperatures may differ under wet versus dry conditions. Below is a breakdown of the climate and land cover variables used to models each of the phonological metrics.
 
 Second, we included tree-specific features to account for repeated measures on individual trees, analogous to random effects in mixed models. These features included tree_mean_pheno (historical average phenology timing for each tree), tree_n_obs (number of observation years per tree), and UID_numeric (numeric tree identifier). These tree-specific features allow the model to capture consistent early or late timing in individual trees due to genetics, tree health, or fine-scale microsite conditions, while environmental predictors capture spatial and temporal variation.
 
@@ -152,9 +167,9 @@ We used conservative hyperparameters optimized for regularization and generaliza
 
 We evaluated model performance using 10-fold cross-validation with a fixed random seed (123) for reproducibility. Data were randomly partitioned into 10 groups, with models iteratively trained on 90% of data and tested on the remaining 10%. This procedure was repeated across all folds to produce out-of-sample predictions for the entire dataset. We calculated four performance metrics: cross-validated R² (variance explained), root mean squared error (RMSE, in days), and mean absolute error (MAE, in days).
 
-Our models achieved RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately 2-3 times higher than RMSE values (2.1 to 4.9 days) reported by [Author et al., 2019] using gradient boosting for the prediction of tree phenology metrics (spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. [Author et al., 2019] modeled spring leaf-out dates from ground-based visual observations at individual sites over a 20 to 30 year period, instead of remote sensing data collected over a 7 year period. Given the limitations of our data a our gradient boosting models are preforming within an exceptionable margain of error and are effectively capture climate-phenology relationships.
+Our models achieved RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately 2-3 times higher than RMSE values (2.1 to 4.9 days) reported by \[Author et al., 2019\] using gradient boosting for the prediction of tree phenology metrics (spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. \[Author et al., 2019\] modeled spring leaf-out dates from ground-based visual observations at individual sites over a 20 to 30 year period, instead of remote sensing data collected over a 7 year period. Given the limitations of our data a our gradient boosting models are preforming within an exceptionable margain of error and are effectively capture climate-phenology relationships.
 
-A breakdown of average performance across the 12 species for each of the four phenological stages can be found in Table [##]. A complete breakdown of performance across all 48 individual species-stage models can be found in Appendix [##].
+A breakdown of average performance across the 12 species for each of the four phenological stages can be found in Table \[##\]. A complete breakdown of performance across all 48 individual species-stage models can be found in Appendix \[##\].
 
 All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, caret, and tidyverse packages.
 
@@ -162,14 +177,116 @@ All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, care
 
 We initially attempted to model climate-phenology relationships using linear mixed-effects models (LMMs), which are standard in phenological research due to their interpretability. LMMs were specified as
 
-$$Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$$
-
-where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
+$$Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$$ https://claude.ai/artifacts where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
 
 However, diagnostic tests revealed severe assumption violations across 97% of models (69/72). Only 2.8% (2/72) passed tests for normality, homoscedasticity, and random effect normality. The mean proportion of outliers ($|\text{standardized residual}| > 3$) was X.X%, approximately 2-3× higher than expected under perfect normality. Visual diagnostics showed heavy-tailed residual distributions and heteroscedasticity, raising concerns about the reliability of standard errors and coefficient estimates despite large sample sizes (336-5,359 observations per model).
 
-While large sample sizes and cross-validation suggested LMMs remained reasonable approximations, the pervasive assumption violations raised concerns about parameter estimate reliability and standard error accuracy. We tested Generalized Additive Mixed Models (GAMMs) as an alternative that relaxes normality assumptions, but GAMMs either performed worse than LMMs or failed to converge due to limited basis dimension relative to the number of trees. These limitations motivated our adoption of XGBoost as the primary modeling framework.
+While large sample sizes and cross-validation suggested LMMs remained reasonable approximations, the pervasive assumption violations raised concerns about parameter estimate reliability and standard error accuracy. We tested Generalized Additive Mixed Models (GAMMs) as an alternative that relaxes normality assumptions, but GAMMs either performed worse than MMs or failed to converge due to limited basis dimension relative to the number of trees. These limitations motivated our adoption of XGBoost as the primary modeling framework.
+
+![\*\*Figure X: Pearson correlation coefficients between phenological timing and seasonal climate variables across twelve tree species.\*\* Correlations are shown for individual species and the cross-species average. Green indicates positive correlations (later phenology with higher values), red indicates negative correlations (earlier phenology with higher values). Climate variables were selected based on biological relevance to each phenological stage (see Table X for seasonal definitions).](../../images/phenology_climate_correlations.png)
 
 ## 3. Results
 
+### 3.1 Species-Specific Climate Sensitivities
 
+-   Correlation heatmap results
+-   XGBoost variable importance plots
+-   Species groupings or patterns
+
+## 3.2 Land Cover Effects on Phenology
+
+-   Model results showing impervious vs irrigated surface effects
+-   Species-specific differences in land cover sensitivity
+-   Magnitude of land cover effects relative to climate effects
+
+## 3.3 Future Climate Scenario Projections
+
+![](images/climatechange_impact.png)
+
+-   Phenological shifts under moderate scenarios
+-   Species showing largest shifts
+-   Direction of changes (earlier greenup, delayed senescence, etc.)
+
+## 4 Discussion
+
+## 4.1 Climate Sensitivity Patterns
+
+-   Interpret species temperature vs precipitation sensitivity
+-   Connect to species ecology/functional traits
+-   Compare to literature
+
+## 4.2 Land cover effects
+
+-   Importance of land cover effects for urban forestry
+-   Implications for tree placement strategies
+-   Irrigation vs natural precipitation patterns
+
+## 4.3 Future Climate Implications
+
+-   Species "winners" vs "losers" under warming
+-   Growing season extension and cooling benefits
+-   Risk of phenological mismatches or stress
+
+## 5. Conclusion
+
+## 6. Sources
+
+## 7. Appendix
+
+```{r}
+#| label: tbl-climate-scenarios
+#| tbl-cap: "Phenological timing (day of year) and changes (Δ) for 12 tree species under climate warming scenarios"
+#| echo: false
+
+library(kableExtra)
+library(tidyverse)
+
+climate_data <- read_csv("../modeling/summary_table_climate_senarios") %>% 
+  mutate(phenology = factor(phenology, 
+                            levels = c("Greenup_doy", "Maturity_doy", 
+                                      "Senescence_doy", "Dormancy_doy"),
+                            labels = c("Greenup", "Maturity", 
+                                      "Senescence", "Dormancy"))) %>%
+  arrange(species, phenology) %>%
+  # Round numeric columns
+  mutate(across(where(is.numeric), ~round(.x, 2))) %>%
+  # Format p-values
+  mutate(across(contains("p_value"), ~ifelse(.x < 0.001, "<0.001", 
+                                              sprintf("%.3f", .x)))) %>%
+  # Create grouping column for species
+  group_by(species) %>%
+  mutate(species_label = ifelse(row_number() == 1, species, "")) %>%
+  ungroup() %>%
+  select(species_label, phenology, baseline_1970to2000,
+         mean_warming_1.1C, mean_diff_1.1C, p_value_1.1C,
+         mean_warming_2C, mean_diff_2C, p_value_2C,
+         mean_warming_2C_dry, mean_diff_2C_dry, p_value_2C_dry,
+         mean_warming_2C_wet, mean_diff_2C_wet, p_value_2C_wet)
+
+# Create table
+climate_data %>%
+  kbl(
+    col.names = c("Species", "Phenology", "Baseline",
+                  "Mean", "Δ", "p",
+                  "Mean", "Δ", "p",
+                  "Mean", "Δ", "p",
+                  "Mean", "Δ", "p"),
+    align = c("l", "l", "r", rep("r", 12)),
+    booktabs = TRUE,
+    linesep = c("", "", "", "\\addlinespace")
+  ) %>%
+  kable_styling(
+    font_size = 9,
+    latex_options = c("scale_down", "HOLD_position")
+  ) %>%
+  add_header_above(c(" " = 3, 
+                     "+1.1°C" = 3, 
+                     "+2°C" = 3, 
+                     "+2°C Dry" = 3, 
+                     "+2°C Wet" = 3),
+                   bold = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "3cm") %>%
+  column_spec(2, width = "2.5cm")
+
+
+```
