@@ -1588,30 +1588,6 @@ get_partial_dependence <- function(species_name, phenology_stage, pred_var,
 
 ```{r}
 
-# Test it
-pd_temp <- get_partial_dependence(
-  species_name = "American Elm",
-  phenology_stage = "Greenup_doy",
-  pred_var = "late_winter_temp",
-  xgb_models = xgb_results,
-  data = tree_ldc_metrics_climate,
-  climate_vars = climate_vars
-)
-
-# Plot
-ggplot(pd_temp, aes(x = late_winter_temp, y = yhat)) +
-  geom_smooth(size = 1.2, color = "steelblue") +
-  labs(
-    x = "Late Winter Temperature (°C)",
-    y = "Predicted Greenup DOY",
-    title = "American Elm - Greenup Response to Temperature"
-  ) +
-  theme_minimal()
-
-```
-
-```{r}
-
 species_list <- c("American Elm", "American Linden", "Common Hackberry", 
                   "Eastern Cottonwood", "Green Ash", "Honey Locust",
                   "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
@@ -1745,10 +1721,9 @@ pd_all_results %>%
   facet_wrap(~var_label, scales = "free", nrow = 6, ncol = 2) +  # Changed to nrow=6 to accommodate grouping
   labs(
     x = NULL, 
-    y = "Predicted Phenological Timing (DOY)",
-    title = "Partial Dependence: Species-Specific Climate Responses"
+    y = "Predicted Phenological Timing (DOY)"
   ) +
-  theme_minimal() +
+  theme_bw() +
   theme(
   legend.position = "right",
   legend.text = element_text(size = 8),
@@ -1756,6 +1731,274 @@ pd_all_results %>%
   legend.key = element_blank(),
   strip.text = element_text(face = "bold", size = 9)
   )
+
+ggsave("../../images/partial_depences_climnate_responces.png", 
+       width = 16, height = 17, units = "in", dpi = 300)
+
+```
+
+```{r}
+
+get_partial_dependence <- function(species_name, phenology_stage, pred_var, 
+                                   xgb_models, data, climate_vars) {
+  
+  # Get model
+  model_key <- paste0(species_name, "_", phenology_stage)
+  model_result <- xgb_models[[model_key]]
+  model <- model_result$model
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name) %>%
+    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
+    na.omit()
+  
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  feature_cols <- model_result$feature_cols
+  train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
+  
+  # Find the tree whose tree_mean_pheno is closest to the overall mean
+  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
+  tree_info <- train_data %>%
+    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
+    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
+    arrange(dist_from_mean)
+  
+  typical_tree <- tree_info[1, ]
+  
+  # Identify land cover variables
+  land_cover_vars <- c("impervious_90m", "irrigated_90m", "tree_canopy_90m", 
+                       "water_90m", "pervious_90m", "unirrigated_90m")
+  land_cover_vars <- land_cover_vars[land_cover_vars %in% feature_cols]
+  
+  # Variable range
+  var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
+                   max(train_data[[pred_var]], na.rm = TRUE),
+                   length.out = 100)
+  
+  # Create prediction grid
+  pred_grid <- data.frame(matrix(ncol = length(feature_cols), nrow = length(var_range)))
+  names(pred_grid) <- feature_cols
+  
+  # Special handling for land cover variables
+  if(pred_var %in% land_cover_vars) {
+    
+    # Get baseline proportions of other land cover types
+    other_lc_vars <- setdiff(land_cover_vars, pred_var)
+    baseline_lc <- sapply(other_lc_vars, function(v) mean(train_data[[v]], na.rm = TRUE))
+    baseline_total <- sum(baseline_lc)
+    
+    # For each value of pred_var, adjust other land covers proportionally
+    for(i in 1:length(var_range)) {
+      pred_val <- var_range[i]
+      remaining_proportion <- 1 - pred_val
+      
+      # Redistribute remaining proportion based on original ratios
+      if(baseline_total > 0) {
+        for(lc_var in other_lc_vars) {
+          pred_grid[[lc_var]][i] <- baseline_lc[lc_var] * (remaining_proportion / baseline_total)
+        }
+      } else {
+        # If baseline total is 0, distribute evenly
+        for(lc_var in other_lc_vars) {
+          pred_grid[[lc_var]][i] <- remaining_proportion / length(other_lc_vars)
+        }
+      }
+      
+      pred_grid[[pred_var]][i] <- pred_val
+    }
+    
+  } else {
+    # For non-land-cover variables, vary only the target variable
+    pred_grid[[pred_var]] <- var_range
+  }
+  
+  # Set all other variables (non-land-cover or those not yet set)
+  for(col in feature_cols) {
+    if(is.na(pred_grid[[col]][1])) {  # If not already set
+      if(col == "UID_numeric") {
+        pred_grid[[col]] <- typical_tree$UID_numeric
+      } else if(col == "tree_mean_pheno") {
+        pred_grid[[col]] <- typical_tree$tree_mean_pheno
+      } else if(col == "tree_n_obs") {
+        pred_grid[[col]] <- typical_tree$tree_n_obs
+      } else {
+        pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)
+      }
+    }
+  }
+  
+  # Make predictions
+  predictions <- predict(model, as.matrix(pred_grid))
+  
+  pd_result <- data.frame(
+    x = var_range,
+    yhat = predictions,
+    species = species_name,
+    phenology = phenology_stage,
+    variable = pred_var
+  )
+  
+  names(pd_result)[1] <- pred_var
+  return(pd_result)
+}
+
+```
+
+```{r}
+
+# Define land cover variables (just impervious and irrigated)
+land_cover_vars <- c("impervious_90m", "irrigated_90m")
+
+# Create mapping for land cover across all stages
+climate_var_mapping <- expand.grid(
+  variable = land_cover_vars,
+  phenology = c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy"),
+  stringsAsFactors = FALSE
+)
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all combinations
+pd_land_cover <- map_df(1:nrow(climate_var_mapping), function(i) {
+  
+  var <- climate_var_mapping$variable[i]
+  pheno <- climate_var_mapping$phenology[i]
+  
+  cat("\nProcessing", var, "for", pheno, "\n")
+  
+  # Loop through species
+  map_df(species_list, function(sp) {
+    tryCatch({
+      pd <- get_partial_dependence(
+        species_name = sp,
+        phenology_stage = pheno,
+        pred_var = var,
+        xgb_models = xgb_results,
+        data = tree_ldc_metrics_climate,
+        climate_vars = climate_vars
+      )
+      
+      # Rename first column to standardized name
+      pd <- pd %>%
+        rename(x_value = 1) %>%
+        select(x_value, yhat, species, phenology, variable)
+      
+      return(pd)
+      
+    }, error = function(e) {
+      cat("  Error for", sp, ":", e$message, "\n")
+      return(NULL)
+    })
+  })
+})
+
+# Create labels
+var_labels <- c(
+  "impervious_90m" = "Impervious Surface (%)",
+  "irrigated_90m" = "Irrigated Land (%)"
+)
+
+# Plot land cover effects
+pd_land_cover %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy")),
+    var_label = var_labels[variable]
+  ) %>%
+  arrange(pheno_order, variable) %>%
+  mutate(
+    pheno_label = factor(pheno_label, levels = unique(pheno_label)),
+    var_label = factor(var_label, levels = var_labels)
+  ) %>%
+  ggplot(aes(x = x_value, y = yhat, color = species)) +
+  geom_smooth(se = FALSE, size = 1.2, alpha = 0.8) +
+  scale_color_brewer(palette = "Paired") +
+  facet_grid(pheno_label ~ var_label, scales = "free") +
+  labs(
+    x = "Land Cover (%)",
+    y = "Predicted Phenological Timing (DOY)",
+    title = "Land Cover Effects on Phenology"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(0.4, "cm"),
+    legend.key = element_blank(),
+    strip.text = element_text(face = "bold", size = 10)
+  ) +
+  guides(color = guide_legend(nrow = 3, ncol = 4, byrow = TRUE))
+
+# Save
+#ggsave("../../images/pd_land_cover_impervious_irrigated.png", 
+ #      width = 10, height = 10, dpi = 300)
+
+```
+
+```{r}
+
+# Plot land cover effects with ONE overall trend line
+pd_land_cover %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy")),
+    var_label = var_labels[variable]
+  ) %>%
+  arrange(pheno_order, variable) %>%
+  mutate(
+    pheno_label = factor(pheno_label, levels = unique(pheno_label)),
+    var_label = factor(var_label, levels = var_labels)
+  ) %>%
+  ggplot(aes(x = x_value, y = yhat)) +
+  # Individual species lines
+  geom_smooth(aes(color = species), se = FALSE, size = 0.8, alpha = 0.5) +
+  # ONE overall linear trend line (dashed, black)
+  geom_smooth(method = "lm", se = FALSE, color = "black", 
+              size = 1.2, linetype = "dashed") +
+  scale_color_brewer(palette = "Paired") +
+  facet_grid(pheno_label ~ var_label, scales = "free") +
+  labs(
+    x = "Land Cover (%)",
+    y = "Predicted Phenological Timing (DOY)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(0.4, "cm"),
+    legend.key = element_blank(),
+    strip.text = element_text(face = "bold", size = 10)
+  ) +
+  guides(color = guide_legend(nrow = 3, ncol = 4, byrow = TRUE))
+
+ggsave("../../images/pd_land_cover_impervious_irrigated.png", 
+       width = 10, height = 10, dpi = 300)
 
 ```
 
