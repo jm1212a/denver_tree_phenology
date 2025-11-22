@@ -48,46 +48,6 @@ climate_vars <- list(
 
 ```
 
-```{r}
-
-all_predictors <- c(
-  "winter_temp", "winter_mean_tmax",
-  "late_winter_temp", "late_winter_mean_tmax",
-  "spring_temp", "spring_mean_tmax",
-  "early_spring_temp", "early_spring_mean_tmax",
-  "late_spring_temp", "late_spring_mean_tmax",
-  "summer_temp", "summer_mean_tmax",
-  "late_summer_temp", "late_summer_mean_tmax",
-  "fall_temp", "fall_mean_tmax",
-  "early_fall_temp", "early_fall_mean_tmax",
-  "late_fall_temp",
-  "winter_prcp", "winter_prcp_days",
-  "late_winter_prcp", "late_winter_prcp_days",
-  "spring_prcp", "spring_prcp_days",
-  "early_spring_prcp", "early_spring_prcp_days",
-  "late_spring_prcp", "late_spring_prcp_days",
-  "summer_prcp", "summer_prcp_days",
-  "late_summer_prcp", "late_summer_prcp_days",
-  "fall_prcp", "fall_prcp_days",
-  "early_fall_prcp", "early_fall_prcp_days",
-  "late_fall_prcp", "late_fall_prcp_days",
-  "later_winter_cumulative_prcp",
-  "spring_prcp_cumulative_prcp",
-  "early_spring_cumulative_prcp",
-  "late_spring_cumulative_prcp",
-  "summer_cumulative_prcp",
-  "late_summer_cumulative_prcp",
-  "early_fall_cumulative_prcp",
-  "fall_cumulative_prcp",
-  "late_fall_cumulative_prcp",
-  "impervious_90m",
-  "irrigated_90m", 
-  "unirrigated_90m", 
-  "tree_canopy_90m", 
-  "water_90m")
-
-```
-
 # Corrilation Matrixs by species and dependent variables
 
 ```{r}
@@ -1550,73 +1510,253 @@ all_scenario_predictions %>%
 ```
 
 ```{r}
-# Fix syntax errors and add suffixes
-all_scenario_predictions %>% 
-  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
-  group_by(species, phenology) %>% 
-  summarise(
-    t_stat_1.1C = round(t.test(Baseline, `Actual Warming +1.1C`, paired = TRUE)$statistic, 2),
-    p_value_1.1C = round(t.test(Baseline, `Actual Warming +1.1C`, paired = TRUE)$p.value, 3),
-    mean_baseline_1.1C = round(mean(Baseline, na.rm = TRUE), 2),
-    mean_warming_1.1C = round(mean(`Actual Warming +1.1C`, na.rm = TRUE), 2),
-    mean_diff_1.1C = round(mean(`Actual Warming +1.1C` - Baseline, na.rm = TRUE), 2),
-    .groups = "drop"
-  ) -> t_tables_1.1
-
-all_scenario_predictions %>% 
-  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
-  group_by(species, phenology) %>% 
-  summarise(
-    t_stat_2C = round(t.test(Baseline, `+2C`, paired = TRUE)$statistic, 2),
-    p_value_2C = round(t.test(Baseline, `+2C`, paired = TRUE)$p.value, 3),
-    mean_baseline_2C = round(mean(Baseline, na.rm = TRUE), 2),
-    mean_warming_2C = round(mean(`+2C`, na.rm = TRUE), 2),
-    mean_diff_2C = round(mean(`+2C` - Baseline, na.rm = TRUE), 2),
-    .groups = "drop"
-  ) -> t_tables_2C
-
-all_scenario_predictions %>% 
-  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
-  group_by(species, phenology) %>% 
-  summarise(
-    t_stat_2C_dry = round(t.test(Baseline, `+2C -7% precip`, paired = TRUE)$statistic, 2),
-    p_value_2C_dry = round(t.test(Baseline, `+2C -7% precip`, paired = TRUE)$p.value, 3),
-    mean_baseline_2C_dry = round(mean(Baseline, na.rm = TRUE), 2),
-    mean_warming_2C_dry = round(mean(`+2C -7% precip`, na.rm = TRUE), 2),
-    mean_diff_2C_dry = round(mean(`+2C -7% precip` - Baseline, na.rm = TRUE), 2),
-    .groups = "drop"
-  ) -> t_tables_2C_dry
-
-all_scenario_predictions %>% 
-  pivot_wider(names_from = scenario, values_from = predicted_doy) %>% 
-  group_by(species, phenology) %>% 
-  summarise(
-    t_stat_2C_wet = round(t.test(Baseline, `+2C +7% precip`, paired = TRUE)$statistic, 2),
-    p_value_2C_wet = round(t.test(Baseline, `+2C +7% precip`, paired = TRUE)$p.value, 3),
-    mean_baseline_2C_wet = round(mean(Baseline, na.rm = TRUE), 2),
-    mean_warming_2C_wet = round(mean(`+2C +7% precip`, na.rm = TRUE), 2),
-    mean_diff_2C_wet = round(mean(`+2C +7% precip` - Baseline, na.rm = TRUE), 2),
-    .groups = "drop"
-  ) -> t_tables_2C_wet
-
-# Join all tables
-t_tables_1.1 %>%
-  left_join(t_tables_2C, by = c("species", "phenology")) %>%
-  left_join(t_tables_2C_dry, by = c("species", "phenology")) %>%
-  left_join(t_tables_2C_wet, by = c("species", "phenology")) %>% 
-  select(-contains("t_stat")) %>% 
-  select(species, phenology, mean_baseline_1.1C, mean_warming_1.1C, mean_diff_1.1C, p_value_1.1C,
-         mean_warming_2C,mean_diff_2C , p_value_2C, mean_warming_2C_dry, mean_diff_2C_dry, p_value_2C_dry,
-         mean_warming_2C_wet, mean_diff_2C_wet, p_value_2C_wet) %>% 
-  rename(baseline_1970to2000 = mean_baseline_1.1C) %>% 
-  write_csv("summary_table_climate_senarios")
- 
+get_partial_dependence <- function(species_name, phenology_stage, pred_var, 
+                                   xgb_models, data, climate_vars) {
+  
+  # Get model
+  model_key <- paste0(species_name, "_", phenology_stage)
+  model_result <- xgb_models[[model_key]]
+  model <- model_result$model
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name) %>%
+    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
+    na.omit()
+  
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  feature_cols <- model_result$feature_cols
+  train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
+  
+  # Find the tree whose tree_mean_pheno is closest to the overall mean
+  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
+  tree_info <- train_data %>%
+    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
+    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
+    arrange(dist_from_mean)
+  
+  typical_tree <- tree_info[1, ]  # Get first row using base R
+  
+  # Temperature range
+  var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
+                   max(train_data[[pred_var]], na.rm = TRUE),
+                   length.out = 100)
+  
+  # Create prediction grid
+  pred_grid <- data.frame(matrix(ncol = length(feature_cols), nrow = length(var_range)))
+  names(pred_grid) <- feature_cols
+  
+  # Set all variables
+  for(col in feature_cols) {
+    if(col == pred_var) {
+      pred_grid[[col]] <- var_range  # Vary only this variable
+    } else if(col == "UID_numeric") {
+      pred_grid[[col]] <- typical_tree$UID_numeric  # Use the typical tree's ID
+    } else if(col == "tree_mean_pheno") {
+      pred_grid[[col]] <- typical_tree$tree_mean_pheno  # Use the typical tree's mean
+    } else if(col == "tree_n_obs") {
+      pred_grid[[col]] <- typical_tree$tree_n_obs  # Use the typical tree's n_obs
+    } else {
+      pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)  # Mean for climate vars
+    }
+  }
+  
+  # Make predictions
+  predictions <- predict(model, as.matrix(pred_grid))
+  
+  pd_result <- data.frame(
+    x = var_range,
+    yhat = predictions,
+    species = species_name,
+    phenology = phenology_stage,
+    variable = pred_var
+  )
+  
+  names(pd_result)[1] <- pred_var
+  return(pd_result)
+}
 ```
 
 
+```{r}
 
+# Test it
+pd_temp <- get_partial_dependence(
+  species_name = "American Elm",
+  phenology_stage = "Greenup_doy",
+  pred_var = "late_winter_temp",
+  xgb_models = xgb_results,
+  data = tree_ldc_metrics_climate,
+  climate_vars = climate_vars
+)
 
+# Plot
+ggplot(pd_temp, aes(x = late_winter_temp, y = yhat)) +
+  geom_smooth(size = 1.2, color = "steelblue") +
+  labs(
+    x = "Late Winter Temperature (°C)",
+    y = "Predicted Greenup DOY",
+    title = "American Elm - Greenup Response to Temperature"
+  ) +
+  theme_minimal()
 
+```
 
+```{r}
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all species and create PD data
+pd_all_species <- map_df(species_list, function(sp) {
+  tryCatch({
+    get_partial_dependence(
+      species_name = sp,
+      phenology_stage = "Greenup_doy",
+      pred_var = "late_winter_prcp",
+      xgb_models = xgb_results,
+      data = tree_ldc_metrics_climate,
+      climate_vars = climate_vars
+    )
+  }, error = function(e) {
+    cat("\nError for", sp, ":", e$message)
+    return(NULL)
+  })
+})
+
+# Plot all species together
+ggplot(pd_all_species, aes(x = late_winter_prcp, y = yhat, color = species)) +
+  geom_smooth(size = 1) +
+  labs(
+    x = "Late Winter Prcp. (°C)",
+    y = "Predicted Greenup DOY",
+    title = "Greenup Response to Temperature Across Species",
+    color = "Species"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+```
+```{r}
+
+# Define climate variables and their corresponding phenology stages
+climate_var_mapping <- data.frame(
+  variable = c("late_winter_prcp", "late_winter_temp", 
+                   "late_spring_prcp_days", 
+                   "late_spring_mean_tmax",
+                   "spring_prcp",
+                   "late_summer_mean_tmax", "early_fall_mean_tmax", "late_summer_prcp",
+                   "fall_prcp_days", "fall_mean_tmax"),
+  phenology = c("Greenup_doy", "Greenup_doy", "Maturity_doy",
+                "Maturity_doy", "Maturity_doy", 
+                "Senescence_doy", "Senescence_doy", "Senescence_doy",
+                "Dormancy_doy", "Dormancy_doy")
+)
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all combinations
+pd_all_results <- map_df(1:nrow(climate_var_mapping), function(i) {
+  
+  var <- climate_var_mapping$variable[i]
+  pheno <- climate_var_mapping$phenology[i]
+  
+  cat("\nProcessing", var, "for", pheno, "\n")
+  
+  # Loop through species
+  map_df(species_list, function(sp) {
+    tryCatch({
+      pd <- get_partial_dependence(
+        species_name = sp,
+        phenology_stage = pheno,
+        pred_var = var,
+        xgb_models = xgb_results,
+        data = tree_ldc_metrics_climate,
+        climate_vars = climate_vars
+      )
+      
+      # Rename first column to standardized name
+      pd <- pd %>%
+        rename(x_value = 1) %>%
+        select(x_value, yhat, species, phenology, variable)
+      
+      return(pd)
+      
+    }, error = function(e) {
+      cat("  Error for", sp, ":", e$message, "\n")
+      return(NULL)
+    })
+  })
+})
+
+# Create labels with units
+var_labels <- c(
+  "late_winter_prcp" = "Late Winter Precip (mm)",
+  "late_winter_temp" = "Late Winter Temp (°C)",
+  "late_spring_prcp_days" = "Late Spring Precip Days",
+  "spring_temp" = "Spring Temp (°C)",
+  "late_spring_mean_tmax" = "Late Spring Tmax (°C)",
+  "spring_prcp" = "Spring Precip (mm)",
+  "late_summer_mean_tmax" = "Late Summer Tmax (°C)",
+  "early_fall_mean_tmax" = "Early Fall Tmax (°C)",
+  "late_summer_prcp" = "Late Summer Precip (mm)",
+  "fall_prcp_days" = "Fall Precip Days",
+  "fall_mean_tmax" = "Fall Tmax (°C)",
+  "fall_cumulative_prcp" = "Fall Cumulative Precip (mm)"
+)
+
+pd_all_results %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    # Identify variable type
+    var_type = case_when(
+      str_detect(variable, "prcp") ~ "Precipitation",
+      str_detect(variable, "temp|tmax") ~ "Temperature"
+    ),
+    var_label = paste0(var_labels[variable], "\n(", pheno_label, ")"),
+    # Order phenology stages
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy"))
+  ) %>%
+  arrange(pheno_order, var_type, variable) %>%  # Sort by phenology, then var_type (Precip first), then variable name
+  mutate(var_label = factor(var_label, levels = unique(var_label))) %>%
+  ggplot(aes(x = x_value, y = yhat, color = species)) +
+  geom_smooth(se = FALSE) +
+  scale_color_brewer(palette = "Paired") +
+  facet_wrap(~var_label, scales = "free", nrow = 6, ncol = 2) +  # Changed to nrow=6 to accommodate grouping
+  labs(
+    x = NULL, 
+    y = "Predicted Phenological Timing (DOY)",
+    title = "Partial Dependence: Species-Specific Climate Responses"
+  ) +
+  theme_minimal() +
+  theme(
+  legend.position = "right",
+  legend.text = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.key = element_blank(),
+  strip.text = element_text(face = "bold", size = 9)
+  )
+
+```
 
 
