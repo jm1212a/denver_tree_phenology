@@ -87,13 +87,17 @@ $$NDVI = (NIR - Red) / (NIR + Red)$$
 
 Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. For each tree, we created a circular buffer around the GPS coordinates sized to approximate the tree crown based on species-specific mature crown diameter estimates. To capture canopy pixels rather than understory or adjacent features, we filtered each tree-date observation to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level that served as the foundation for phenological curve fitting and metric extraction. Below is an example of the NDVI values extracted for an individual tree.
 
-![Figure 1: Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png)
+![Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png)
 
 #### 2.1.3 Extracted Phenological Metrics
 
 Phenological metrics were extracted from the raw NDVI time series using the `phenofit` package in R [@kong2022], which implements multiple curve-fitting methods and automated quality control procedures for vegetation phenology analysis. The extraction process involved several preprocessing steps, curve fitting procedures, and quality filters to ensure robust metric derivation. Raw NDVI values were first despiked to remove anomalous observations caused by residual cloud contamination, sensor noise, or atmospheric interference using a median-based despike filter with a 3-point window and 5 standard deviation threshold from the `oce` package [@kelley2022].
 
-Individual growing seasons were identified from the NDVI time series using the `season_mov()` function with weighted Whittaker (wWHIT) smoothing [@eilers2003], which automatically detects seasonal boundaries by identifying local minima in smoothed NDVI curves. To improve the accuracy of growing season detection, particularly for trees exhibiting multi-year growth trends, NDVI time series were detrended using a linear model regressing NDVI against time. The fitted trend was removed while preserving the mean NDVI value, allowing the season detection algorithm to isolate seasonal phenological cycles from inter-annual growth patterns. While growing seasons generally corresponded to calendar years, the algorithm occasionally detected seasons spanning year boundaries, particularly for trees with extended dormancy periods or delayed spring greenup. For each detected growing season, we fitted phenological curves using the double-logistic Elmore function [@elmore2012], which models vegetation greenness as $y(t) = c + (d - c) \left[\frac{1}{1 + e^{a_1(t - b_1)}} - \frac{1}{1 + e^{a_2(t - b_2)}}\right]$, where $c$ is the baseline NDVI, $d$ is the peak NDVI, $(a_1, b_1)$ control spring greenup rate and timing, and $(a_2, b_2)$ control fall senescence rate and timing. The Elmore curve was selected after testing multiple curve types (double-logistic, asymmetric Gaussian, Beck) because it consistently produced the most reliable fits across species and provided biologically interpretable parameters for both greenup and senescence phases.
+Individual growing seasons were identified from the NDVI time series using the `season_mov()` function with weighted Whittaker (wWHIT) smoothing [@eilers2003], which automatically detects seasonal boundaries by identifying local minima in smoothed NDVI curves. To improve the accuracy of growing season detection, particularly for trees exhibiting multi-year growth trends, NDVI time series were detrended using a linear model regressing NDVI against time. The fitted trend was removed while preserving the mean NDVI value, allowing the season detection algorithm to isolate seasonal phenological cycles from inter-annual growth patterns. While growing seasons generally corresponded to calendar years, the algorithm occasionally detected seasons spanning year boundaries, particularly for trees with extended dormancy periods or delayed spring greenup. For each detected growing season, we fitted phenological curves using the double-logistic Elmore function [@elmore2012], which models vegetation greenness as 
+
+$$y(t) = c + (d - c) \left[\frac{1}{1 + e^{a_1(t - b_1)}} - \frac{1}{1 + e^{a_2(t - b_2)}}\right]$$
+
+where $c$ is the baseline NDVI, $d$ is the peak NDVI, $(a_1, b_1)$ control spring greenup rate and timing, and $(a_2, b_2)$ control fall senescence rate and timing. The Elmore curve was selected after testing multiple curve types (double-logistic, asymmetric Gaussian, Beck) because it consistently produced the most reliable fits across species and provided biologically interpretable parameters for both greenup and senescence phases.
 
 Curve fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least 6 growing seasons successfully detected over the 7-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal due to crown damage, sensor artifacts, or persistent cloud cover. Four phenological stage dates were extracted from each annual curve using the inflection point method [@zhang2003], which identifies the dates of maximum rate of change in the NDVI trajectory: (1) **Greenup** - spring inflection point marking rapid leaf emergence, (2) **Maturity** - the date of peak NDVI when maximum canopy development is reached, (3) **Senescence** - fall inflection point marking rapid leaf loss, and (4) **Dormancy** - the date when NDVI reaches its winter minimum. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they are less sensitive to baseline NDVI variations and provide consistent timing estimates across species with different canopy densities. All extracted metrics, fitted curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub repository link\]. After quality filtering, 3,450 trees acrross 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period.
 
@@ -169,6 +173,15 @@ We evaluated model performance using 10-fold cross-validation with a fixed rando
 
 Our models achieved RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately 2-3 times higher than RMSE values (2.1 to 4.9 days) reported by \[Author et al., 2019\] using gradient boosting for the prediction of tree phenology metrics (spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. \[Author et al., 2019\] modeled spring leaf-out dates from ground-based visual observations at individual sites over a 20 to 30 year period, instead of remote sensing data collected over a 7 year period. Given the limitations of our data a our gradient boosting models are preforming within an exceptionable margain of error and are effectively capture climate-phenology relationships.
 
+**Table X: XGBoost Model Performance by Phenological Stage**
+
+| Phenological Stage | N Species | Total Obs. | Mean R² | Mean RMSE (days) |
+|--------------------|-----------|------------|---------|------------------|
+| Maturity           | 12        | 2,244      | 0.644   | 6.95             |
+| Green-up           | 12        | 2,194      | 0.644   | 8.29             |
+| Senescence         | 12        | 2,182      | 0.691   | 9.10             |
+| Dormancy           | 12        | 2,158      | 0.590   | 11.64            |
+
 A breakdown of average performance across the 12 species for each of the four phenological stages can be found in Table \[##\]. A complete breakdown of performance across all 48 individual species-stage models can be found in Appendix \[##\].
 
 All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, caret, and tidyverse packages.
@@ -177,29 +190,47 @@ All analyses were conducted in R version 4.x using the xgboost, lme4, mgcv, care
 
 We initially attempted to model climate-phenology relationships using linear mixed-effects models (LMMs), which are standard in phenological research due to their interpretability. LMMs were specified as
 
-$$Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$$ https://claude.ai/artifacts where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
+$$Y_{ij} = \beta_0 + \beta_1X_{1ij} + \beta_2X_{2ij} + u_i + \varepsilon_{ij}$$ 
+
+where $Y_{ij}$ is phenology timing for tree $i$ in year $j$, $X_1$ and $X_2$ are climate predictors, $\beta_0$-$\beta_2$ are fixed effect coefficients, $u_i$ is a random intercept for each tree, and $\varepsilon_{ij}$ is residual error.
 
 However, diagnostic tests revealed severe assumption violations across 97% of models (69/72). Only 2.8% (2/72) passed tests for normality, homoscedasticity, and random effect normality. The mean proportion of outliers ($|\text{standardized residual}| > 3$) was X.X%, approximately 2-3× higher than expected under perfect normality. Visual diagnostics showed heavy-tailed residual distributions and heteroscedasticity, raising concerns about the reliability of standard errors and coefficient estimates despite large sample sizes (336-5,359 observations per model).
 
 While large sample sizes and cross-validation suggested LMMs remained reasonable approximations, the pervasive assumption violations raised concerns about parameter estimate reliability and standard error accuracy. We tested Generalized Additive Mixed Models (GAMMs) as an alternative that relaxes normality assumptions, but GAMMs either performed worse than MMs or failed to converge due to limited basis dimension relative to the number of trees. These limitations motivated our adoption of XGBoost as the primary modeling framework.
 
-![\*\*Figure X: Pearson correlation coefficients between phenological timing and seasonal climate variables across twelve tree species.\*\* Correlations are shown for individual species and the cross-species average. Green indicates positive correlations (later phenology with higher values), red indicates negative correlations (earlier phenology with higher values). Climate variables were selected based on biological relevance to each phenological stage (see Table X for seasonal definitions).](../../images/phenology_climate_correlations.png)
-
 ## 3. Results
 
 ### 3.1 Species-Specific Climate Sensitivities
 
--   Correlation heatmap results
--   XGBoost variable importance plots
--   Species groupings or patterns
+#### 3.1.1 Climate-Phenology Correlations
 
-## 3.2 Land Cover Effects on Phenology
+Pearson correlation analysis revealed distinct patterns of climate sensitivity across phenological stages and species. Temperature and precipitation exert differential influence depending on the seasonal timing of each phenological transition.
+
+Although the relationship between climate metrics and greenup timing is weaker than the other three phenological stages, across all species, greenup timing seemed to be driven most notably by late winter climate conditions, as all three late winter precipitation metrics show the strongest negative correlations with greenup timing. This suggests that wetter late winter conditions advance spring leaf emergence, having a greater effect than temperature during this period. Notably, the American Elm, Siberian Elm and Silver Maple exhibited slightly stronger sensitivity to late winter precipitation compared to most other species. This may suggest that these genera may be particularly responsive to early spring moisture availability. 
+
+Maturity timing demonstrated the strongest and most consistent climate sensitivities of any phenological stage. Spring temperature variables showed uniformly strong negative correlations across all species, indicating that warmer spring conditions substantially accelerate the transition to peak canopy development. Tree of Heaven, Western Catalpa, and Common Hackberry exhibited particularly pronounced temperature sensitivity. In contrast, precipitation displayed more variable patterns across species, with some showing positive associations and others showing near-zero or slightly negative correlations. The consistency of temperature effects across all species suggests that thermal conditions are the primary driver of maturity timing, while moisture availability plays a secondary and species-specific role.
+
+![Pearson correlation coefficients between phenological timing and seasonal climate variables across twelve tree species. Correlations are shown for individual species and the cross-species average. Green indicates positive correlations (later phenology with higher values), red indicates negative correlations (earlier phenology with higher values). Climate variables were selected based on biological relevance to each phenological stage (see Table X for seasonal definitions).](../../images/phenology_climate_correlations.png)
+
+Senescence timing seems to be driven by both temperature and precipitation. Late summer maximum and mean temperature showed negative correlations across species, indicating that extreme summer heat accelerates the onset of senescence. American Lindens, Northern Red Oaks, and Siberian Elms seem to be particularly susceptible to summertime heat. In contrast, early fall temperature and late summer precipitation both showed strong positive correlations, with warmer autumn conditions and increased moisture delaying leaf color change and senescence. This suggests a dual-phase control: summer heat stress may trigger early senescence as a protective response, while favorable autumn conditions (warmth and moisture) extend the active growing season by delaying the physiological cues for leaf abscission. While temperature effects showed relatively uniform responses across species, precipitation sensitivity varied. Cottonwoods appear to be less sensitive to late-summer and early fall precipitation, possibly indicating drought tolerance.
+
+Dormancy timing showed weaker and less consistent climate associations than earlier phenological stages. Fall precipitation metrics displayed predominantly negative correlations, suggesting that frequent autumn precipitation delays dormancy. Fall temperature showed positive but more modest correlations, indicating that warmer conditions delay dormancy. However, substantial variation in correlation strength across species existed for both temperature and precipitation variables. Siberian Elm phenology seemed to be particularly influenced by fall climate conditions, whereas Cottonwoods showed minimal climate sensitivity to fall and late fall conditions.
+
+Comparing across all phenological stages, native tree species such as Common Hackberry and Western Catalpa, as well as invasive species Siberian Elm and Tree of Heaven, showed the highest degree of climate sensitivity, with overall absolute mean correlations exceeding. In contrast, native species Eastern and Plains Cottonwoods showed relatively low climate sensitivity across all seasons, with overall absolute mean correlations below. High climate sensitivity did not align strictly with native versus invasive status, as both groups included highly sensitive species.
+
+#### 3.1.2 Modeled Climate Responses Using Partial Dependence Analysis
+
+While Pearson correlations provide valuable insights into bivariate climate-phenology relationships, they do not account for interactions among climate variables or control for confounding factors such as land cover and tree-level characteristics. To address these limitations, we used partial dependence analysis from the XGBoost models to examine how phenological timing responds to individual climate drivers while holding all other predictors constant at their mean values. This approach offers a more robust assessment of climate effects by isolating the marginal influence of each climate variable within the multivariate context of the full model. Partial dependence plots reveal the shape of these relationships—including potential non-linearities and thresholds—and allow for direct comparison of climate sensitivities across species while accounting for the complex interactions between temperature, precipitation, and local environmental conditions that simultaneously influence phenological timing.
+
+
+
+### 3.2 Land Cover Effects on Phenology
 
 -   Model results showing impervious vs irrigated surface effects
 -   Species-specific differences in land cover sensitivity
 -   Magnitude of land cover effects relative to climate effects
 
-## 3.3 Future Climate Scenario Projections
+### 3.3 Future Climate Scenario Projections
 
 ![](images/climatechange_impact.png)
 
@@ -209,19 +240,19 @@ While large sample sizes and cross-validation suggested LMMs remained reasonable
 
 ## 4 Discussion
 
-## 4.1 Climate Sensitivity Patterns
+### 4.1 Climate Sensitivity Patterns
 
 -   Interpret species temperature vs precipitation sensitivity
 -   Connect to species ecology/functional traits
 -   Compare to literature
 
-## 4.2 Land cover effects
+### 4.2 Land cover effects
 
 -   Importance of land cover effects for urban forestry
 -   Implications for tree placement strategies
 -   Irrigation vs natural precipitation patterns
 
-## 4.3 Future Climate Implications
+### 4.3 Future Climate Implications
 
 -   Species "winners" vs "losers" under warming
 -   Growing season extension and cooling benefits
@@ -232,6 +263,32 @@ While large sample sizes and cross-validation suggested LMMs remained reasonable
 ## 6. Sources
 
 ## 7. Appendix
+
+```{r}
+
+#| label: tbl-importance
+#| tbl-cap: "XGBoost Feature Importance (Gain) by Species and Phenological Stage"
+#| echo: false
+
+library(tidyverse)
+library(kableExtra)
+
+importance_data <- read_csv("../modeling/xgb_importance.csv")
+n_cols <- ncol(importance_data)
+
+importance_data %>%
+  select(phenology, species, everything()) %>%
+  mutate(across(everything(), ~replace_na(as.character(.), "-"))) %>%
+  arrange(factor(phenology, levels = c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy"))) %>%
+  knitr::kable(format = "latex", booktabs = TRUE, align = c("l", "l", rep("c", n_cols - 2))) %>%
+  kable_styling(font_size = 8, latex_options = c("scale_down")) %>%  # scale_down fits to page
+  column_spec(1:2, bold = TRUE, width = "3cm") %>%
+  column_spec(3:n_cols, width = "0.8cm") %>%  # Narrow columns for features
+  collapse_rows(columns = 1, valign = "top", latex_hline = "major") %>%
+  row_spec(0, angle = 45) %>% 
+  landscape()
+
+```
 
 ```{r}
 #| label: tbl-climate-scenarios
@@ -287,6 +344,5 @@ climate_data %>%
                    bold = TRUE) %>%
   column_spec(1, bold = TRUE, width = "3cm") %>%
   column_spec(2, width = "2.5cm")
-
 
 ```

@@ -17,6 +17,7 @@ library(performance)
 library(caret)
 library(mgcv)
 library(xgboost)
+library(ggtext)
 
 ```
 
@@ -41,7 +42,7 @@ pheno_vars <- c("Greenup_doy", "Maturity_doy",
 climate_vars <- list(
   Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","late_winter_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
   Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax","late_spring_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"), 
-  Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp","impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
+  Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp", "late_summer_mean_tmax", "late_summer_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
   Dormancy_doy = c("fall_cumulative_prcp", "fall_prcp_days", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
 )
 
@@ -181,21 +182,35 @@ tree_ldc_metrics_climate %>%
 ```{r}
 
 # Updated phenology variables to match your labels
-pheno_vars <- c("DER.pos_doy", "Greenup_doy", "Maturity_doy", 
-                "Senescence_doy", "Dormancy_doy", "growing_season")
+pheno_vars <- c("Greenup_doy", 
+                "Senescence_doy", "Dormancy_doy", "Maturity_doy")
 
 # Use only existing climate variables
-greenup_climate <- c("late_winter_temp", "late_winter_prcp")
+greenup_climate <- c(
+  "winter_temp", "winter_mean_tmax", "winter_prcp", "winter_prcp_days",
+  "late_winter_temp", "late_winter_mean_tmax", "late_winter_prcp", "late_winter_prcp_days",
+  "early_spring_temp", "early_spring_mean_tmax", "early_spring_prcp", "early_spring_prcp_days",
+  "later_winter_cumulative_prcp", "early_spring_cumulative_prcp"
+)
 
-maturity_climate <- c("late_spring_mean_tmax", "spring_prcp")
+maturity_climate <- c(
+  "spring_temp", "spring_mean_tmax", "spring_prcp", "spring_prcp_days",
+  "late_spring_temp", "late_spring_mean_tmax", "late_spring_prcp", "late_spring_prcp_days",
+  "spring_prcp_cumulative_prcp", "late_spring_cumulative_prcp"
+)
 
-senescence_climate <- c("late_summer_prcp", "early_fall_mean_tmax")
+senescence_climate <- c(
+  "summer_temp", "summer_mean_tmax", "summer_prcp", "summer_prcp_days",
+  "late_summer_temp", "late_summer_mean_tmax", "late_summer_prcp", "late_summer_prcp_days",
+  "early_fall_temp", "early_fall_mean_tmax", "early_fall_prcp", "early_fall_prcp_days",
+  "summer_cumulative_prcp", "late_summer_cumulative_prcp", "early_fall_cumulative_prcp"
+)
 
-dormancy_climate <- c("fall_cumulative_prcp", "fall_mean_tmax")
-
-pos_climate <- c("late_spring_cumulative_prcp", "spring_temp")
-
-growing_climate <- c("irrigated_90m", "late_summer_prcp", "summer_temp")
+dormancy_climate <- c(
+  "fall_temp", "fall_mean_tmax", "fall_prcp", "fall_prcp_days",
+  "late_fall_temp", "late_fall_prcp", "late_fall_prcp_days",
+  "fall_cumulative_prcp", "late_fall_cumulative_prcp"
+)
 
 all_climate_vars <- unique(c(greenup_climate, maturity_climate, senescence_climate, 
                              dormancy_climate, pos_climate, growing_climate))
@@ -213,10 +228,8 @@ calc_species_cor <- function(species_name, data){
     filter(
       (pheno_var == "Greenup_doy" & climate_var %in% greenup_climate) |
       (pheno_var == "Maturity_doy" & climate_var %in% maturity_climate) |
-      (pheno_var == "DER.pos_doy" & climate_var %in% pos_climate)|
       (pheno_var == "Senescence_doy" & climate_var %in% senescence_climate) |
-      (pheno_var == "Dormancy_doy" & climate_var %in% dormancy_climate) |
-      (pheno_var == "growing_season" & climate_var %in% growing_climate)
+      (pheno_var == "Dormancy_doy" & climate_var %in% dormancy_climate) 
     ) %>% 
     rename(!!species_name := correlation)
 }
@@ -249,26 +262,85 @@ all_cors %>%
                    values_to = "correlation") %>% 
       group_by(pheno_var, climate_var) %>% 
       summarise(correlation = mean(correlation, na.rm = TRUE), .groups = "drop") %>% 
-      mutate(species = "Average", group = "Average")
+      mutate(species = "Mean", group = "Mean")
   ) %>% 
-  mutate(pheno_var = pheno_labels[pheno_var]) %>%
+  # Add overall species summary statistics
+  bind_rows(
+    all_cors %>% 
+      pivot_longer(cols = -c(pheno_var, climate_var), 
+                   names_to = "species", 
+                   values_to = "correlation") %>% 
+      group_by(species) %>% 
+      summarise(
+        mean_abs_cor = mean(abs(correlation), na.rm = TRUE),
+        sd_cor = sd(correlation, na.rm = TRUE),
+        .groups = "drop"
+      ) %>% 
+      pivot_longer(cols = c(mean_abs_cor, sd_cor), 
+                   names_to = "climate_var", 
+                   values_to = "correlation") %>% 
+      mutate(
+        pheno_var = "Total",  # Changed from "Overall"
+        group = "Individual Species",
+        climate_var = case_when(
+          climate_var == "mean_abs_cor" ~ "Species absolute mean",
+          climate_var == "sd_cor" ~ "Species SD"
+        )
+      )
+  ) %>% 
+  # Add overall stats for Mean column
+  bind_rows(
+    all_cors %>% 
+      pivot_longer(cols = -c(pheno_var, climate_var), 
+                   names_to = "species", 
+                   values_to = "correlation") %>% 
+      group_by(pheno_var, climate_var) %>% 
+      summarise(correlation = mean(correlation, na.rm = TRUE), .groups = "drop") %>% 
+      ungroup() %>%
+      summarise(
+        mean_abs_cor = mean(abs(correlation), na.rm = TRUE),
+        sd_cor = sd(correlation, na.rm = TRUE)
+      ) %>% 
+      pivot_longer(cols = everything(), 
+                   names_to = "climate_var", 
+                   values_to = "correlation") %>% 
+      mutate(
+        pheno_var = "Total",  # Changed from "Overall"
+        species = "Mean",
+        group = "Mean",
+        climate_var = case_when(
+          climate_var == "mean_abs_cor" ~ "Species absolute mean",
+          climate_var == "sd_cor" ~ "Species SD",
+          TRUE ~ climate_var
+        )
+      )
+  ) %>% 
+  mutate(pheno_var = case_when(
+    pheno_var == "Total" ~ pheno_var,  # Changed from "Overall"
+    TRUE ~ pheno_labels[pheno_var]
+  )) %>%
+  mutate(pheno_var = factor(pheno_var, 
+                            levels = c("Green-up", "Maturity", "Senescence", "Dormancy", "Total"))) %>%  # Changed from "Overall"
   ggplot(aes(x = species, y = climate_var, fill = correlation)) +
   geom_tile(color = "white", linewidth = 0.5) +
-  geom_text(aes(label = sprintf("%.2f", correlation)), size = 2) +
+  geom_text(aes(label = sprintf("%.2f", correlation)), size = 3.5) +
   scale_fill_gradient2(low = "red", mid = "white", high = "darkgreen",
                        midpoint = 0, limits = c(-1, 1), 
-                       name = "Correlation") +
+                       name = NULL) +
   facet_grid(pheno_var ~ group, scales = "free", space = "free") +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
-    axis.text.y = element_text(size = 7),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
+    axis.text.y = element_markdown(size = 11),
     axis.title = element_blank(),
-    strip.text = element_text(face = "bold")
-  ) +
-  labs(title = "Phenology-Climate Correlations Across Species")
+    strip.text = element_text(face = "bold", size = 12)
+  ) 
+
+ggsave("../../images/phenology_climate_correlations.png", 
+       width = 16, height = 17, units = "in", dpi = 300)
 
 ```
+
 
 ```{r}
 
@@ -1232,7 +1304,6 @@ importance_all <- map_df(names(xgb_results), function(model_name) {
 ## Summary Stats Tables
 
 ```{r}
-
 data.frame(
   Phenological_Stage = names(climate_vars),
   Variables = sapply(climate_vars, function(x) paste(x, collapse = ", "))
@@ -1260,6 +1331,12 @@ xgb_table %>%
   ) %>%
   arrange(Mean_RMSE)
 
+importance_all %>% 
+  select(-Cover, -Frequency) %>% 
+  pivot_wider(names_from = Feature, values_from = Gain) %>% 
+  mutate(across(where(is.numeric), ~round(.x, 3))) %>%
+  write_csv("xgb_importance.csv")
+  
 
 ```
 
@@ -1372,7 +1449,7 @@ scenario_baseline <- expand_grid(
   ) %>%
   left_join(
     tree_ldc_metrics_climate %>%
-      select(UID, species_common, species_siall_of(landcover_vars)) %>%
+      select(UID, species_common, all_of(landcover_vars)) %>%
       distinct(),
     by = "UID") 
 
@@ -1430,8 +1507,6 @@ all_scenario_predictions %>%
   summarise(mean_doy = mean(predicted_doy),
             sd = sd(predicted_doy)) 
   
-
-
 ```
 
 ```{r}
