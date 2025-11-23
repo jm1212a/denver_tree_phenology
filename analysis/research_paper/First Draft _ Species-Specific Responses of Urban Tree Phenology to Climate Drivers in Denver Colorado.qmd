@@ -7,6 +7,8 @@ format:
       text: |
         \usepackage{caption}
         \captionsetup{font=small}
+bibliography: references.bib
+csl: your-style.csl
 editor: visual
 execute:
   echo: false
@@ -18,29 +20,34 @@ execute:
 
 ## 1. Introduction
 
-Urban trees are among the most effective natural mitigators of the urban heat island (UHI) effect—a phenomenon in which urban regions consistently exhibit higher average temperatures than nearby rural areas. The UHI arises primarily from the prevalence of impervious surfaces, such as asphalt, concrete, and rooftops, which absorb and retain solar radiation and reduce nighttime cooling (Oke, 1982; EPA, 2023). These elevated temperatures exacerbate energy demand, degrade air quality, and increase heat-related health risks for urban residents (Stone, 2012). As global temperatures continue to rise and urbanization expands, the effects of UHIs are expected to intensify in the coming decades (Stone, 2012). By providing shade and facilitating evapotranspiration, trees can reduce surface and ambient air temperatures by several degrees. Studies have demonstrated that neighborhoods with mature tree canopy cover experience measurably cooler microclimates compared to areas with limited vegetation (Ziter et al., 2019; Alonzo et al., 2021). Given the increasingly critical role of urban forests in climate resilience strategies, it is essential to understand the drivers of urban tree phenology—the seasonal patterns of leaf emergence, growth, and senescence—and how these patterns may shift as environmental conditions change.
+Urban trees are among the most effective natural mitigators of the urban heat island (UHI) effect. Studies have demonstrated that neighborhoods with mature tree canopy cover experience measurably cooler microclimates compared to areas with limited vegetation (Ziter et al., 2019; Alonzo et al., 2021). As global temperatures continue to rise, the effects of UHIs are expected to intensify in the coming decades (Stone, 2012). Given the increasingly critical role of urban forests in climate resilience strategies, it is essential to understand the drivers of urban tree phenology—the seasonal patterns of leaf emergence, growth, and senescence—and how these patterns may shift as environmental conditions change.
 
-The timing and duration of these seasonal patterns are strongly influenced by climate, particularly temperature and precipitation. Elevated temperatures caused by anthropogenic climate change can lengthen the growing season of urban trees (Zhang et al., 2022; Yang et al., 2020). Higher spring temperatures typically accelerate leaf emergence, while warmer fall temperatures may delay leaf senescence, extending the period of active growth and canopy cover (Zhang et al., 2022; Zhou et al., 2020). This extended canopy period can enhance the cooling benefits of urban trees by increasing shade and evapotranspiration, helping to mitigate the urban heat island effect. However, these benefits are not guaranteed: warmer winters followed by late spring freezes can delay leaf-out, disrupt flowering, and reduce the expected benefits of extended growing seasons, particularly in species that leaf out early in spring (Chamberlain et al., 2021; Fu et al., 2024).
+The timing and duration of these seasonal patterns are strongly influenced by climate, particularly temperature and precipitation. Elevated temperatures caused by climate change can lengthen the growing season of urban trees (Zhang et al., 2022; Yang et al., 2020). Higher spring temperatures typically accelerate leaf emergence, while warmer fall temperatures may delay leaf senescence, extending the period of active growth and canopy cover (Zhang et al., 2022; Zhou et al., 2020). This extended canopy period can enhance the cooling benefits of urban trees by increasing shade and evapotranspiration, helping to mitigate the urban heat island effect. However, these benefits are not guaranteed: some studies have show that warmer winters followed by late spring freezes can delay leaf-out, disrupt flowering, and reduce the expected benefits of extended growing seasons, particularly in species that leaf out early in spring (Chamberlain et al., 2021; Fu et al., 2024).
 
 Precipitation patterns add another layer of complexity. Spring drought can delay leaf-out and flowering, while wet conditions may accelerate growth but increase vulnerability to disease and root stress. In the fall, low precipitation or drought stress can trigger earlier leaf senescence, shortening the period of active growth and reducing canopy cover (Cleland et al., 2007; Peñuelas et al., 2004; Li et al., 2019). Critically, the interaction of temperature and precipitation determines ultimate outcomes, as insufficient soil moisture can counteract the effects of warmer temperatures, underscoring the complex challenges that climate change poses for urban tree health and their role in mitigating urban heat.
 
-Monitoring and predicting these phenological responses require appropriate observational tools. The body of research on urban phenology has evolved along multiple scales of observation. Coarse-scale studies often rely on remote sensing platforms such as MODIS, which provide high temporal but low spatial resolution data to monitor citywide phenological trends and seasonal canopy dynamics (Zhang et al., 2004; Melaas et al., 2016). At the opposite end of the spectrum, fine-scale studies use in-situ observations or near-surface imaging networks like PhenoCam to capture species-level variation and microclimate effects that are often obscured at broader scales (Richardson et al., 2018; Klosterman et al., 2018). More recently, high-resolution satellite constellations such as PlanetScope have emerged as a valuable intermediate approach, combining the spatial precision needed to monitor the location of individually identified trees with the temporal frequency required to monitor phenological changes at an almost daily bases (Bolton et al., 2020; Alonzo et al., 2020). Researchers can now study urban vegetation across large urban areas on an unprecedented detail and scale. This new approach also allows researchers to simulate and predict how different urban tree species may respond to future climate conditions, supporting proactive planning for urban resilience and heat mitigation.
+Monitoring and predicting these phenological responses require appropriate observational tools. The body of research on urban phenology has evolved along multiple scales of observation. Coarse-scale studies often rely on remote sensing platforms such as MODIS, which provide high temporal but low spatial resolution data to monitor citywide phenological trends and seasonal canopy dynamics (Zhang et al., 2004; Melaas et al., 2016). At the opposite end of the spectrum, fine-scale studies use in-situ observations or near-surface imaging networks like PhenoCam to capture species-level variation and microclimate effects that are often obscured at broader scales (Richardson et al., 2018; Klosterman et al., 2018). More recently, high-resolution satellite constellations such as PlanetScope have emerged as a valuable intermediate approach, combining the spatial precision needed to monitor the location of individually identified trees with the temporal frequency required to monitor phenological changes at an almost daily bases (Bolton et al., 2020; Alonzo et al., 2020). Researchers can now study urban vegetation across large urban areas on an unprecedented detail and scale.
 
 ### 1.1 Objectives
 
 This study leverages near-daily PlanetScope NDVI observations of urban trees in Denver, Colorado, daily climate data from 2018 to 2024, and land cover data to investigate how urban tree phenology responds to environmental drivers and how these responses may shift under future climate scenarios. Specifically, this research addresses three key questions:
 
-1.  Do species show differential phenological sensitivities to temperature versus precipitation drivers, and which climate variables most strongly influence the timing of greenup, maturity, senescence, and dormancy across twelve common Denver tree species?
-2.  How does land cover—such as impervious surfaces versus irrigated landscapes—affect tree phenology?
-3.  How will different tree species respond to moderate climate change scenarios?
+1.  Do species show differential phenological sensitivities to temperature versus precipitation drivers?
+2.  Does temperature or precipitation more strongly influence the timing of greenup, maturity, senescence, and dormancy for twelve common urban tree species in Denver, and are these responses fairly uniform across species?
+3.  How does land cover—such as impervious surfaces versus irrigated landscapes—affect tree phenology?
+4.  How have/will different tree species respond to moderate climate change scenarios?
 
 ### 1.2 Study Area
 
-Denver, Colorado provides a compelling case study, as the city confronts both substantial warming and precipitation uncertainty that will directly affect urban tree phenology and the cooling services trees provide. Understanding these dynamics is critical not only for Denver but also for similarly positioned mid-latitude cities experiencing rapid warming and uncertain precipitation futures. According to Colorado State University's Colorado Climate Center's most recent Climate Change in Colorado report, by mid-century, Denver is projected to see temperatures rise between 1.4°C and 3.1°C compared to the 1971–2000 baseline. The city has already warmed by approximately 1.1°C over the past 30 years, with the most pronounced increases occurring during summer and fall. Under moderate emissions scenarios, Denver's climate will resemble that of Pueblo, Colorado today, whereas higher emissions scenarios could make it feel more like Albuquerque, New Mexico. Summer and fall are expected to warm slightly more than winter and spring, with summer temperatures increasing by 2.2–3.3°C and winter by 1.7–2.2°C. This warming is projected to drive dramatic increases in extreme heat events: by mid-century, Denver could experience an average of 7 days per year exceeding 37.8°C (100°F) and roughly 35 days above 35°C (95°F), compared to very few such days historically. In essence, the typical year in 2050 may be as warm as the hottest years on record today.
+Denver, Colorado provides a compelling case study for understanding urban tree phenology. Located in the mid-latitudes, the city experiences distinct seasonal patterns that produce clear phenological transitions across all four stages (greenup, maturity, senescence, and dormancy). The city maintains a diverse urban forest with over 300,000 public trees representing hundreds of species, and detailed land cover mapping enables analysis of how urban infrastructure affects these phenological patterns.
 
-Future precipitation patterns for Denver remain highly uncertain, compounding the challenge for urban forest managers. Climate models (CMIP5 and CMIP6 under RCP 4.5 scenarios) disagree on whether precipitation will increase or decrease, with projections ranging from -7% to +7% by 2050. While northern Front Range projections, including Denver, are generally shifted toward wetter outcomes compared to southern Colorado, the consensus is weak outside of winter, when most models project an increase in precipitation. Overall, the share of precipitation falling during heavy downpours is expected to rise from about 46% to 50% by mid-century. Despite these potential increases, warmer temperatures may offset benefits by pulling more moisture from snowpacks, soils, and plants, compounding the risk of drought and reducing water availability. This risk is not hypothetical: Denver has already experienced persistent dry conditions in the 21st century, with four of the five driest years in the 128-year record occurring since 2000.
+As the planet warms, Denver is projected to confront both warming and precipitation uncertainty—conditions that will directly affect the timing of leaf-out, canopy development, and senescence for this urban forest. According to Colorado State University's Colorado Climate Center's most recent Climate Change in Colorado report, by mid-century, Denver is projected to see temperatures rise between 1.4°C and 3.1°C compared to the 1971–2000 baseline. The city has already warmed by approximately 1.1°C over the past 30 years, with the most pronounced increases occurring during summer and fall. Under moderate emissions scenarios, Denver's climate will resemble that of Pueblo, Colorado today, whereas higher emissions scenarios could make it feel more like Albuquerque, New Mexico.
 
-The study period of this paper (2018 to 2024), captures years with temperatures and precipitation both above and below the 1971-2000 baseline. Notably, 2024 was Denver's third warmest year on record, with temperatures 1.8°C above baseline—approximating mid-century projections—while 2019 and 2020 were notably drier than average. This climate variability enables us to model how Denver's urban trees respond to conditions projected for 2050.
+Summer and fall are expected to warm slightly more than winter and spring, with summer temperatures increasing by 2.2–3.3°C and winter by 1.7–2.2°C. This warming is projected to drive dramatic increases in extreme heat events: by mid-century, Denver could experience an average of 7 days per year exceeding 37.8°C (100°F) and roughly 35 days above 35°C (95°F), compared to very few such days historically. In essence, the typical year in 2050 may be as warm as the hottest years on record today.
+
+Future precipitation patterns for Denver remain uncertain. Climate models (CMIP5 and CMIP6 under RCP 4.5 scenarios) disagree on whether precipitation will increase or decrease, with projections ranging from -7% to +7% by 2050. Even with potential increase in precipitation, warmer temperatures may offset benefits by pulling more moisture out of the soils and melting snowpacks reducing water availability for trees.
+
+The study period of this paper (2018 to 2024), captures years with temperatures and precipitation both above and below the 1971-2000 baseline. Notably, 2024 was Denver's third warmest year on record, with temperatures 2°C above baseline—approximating mid-century projections—while 2019 and 2020 were notably drier than average. This climate variability enables us to model how Denver's urban trees respond to average conditions projected for 2050.
 
 ## 2. Methods & Materials
 
@@ -253,11 +260,19 @@ The modest overall land cover effects compared to climate drivers suggest that w
 
 ### 3.3 Future Climate Scenario Projections
 
-![](images/climatechange_impact.png)
+![Phenological timing across climate warming scenarios for 12 urban tree species. Boxplots show the distribution of predicted phenological stage timing (day of year) under baseline conditions (1970-2000) and four warming scenarios. The +1.1°C scenario represents observed warming over the past 30 years, while +2°C scenarios project future warming with varying precipitation conditions (moderate, ±7% precipitation).](images/climatechange_impact.png){#fig-climate-scenarios fig-align="center"}
 
--   Phenological shifts under moderate scenarios
--   Species showing largest shifts
--   Direction of changes (earlier greenup, delayed senescence, etc.)
+To evaluate phenological responses to climate change, we developed four warming scenarios and used our trained XGBoost models to predict phenological timing under altered climate conditions. The baseline scenario used 1970-2000 climate normals, while the +1.1°C scenario applied observed warming trends from the past 30 years uniformly across all seasons. The +2°C scenarios increased temperatures by 2°C above baseline, with three precipitation variants: moderate (no change), dry (-7% precipitation), and wet (+7% precipitation). For each scenario, we generated predictions for all species while holding land cover variables constant at their mean values, allowing us to isolate the effects of temperature and precipitation changes on phenological timing.
+
+Climate warming scenarios revealed substantial phenological shifts across all species, with the most pronounced changes occurring in autumn phenology (@tbl-climate-scenarios, @fig-climate_scenarios). Under moderate warming, our models predict the overall average growing season has lengthened by 9.1 days, driven primarily by delayed dormancy rather than earlier greenup. This historical warming scenario is particularly relevant as it represents changes that have likely already occurred in Denver's urban forest.
+
+Species responses under the +1.1°C scenario varied substantially, revealing differential adaptation trajectories. Tree of Heaven, Common Hackberry, and Western Catalpa showed the most dramatic responses, with growing seasons extending by 15-16 days through substantial dormancy delays (15-17 days later). In contrast, Northern Red Oak and cottonwoods exhibited modest growing season changes (1.5-6.6 days), maintaining relatively conservative phenological timing despite three decades of warming. Peak canopy duration under this realized warming ranged from 3.1 days (Green Ash) to 17.3 days (Siberian Elm), with most species showing 6-9 day extensions. These differential responses suggest that highly plastic species have already undergone substantial phenological shifts, while more conservative species may be operating near physiological limits or are constrained by non-climatic cues.
+
+Notably, greenup timing remained largely unchanged under this moderate warming for most species (changes \<1 day for 10 of 12 species), with only Common Hackberry and Plains Cottonwood showing slight advancement (0.7-1.9 days earlier). Maturity timing advanced modestly for most species (1-5 days earlier), while senescence delays (1-13 days) and dormancy delays (2-15 days) dominated the phenological response. The stability of spring phenology combined with substantial autumn delays under observed warming suggests that photoperiodic controls or fixed chilling requirements buffer spring leaf-out against moderate temperature increases, while autumn transitions remain highly temperature-sensitive.
+
+Enhanced warming scenarios (+2°C) amplified these patterns, with growing season length increasing by 10.9 days and peak canopy duration extending by 10.8 days under moderate moisture conditions. Precipitation variability modulated these responses: the +2°C wet scenario produced the largest peak canopy extensions (+14.1 days), while dry scenarios showed minimal additional effects beyond temperature alone. The progression from observed (+1.1°C) to projected (+2°C) warming reveals relatively linear responses for most phenological stages, though some species showed evidence of non-linear responses in senescence timing under enhanced warming combined with moisture changes.
+
+The combined effect of stable greenup, modestly advanced maturity, delayed senescence, and strongly delayed dormancy suggests that the past 30 years of warming have already substantially extended both the period of active canopy cover and the total growing season length for Denver's urban forest. Continued warming is projected to amplify these patterns.
 
 ## 4 Discussion
 
@@ -279,9 +294,13 @@ This contradiction likely stems from coupled land cover change: as impervious su
 
 ### 4.3 Future Climate Implications
 
--   Species "winners" vs "losers" under warming
--   Growing season extension and cooling benefits
--   Risk of phenological mismatches or stress
+Climate warming projections reveal divergent trajectories among urban tree species that may reshape Denver's urban forest composition. Species exhibiting high phenological plasticity—particularly, such as the Tree of Heaven, Western Catalpa, Common Hackberry, and Siberian Elm—showed substantial growing season extensions (15-23 days) and dramatic peak canopy expansions under warming scenarios. With a longer growing season, these "winner" species may gain competitive advantages through, their strong responsiveness may also indicates vulnerability to climate variability. If the later is true, invasive species (Tree of Heaven, Siberian Elm) may exploit warming conditions to expand their dominance. By contrast, cottonwoods and Northern Red Oak showed conservative responses (3-7 day growing season changes), suggesting either physiological constraints that limit climate tracking ability. These "conservative" species may face disadvantages if unable to capitalize on longer favorable conditions or their buffered responses could also provide stability under climate volatility.
+
+For most trees extended growing seasons increase exposure periods to pests, pathogens, and late-season heat stress. The extended period of metabolic activity without corresponding increases in resource availability may induce physiological stress. Additionally, if natural enemies do not track similar climate shifts, temporal mismatches could disrupt ecosystem interactions and alter pest pressure on urban trees.
+
+Despite these potential risks, extended growing seasons also offer important benefits for urban ecosystem services. The substantial extension of peak canopy duration (7-14 days average across scenarios) has important implications for urban ecosystem services. Longer periods of full canopy cover should enhance summer cooling benefits, with models suggesting extended shading could reduce urban heat island intensity and building energy demands.
+
+The substantial changes already observed under +1.1°C of historical warming suggest that continued monitoring of phenological timing—particularly be critical for adaptive management as Denver's Urban forest.
 
 ## 5. Conclusion
 
@@ -319,7 +338,6 @@ importance_data %>%
 #| label: tbl-climate-scenarios
 #| tbl-cap: "Phenological timing (day of year) and changes (Δ) for 12 tree species under climate warming scenarios"
 #| echo: false
-
 library(kableExtra)
 library(tidyverse)
 
@@ -329,24 +347,95 @@ climate_data <- read_csv("../modeling/summary_table_climate_senarios") %>%
                                       "Senescence_doy", "Dormancy_doy"),
                             labels = c("Greenup", "Maturity", 
                                       "Senescence", "Dormancy"))) %>%
+  arrange(species, phenology)
+
+# Calculate derived metrics
+derived_metrics <- climate_data %>%
+  select(species, phenology, baseline_1970to2000, 
+         mean_warming_1.1C, mean_warming_2C, 
+         mean_warming_2C_dry, mean_warming_2C_wet) %>%
+  pivot_longer(cols = -c(species, phenology), 
+               names_to = "scenario", 
+               values_to = "doy") %>%
+  pivot_wider(names_from = phenology, values_from = doy) %>%
+  mutate(
+    growing_season = Dormancy - Greenup,
+    peak_canopy = Senescence - Maturity
+  ) %>%
+  select(species, scenario, growing_season, peak_canopy) %>%
+  pivot_longer(cols = c(growing_season, peak_canopy),
+               names_to = "phenology",
+               values_to = "value") %>%
+  pivot_wider(names_from = scenario, values_from = value) %>%
+  mutate(
+    phenology = case_when(
+      phenology == "growing_season" ~ "Growing Season",
+      phenology == "peak_canopy" ~ "Peak Canopy"
+    ),
+    mean_diff_1.1C = mean_warming_1.1C - baseline_1970to2000,
+    mean_diff_2C = mean_warming_2C - baseline_1970to2000,
+    mean_diff_2C_dry = mean_warming_2C_dry - baseline_1970to2000,
+    mean_diff_2C_wet = mean_warming_2C_wet - baseline_1970to2000,
+    p_value_1.1C = NA,
+    p_value_2C = NA,
+    p_value_2C_dry = NA,
+    p_value_2C_wet = NA
+  )
+
+# Calculate overall averages for Growing Season and Peak Canopy
+average_metrics <- derived_metrics %>%
+  group_by(phenology) %>%
+  summarize(
+    species = "Overall Average",
+    baseline_1970to2000 = mean(baseline_1970to2000, na.rm = TRUE),
+    mean_warming_1.1C = mean(mean_warming_1.1C, na.rm = TRUE),
+    mean_diff_1.1C = mean(mean_diff_1.1C, na.rm = TRUE),
+    mean_warming_2C = mean(mean_warming_2C, na.rm = TRUE),
+    mean_diff_2C = mean(mean_diff_2C, na.rm = TRUE),
+    mean_warming_2C_dry = mean(mean_warming_2C_dry, na.rm = TRUE),
+    mean_diff_2C_dry = mean(mean_diff_2C_dry, na.rm = TRUE),
+    mean_warming_2C_wet = mean(mean_warming_2C_wet, na.rm = TRUE),
+    mean_diff_2C_wet = mean(mean_diff_2C_wet, na.rm = TRUE),
+    p_value_1.1C = NA,
+    p_value_2C = NA,
+    p_value_2C_dry = NA,
+    p_value_2C_wet = NA,
+    .groups = "drop"
+  )
+
+# Combine: all species first, then overall averages
+climate_data_full <- climate_data %>%
+  bind_rows(derived_metrics) %>%
+  mutate(phenology = factor(phenology,
+                            levels = c("Greenup", "Maturity", "Senescence", 
+                                      "Dormancy", "Growing Season", "Peak Canopy"))) %>%
   arrange(species, phenology) %>%
+  bind_rows(average_metrics) %>%
   # Round numeric columns
-  mutate(across(where(is.numeric), ~round(.x, 2))) %>%
+  mutate(across(where(is.numeric), ~round(.x, 1))) %>%
   # Format p-values
-  mutate(across(contains("p_value"), ~ifelse(.x < 0.001, "<0.001", 
-                                              sprintf("%.3f", .x)))) %>%
+  mutate(across(contains("p_value"), ~ifelse(is.na(.x), "", 
+                                              ifelse(.x < 0.001, "<0.001", 
+                                                     sprintf("%.3f", .x))))) %>%
   # Create grouping column for species
-  group_by(species) %>%
-  mutate(species_label = ifelse(row_number() == 1, species, "")) %>%
-  ungroup() %>%
+  mutate(species_label = case_when(
+    species == "Overall Average" ~ "Overall Average",
+    TRUE ~ ifelse(!duplicated(species), species, "")
+  )) %>%
   select(species_label, phenology, baseline_1970to2000,
          mean_warming_1.1C, mean_diff_1.1C, p_value_1.1C,
          mean_warming_2C, mean_diff_2C, p_value_2C,
          mean_warming_2C_dry, mean_diff_2C_dry, p_value_2C_dry,
          mean_warming_2C_wet, mean_diff_2C_wet, p_value_2C_wet)
 
+# Find rows for formatting
+dormancy_rows <- which(climate_data_full$phenology == "Dormancy" & climate_data_full$species_label != "Overall Average")
+peak_canopy_rows <- which(climate_data_full$phenology == "Peak Canopy" & climate_data_full$species_label != "Overall Average")
+overall_avg_rows <- which(climate_data_full$species_label == "Overall Average")
+first_overall_row <- min(overall_avg_rows)
+
 # Create table
-climate_data %>%
+climate_data_full %>%
   kbl(
     col.names = c("Species", "Phenology", "Baseline",
                   "Mean", "Δ", "p",
@@ -355,10 +444,10 @@ climate_data %>%
                   "Mean", "Δ", "p"),
     align = c("l", "l", "r", rep("r", 12)),
     booktabs = TRUE,
-    linesep = c("", "", "", "\\addlinespace")
+    linesep = ""
   ) %>%
   kable_styling(
-    font_size = 9,
+    font_size = 8,
     latex_options = c("scale_down", "HOLD_position")
   ) %>%
   add_header_above(c(" " = 3, 
@@ -368,6 +457,11 @@ climate_data %>%
                      "+2°C Wet" = 3),
                    bold = TRUE) %>%
   column_spec(1, bold = TRUE, width = "3cm") %>%
-  column_spec(2, width = "2.5cm")
-
+  column_spec(2, width = "2.5cm") %>%
+  row_spec(which(climate_data_full$phenology %in% c("Growing Season", "Peak Canopy")), 
+           italic = TRUE) %>%
+  row_spec(dormancy_rows, hline_after = TRUE) %>%
+  row_spec(peak_canopy_rows, hline_after = TRUE) %>%
+  row_spec(first_overall_row - 1, hline_after = TRUE) %>%  # Bold line before Overall Average section
+  row_spec(overall_avg_rows, bold = TRUE)  # Bold the overall average rows
 ```
