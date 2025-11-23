@@ -1,7 +1,12 @@
 ---
 title: "Species-Specific Responses of Urban Tree Phenology to Climate Drivers a Semi-Arid Environment"
 author: "Jared Martin"
-format: pdf
+format: 
+  pdf:
+    include-in-header:
+      text: |
+        \usepackage{caption}
+        \captionsetup{font=small}
 editor: visual
 execute:
   echo: false
@@ -85,9 +90,9 @@ Because of the images fine resolution, multiple daily images had to be mosaicked
 
 $$NDVI = (NIR - Red) / (NIR + Red)$$
 
-Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. For each tree, we created a circular buffer around the GPS coordinates sized to approximate the tree crown based on species-specific mature crown diameter estimates. To capture canopy pixels rather than understory or adjacent features, we filtered each tree-date observation to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level that served as the foundation for phenological curve fitting and metric extraction. Below is an example of the NDVI values extracted for an individual tree.
+Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. For each tree, we created a circular buffer around the GPS coordinates sized to approximate the tree crown based on species-specific mature crown diameter estimates. To capture canopy pixels rather than understory or adjacent features, we filtered each tree-date observation to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level that served as the foundation for phenological curve fitting and metric extraction (@fig-ndvi-time-series).
 
-![Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png)
+![Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png){#fig-ndvi-time-series fig-align="center"}
 
 #### 2.1.3 Extracted Phenological Metrics
 
@@ -99,7 +104,7 @@ $$y(t) = c + (d - c) \left[\frac{1}{1 + e^{a_1(t - b_1)}} - \frac{1}{1 + e^{a_2(
 
 where $c$ is the baseline NDVI, $d$ is the peak NDVI, $(a_1, b_1)$ control spring greenup rate and timing, and $(a_2, b_2)$ control fall senescence rate and timing. The Elmore curve was selected after testing multiple curve types (double-logistic, asymmetric Gaussian, Beck) because it consistently produced the most reliable fits across species and provided biologically interpretable parameters for both greenup and senescence phases.
 
-Curve fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least 6 growing seasons successfully detected over the 7-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal due to crown damage, sensor artifacts, or persistent cloud cover. Four phenological stage dates were extracted from each annual curve using the inflection point method [@zhang2003], which identifies the dates of maximum rate of change in the NDVI trajectory: (1) **Greenup** - spring inflection point marking rapid leaf emergence, (2) **Maturity** - the date of peak NDVI when maximum canopy development is reached, (3) **Senescence** - fall inflection point marking rapid leaf loss, and (4) **Dormancy** - the date when NDVI reaches its winter minimum. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they are less sensitive to baseline NDVI variations and provide consistent timing estimates across species with different canopy densities. All extracted metrics, fitted curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub repository link\]. After quality filtering, 3,450 trees acrross 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period.
+Curve fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least 6 growing seasons successfully detected over the 7-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal due to crown damage, sensor artifacts, or persistent cloud cover. Four phenological stage dates were extracted from each annual curve using the inflection point method [@zhang2003], which identifies the dates of maximum rate of change in the NDVI trajectory: (1) Greenup - spring inflection point marking rapid leaf emergence, (2) Maturity - the date of peak NDVI when maximum canopy development is reached, (3) Senescence - fall inflection point marking rapid leaf loss, and (4) Dormancy - the date when NDVI reaches its winter minimum. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they are less sensitive to baseline NDVI variations and provide consistent timing estimates across species with different canopy densities. All extracted metrics, fitted curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub repository link\]. After quality filtering, 3,450 trees acrross 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period.
 
 #### 2.1.4 Climate Data
 
@@ -222,9 +227,9 @@ Comparing across all phenological stages, native tree species such as Common Hac
 
 While Pearson correlations provide valuable insights into bivariate climate-phenology relationships, they do not account for interactions among climate variables or control for confounding factors such as land cover and tree-level characteristics. To address these limitations, we used partial dependence analysis from the XGBoost models to examine how phenological timing responds to individual climate drivers while holding all other predictors constant at their mean values. This approach offers a more robust assessment of climate effects by isolating the marginal influence of each climate variable within the multivariate context of the full model. Partial dependence plots reveal the shape of these relationships—including potential non-linearities and thresholds.
 
-Across all phenological stages, partial dependence analysis confirmed the key climate drivers identified through correlations while revealing substantial non-linearities, plateaus, and threshold effects (Figure X), while also confirming the species-specific variation observed in bivariate analysis.
+Across all phenological stages, partial dependence analysis confirmed the key climate drivers identified through correlations while revealing substantial non-linearities, plateaus, and threshold effects (@fig-climate-pd), while also confirming the species-specific variation observed in bivariate analysis.
 
-![Partial dependence plots showing species-specific climate responses across phenological stages. Each panel shows predicted phenological timing (DOY) as a function of a key climate variable from XGBoost models, with other predictors held constant.](../../images/partial_depences_climnate_responces.png){fig-align="center"}
+![Partial dependence plots showing species-specific climate responses across phenological stages. Each panel shows predicted phenological timing (DOY) as a function of a key climate variable from XGBoost models, with other predictors held constant.](../../images/partial_depences_climnate_responces.png){#fig-climate-pd fig-align="center"}
 
 Greenup responses to late winter climate displayed notable non-linear patterns. Late winter temperature effects showed a distinct optimum response across most species, with greenup occurring earliest at approximately 0°C and 3-4°C, but delayed at intermediate temperatures around 1-2°C. This U-shaped relationship contrasts with the simple negative correlation observed in bivariate analysis and suggests that both cold and warm late winter conditions can advance greenup through different physiological mechanisms. Late winter precipitation revealed a more complex relationship with greenup than suggested by correlation analysis alone. Most species exhibited an optimum response around 750mm, with greenup occurring earliest at this intermediate precipitation level and then trending toward later greenup as precipitation increased beyond this threshold. Tree of Heaven and Common Hackberry were notable exceptions, displaying relatively flat responses that plateaued or increased only slightly at the highest precipitation levels, while Eastern and Plains Cottonwoods displayed relatively flat responses throughout.
 
@@ -236,7 +241,15 @@ Early fall mean maximum temperature displayed a similar pattern of associations 
 
 ### 3.2 Modeling Climate Responses Using Partial Dependence Analysis
 
-![Partial dependence plots showing land cover effects on phenology across all stages. Each panel displays predicted phenological timing (DOY) as a function of impervious surface or irrigated land cover, with colored lines representing individual species responses and the dashed black line showing the overall linear trend across all species. ](../../images/pd_land_cover_impervious_irrigated.png)
+To examine the influence of local land cover on phenological timing, we used partial dependence analysis to isolate the effects of impervious surface and irrigated land cover while holding climate variables constant at their mean values. As impervious surface or irrigated land varied, other land cover types (tree canopy, pervious surface, etc.) were adjusted proportionally to maintain a total coverage of 100%, reflecting realistic urban land cover tradeoffs.
+
+Partial dependence analysis revealed land cover effects that varied substantially by phenological stage and land cover type (@fig-landcover). Impervious surface showed relatively weak and inconsistent effects across phenological stages, with the overall trend suggesting slightly delayed greenup and maturity timing as impervious cover increased. This counterintuitive pattern—opposite of expected urban heat island effects—likely reflects the confounding influence of simultaneously reduced irrigated land and tree canopy cover as impervious surfaces increase. In semi-arid environments, the moisture stress from losing vegetated and irrigated surfaces may dominate over any thermal benefits of urban heat islands.
+
+In contrast, irrigated land displayed clearer and more ecologically interpretable effects. Increased irrigation was associated with earlier greenup timing and delayed senescence across most species, consistent with enhanced water availability facilitating earlier spring development and extending the active growing season. The magnitude of irrigation effects varied considerably among species, with some showing pronounced responses (10+ day shifts across the irrigation gradient) while others, particularly the cottonwoods, showed minimal sensitivity. Maturity and dormancy stages showed weaker and more variable responses to irrigation, suggesting these transitions may be less directly coupled to current-year moisture availability.
+
+The modest overall land cover effects compared to climate drivers suggest that while local land cover influences phenological timing, atmospheric climate conditions remain the dominant control on urban tree phenology in semi-arid environments.
+
+![Partial dependence plots showing land cover effects on phenology across all stages. Each panel displays predicted phenological timing (DOY) as a function of impervious surface or irrigated land cover, with colored lines representing individual species responses and the dashed black line showing the overall linear trend across all species.](../../images/pd_land_cover_impervious_irrigated.png){#fig-landcover fig-align="center"}
 
 ### 3.3 Future Climate Scenario Projections
 
@@ -260,11 +273,9 @@ The dual-phase control of senescence—with summer heat stress advancing senesce
 
 ### 4.2 Land cover effects
 
+The relatively modest land cover effects on phenology, particularly compared to climate drivers, challenge assumptions about strong urban heat island controls on tree phenology in semi-arid environments. The counterintuitive relationship between impervious surface and phenological timing—with increased impervious cover associated with delayed rather than advanced spring phenology—suggests that moisture limitation overwhelms thermal modification as the primary mechanism through which urbanization affects phenology in water-limited systems.
 
-
--   Importance of land cover effects for urban forestry
--   Implications for tree placement strategies
--   Irrigation vs natural precipitation patterns
+This contradiction likely stems from coupled land cover change: as impervious surface increases, irrigated areas and tree canopy necessarily decrease. In Denver's semi-arid climate, the loss of moisture resources associated with urbanization may create stress that outweighs any phenological advancement from urban warming. The stronger effects of irrigated land support this moisture-centric interpretation. Increased irrigation consistently advanced greenup and delayed senescence across most species, demonstrating that water availability directly modulates phenological timing. Further research using ground-based phenological observations paired with in-situ microclimate and soil moisture measurements would be needed to definitively separate thermal from moisture effects and validate these satellite-derived patterns
 
 ### 4.3 Future Climate Implications
 
