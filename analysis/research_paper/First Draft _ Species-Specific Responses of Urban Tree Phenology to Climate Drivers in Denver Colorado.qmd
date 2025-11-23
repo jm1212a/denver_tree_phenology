@@ -7,8 +7,7 @@ format:
       text: |
         \usepackage{caption}
         \captionsetup{font=small}
-bibliography: references.bib
-csl: your-style.csl
+bibliography: ../../literature_review/bibliography.bib
 editor: visual
 execute:
   echo: false
@@ -20,7 +19,7 @@ execute:
 
 ## 1. Introduction
 
-Urban trees are among the most effective natural mitigators of the urban heat island (UHI) effect. Studies have demonstrated that neighborhoods with mature tree canopy cover experience measurably cooler microclimates compared to areas with limited vegetation (Ziter et al., 2019; Alonzo et al., 2021). As global temperatures continue to rise, the effects of UHIs are expected to intensify in the coming decades (Stone, 2012). Given the increasingly critical role of urban forests in climate resilience strategies, it is essential to understand the drivers of urban tree phenology—the seasonal patterns of leaf emergence, growth, and senescence—and how these patterns may shift as environmental conditions change.
+Urban trees are among the most effective natural mitigators of the urban heat island (UHI) effect. Studies have demonstrated that neighborhoods with mature tree canopy cover experience measurably cooler microclimates compared to areas with limited vegetation (Ziter et al., 2019; @Alonzo2021). As global temperatures continue to rise, the effects of UHIs are expected to intensify in the coming decades (Stone, 2012). Given the increasingly critical role of urban forests in climate resilience strategies, it is essential to understand the drivers of urban tree phenology—the seasonal patterns of leaf emergence, growth, and senescence—and how these patterns may shift as environmental conditions change.
 
 The timing and duration of these seasonal patterns are strongly influenced by climate, particularly temperature and precipitation. Elevated temperatures caused by climate change can lengthen the growing season of urban trees (Zhang et al., 2022; Yang et al., 2020). Higher spring temperatures typically accelerate leaf emergence, while warmer fall temperatures may delay leaf senescence, extending the period of active growth and canopy cover (Zhang et al., 2022; Zhou et al., 2020). This extended canopy period can enhance the cooling benefits of urban trees by increasing shade and evapotranspiration, helping to mitigate the urban heat island effect. However, these benefits are not guaranteed: some studies have show that warmer winters followed by late spring freezes can delay leaf-out, disrupt flowering, and reduce the expected benefits of extended growing seasons, particularly in species that leaf out early in spring (Chamberlain et al., 2021; Fu et al., 2024).
 
@@ -39,7 +38,7 @@ This study leverages near-daily PlanetScope NDVI observations of urban trees in 
 
 ### 1.2 Study Area
 
-Denver, Colorado provides a compelling case study for understanding urban tree phenology. Located in the mid-latitudes, the city experiences distinct seasonal patterns that produce clear phenological transitions across all four stages (greenup, maturity, senescence, and dormancy). The city maintains a diverse urban forest with over 300,000 public trees representing hundreds of species, and detailed land cover mapping enables analysis of how urban infrastructure affects these phenological patterns.
+Denver, Colorado provides a compelling case study for understanding urban tree phenology. Located in the mid-latitudes, the city experiences distinct seasonal patterns that produce clear phenological transitions across all four stages (greenup, maturity, senescence, and dormancy). The city maintains a detailed public tree inventory representing hundreds of species, and detailed land cover mapping enables analysis of how urban infrastructure affects these phenological patterns.
 
 As the planet warms, Denver is projected to confront both warming and precipitation uncertainty—conditions that will directly affect the timing of leaf-out, canopy development, and senescence for this urban forest. According to Colorado State University's Colorado Climate Center's most recent Climate Change in Colorado report, by mid-century, Denver is projected to see temperatures rise between 1.4°C and 3.1°C compared to the 1971–2000 baseline. The city has already warmed by approximately 1.1°C over the past 30 years, with the most pronounced increases occurring during summer and fall. Under moderate emissions scenarios, Denver's climate will resemble that of Pueblo, Colorado today, whereas higher emissions scenarios could make it feel more like Albuquerque, New Mexico.
 
@@ -264,7 +263,7 @@ The modest overall land cover effects compared to climate drivers suggest that w
 
 To evaluate phenological responses to climate change, we developed four warming scenarios and used our trained XGBoost models to predict phenological timing under altered climate conditions. The baseline scenario used 1970-2000 climate normals, while the +1.1°C scenario applied observed warming trends from the past 30 years uniformly across all seasons. The +2°C scenarios increased temperatures by 2°C above baseline, with three precipitation variants: moderate (no change), dry (-7% precipitation), and wet (+7% precipitation). For each scenario, we generated predictions for all species while holding land cover variables constant at their mean values, allowing us to isolate the effects of temperature and precipitation changes on phenological timing.
 
-Climate warming scenarios revealed substantial phenological shifts across all species, with the most pronounced changes occurring in autumn phenology (@tbl-climate-scenarios, @fig-climate_scenarios). Under moderate warming, our models predict the overall average growing season has lengthened by 9.1 days, driven primarily by delayed dormancy rather than earlier greenup. This historical warming scenario is particularly relevant as it represents changes that have likely already occurred in Denver's urban forest.
+Climate warming scenarios revealed substantial phenological shifts across all species, with the most pronounced changes occurring in autumn phenology (@tbl-climate-scenarios, @fig-climate-scenarios). Under moderate warming, our models predict the overall average growing season has lengthened by 9.1 days, driven primarily by delayed dormancy rather than earlier greenup. This historical warming scenario is particularly relevant as it represents changes that have likely already occurred in Denver's urban forest.
 
 Species responses under the +1.1°C scenario varied substantially, revealing differential adaptation trajectories. Tree of Heaven, Common Hackberry, and Western Catalpa showed the most dramatic responses, with growing seasons extending by 15-16 days through substantial dormancy delays (15-17 days later). In contrast, Northern Red Oak and cottonwoods exhibited modest growing season changes (1.5-6.6 days), maintaining relatively conservative phenological timing despite three decades of warming. Peak canopy duration under this realized warming ranged from 3.1 days (Green Ash) to 17.3 days (Siberian Elm), with most species showing 6-9 day extensions. These differential responses suggest that highly plastic species have already undergone substantial phenological shifts, while more conservative species may be operating near physiological limits or are constrained by non-climatic cues.
 
@@ -304,7 +303,10 @@ The substantial changes already observed under +1.1°C of historical warming sug
 
 ## 5. Conclusion
 
-## 6. Sources
+## 6. References
+
+::: {#refs}
+:::
 
 ## 7. Appendix
 
