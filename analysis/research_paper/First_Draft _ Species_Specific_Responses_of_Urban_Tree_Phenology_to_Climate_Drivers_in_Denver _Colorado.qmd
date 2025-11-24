@@ -71,7 +71,7 @@ From this spatially filtered inventory, we implemented a four-part sampling appr
 An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County. The final sample consisted of 23,779 individual trees from 15 species representing 11 genera, including 11 native species, 2 non-native species, and 2 invasive species (@tbl-species).
 
 | Scientific Name | Common Name | Genus | Obs. | Status | Leaf Type |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
 | *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
@@ -127,7 +127,7 @@ To align climate variables with the biological timing of phenological stages, da
 The resulting climate dataset included 10 distinct seasonal periods (winter, late winter, spring, early spring, late spring, summer, late summer, fall, early fall, late fall) with corresponding temperature and precipitation metrics. This temporal structure was designed to maximize consistency across phenological stages while preserving sufficient climate variation to detect species-specific sensitivities to temperature versus precipitation drivers. @tbl-climate provides a complete breakdown of seasonal climate variables, their corresponding months, and which phenological were selected as predictors for modeling.
 
 | Seasonal Period | Months | Climate Metrics | Rationale |
-|------------------|------------------|------------------|------------------|
+|----|----|----|----|
 | Winter | Dec-Jan-Feb\* | Mean temp, Mean Tmax, Total precip, Precip days | Winter chilling requirements and moisture storage |
 | Late Winter | Feb-Mar | Mean temp^G^, Mean Tmax^G^, Total precip^G^, Precip days^G^, YTD cumulative precip | Transition to spring; pre-greenup conditions |
 | Spring | Mar-Apr-May | Mean temp, Mean Tmax, Total precip^M^, Precip days, YTD cumulative precip | Primary growing season onset |
@@ -194,7 +194,7 @@ We evaluated model performance using 10-fold cross-validation with a fixed rando
 Our models achieved RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately 2-3 times higher than RMSE values (2.1 to 4.9 days) reported by [@DAI2019107702] using gradient boosting for the prediction of tree phenology metrics (spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. [@DAI2019107702] modeled spring leaf-out dates from ground-based visual observations at individual sites over a 20 to 30 year period, instead of remote sensing data collected over a 7 year period. Given the limitations of our data a our gradient boosting models are preforming within an exceptionable margain of error and are effectively capture climate-phenology relationships.
 
 | Phenological Stage | N Species | Total Obs. | Mean R² | Mean RMSE (days) | Mean MAE (days) |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | Maturity | 12 | 2,244 | 0.644 | 6.95 | 5.11 |
 | Green-up | 12 | 2,194 | 0.644 | 8.29 | 6.32 |
 | Senescence | 12 | 2,182 | 0.691 | 9.10 | 7.01 |
@@ -234,7 +234,7 @@ Senescence timing seems to be driven by both temperature and precipitation. Late
 
 Dormancy timing showed weaker and less consistent climate associations than earlier phenological stages. Fall precipitation metrics displayed predominantly negative correlations, suggesting that frequent autumn precipitation delays dormancy. Fall temperature showed positive but more modest correlations, indicating that warmer conditions delay dormancy. However, substantial variation in correlation strength across species existed for both temperature and precipitation variables. Siberian Elm phenology seemed to be particularly influenced by fall climate conditions, whereas Cottonwoods showed minimal climate sensitivity to fall and late fall conditions.
 
-Comparing across all phenological stages, native tree species such as Common Hackberry and Western Catalpa, as well as invasive species Siberian Elm and Tree of Heaven, showed the highest degree of climate sensitivity, with overall absolute mean correlations exceeding. Native species Eastern and Plains Cottonwoods showed relatively low climate sensitivity across all seasons. 
+Comparing across all phenological stages, native tree species such as Common Hackberry and Western Catalpa, as well as invasive species Siberian Elm and Tree of Heaven, showed the highest degree of climate sensitivity, with overall absolute mean correlations exceeding. Native species Eastern and Plains Cottonwoods showed relatively low climate sensitivity across all seasons.
 
 #### 3.1.2 Modeled Climate Responses Using Partial Dependence Analysis
 
@@ -314,8 +314,7 @@ This study quantified species-specific phenological responses to climate drivers
 
 These climate sensitivities have already produced substantial phenological shifts. Under +1.1°C warming over the past 30 years, growing seasons have extended by 9.1 days, driven primarily by delayed dormancy rather than earlier greenup. Species responses diverged dramatically: highly plastic species extended growing seasons by 15-16 days, while conservative species showed minimal changes (3-7 days), potentially reshaping urban forest composition and favoring invasive species.
 
-While these findings advance understanding of urban tree phenology, several limitations warrant consideration. First, sample selection and data quality constraints may introduce bias. Only 14.5% of initially sampled trees passed quality filtering, potentially biasing results toward trees with optimal crown structure and minimal disturbance. The exclusive focus on deciduous species limits generalizability to coniferous urban forests.
-Additionally, temporal and spatial constraints limit inference. The seven-year study period may not capture full climate variability or multi-decadal trends, and findings specific to Denver County may not generalize to other semi-arid cities with different elevations or management practices.
+While these findings advance understanding of urban tree phenology, several limitations warrant consideration. First, sample selection and data quality constraints may introduce bias. Only 14.5% of initially sampled trees passed quality filtering, potentially biasing results toward trees with optimal crown structure and minimal disturbance. The exclusive focus on deciduous species limits generalizability to coniferous urban forests. Additionally, temporal and spatial constraints limit inference. The seven-year study period may not capture full climate variability or multi-decadal trends, and findings specific to Denver County may not generalize to other semi-arid cities with different elevations or management practices.
 
 Methodologically, several data limitations exist. Satellite-derived phenological dates lack ground-truth validation against field observations of actual leaf emergence or senescence. Land cover was treated as static despite likely changes during 2018-2024, potentially masking urbanization effects, and the "irrigated land" classification does not capture irrigation intensity or scheduling variability. Weather station data may not represent fine-scale microclimate variation across diverse neighborhoods and topography.
 
