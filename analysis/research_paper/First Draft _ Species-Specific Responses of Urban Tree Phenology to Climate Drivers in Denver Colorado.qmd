@@ -67,9 +67,9 @@ An interactive Shiny application was developed to facilitate sample selection an
 \[Table 1: Summary of selected tree species with sample sizes and ecological characteristics\]
 
 | Scientific Name | Common Name | Genus | Obs. | Status | Leaf Type |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
-| *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
+| *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | od Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
 | *Celtis occidentalis* | Common Hackberry | *Celtis* | 656 | Native | Deciduous |
 | *Fraxinus pennsylvanica* | Green Ash | *Fraxinus* | 2,369 | Native | Deciduous |
@@ -123,7 +123,7 @@ The resulting climate dataset included 10 distinct seasonal periods (winter, lat
 **Table X: Climate Variable Definitions and Seasonal Aggregations**
 
 | Seasonal Period | Months | Climate Metrics | Rationale |
-|------------------|------------------|-------------------|------------------|
+|----|----|----|----|
 | **Winter** | Dec-Jan-Feb\* | Mean temp, Mean Tmax, Total precip, Precip days | Winter chilling requirements and moisture storage |
 | **Late Winter** | Feb-Mar | Mean temp^G^, Mean Tmax^G^, Total precip^G^, Precip days^G^, YTD cumulative precip | Transition to spring; pre-greenup conditions |
 | **Spring** | Mar-Apr-May | Mean temp, Mean Tmax, Total precip^M^, Precip days, YTD cumulative precip | Primary growing season onset |
