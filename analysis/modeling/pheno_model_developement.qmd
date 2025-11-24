@@ -301,7 +301,6 @@ ggsave("../../images/phenology_climate_correlations.png",
 
 ```
 
-
 ```{r}
 
 source("../../R/plot_year.R")
@@ -1080,8 +1079,9 @@ plot_gamm_smooths <- function(model_name, gamm_results) {
 plot_gamm_smooths("Silver Maple_Dormancy_doy", gamm_results)
 
 ```
+
 # XGBoost (Gradient Boosted Machines)
- 
+
 ```{r}
 
 set.seed(1)
@@ -1261,6 +1261,7 @@ importance_all <- map_df(names(xgb_results), function(model_name) {
 })
 
 ```
+
 ## Summary Stats Tables
 
 ```{r}
@@ -1283,13 +1284,18 @@ xgb_table %>%
 xgb_table %>%
   group_by(phenology, species) %>%
   summarise(
-    N_Species = n(),
-    Total_Obs = sum(n_obs),
+    Total_Obs = n(),  # or sum(n_obs) if n_obs is a column
     Mean_R2 = mean(R2, na.rm = TRUE),
     Mean_RMSE = mean(RMSE, na.rm = TRUE),
-    Mean_MAE = mean(MAE, na.rm = TRUE)
+    Mean_MAE = mean(MAE, na.rm = TRUE),
+    .groups = "drop"
   ) %>%
-  arrange(Mean_RMSE)
+  mutate(phenology = factor(phenology, 
+                            levels = c("Greenup_doy", "Maturity_doy", "Senescence_doy",
+                                       "Dormancy_doy"))) %>%
+  arrange(phenology, species) %>% 
+  write_csv("xgb_prefromnce_table.csv")
+  
 
 importance_all %>% 
   select(-Cover, -Frequency) %>% 
@@ -1385,7 +1391,6 @@ predict_climate_scenario <- function(models_list, scenario_data, scenario_name =
 }
 
 ```
-
 
 ```{r}
 
@@ -1585,7 +1590,6 @@ get_partial_dependence <- function(species_name, phenology_stage, pred_var,
 }
 ```
 
-
 ```{r}
 
 species_list <- c("American Elm", "American Linden", "Common Hackberry", 
@@ -1623,6 +1627,7 @@ ggplot(pd_all_species, aes(x = late_winter_prcp, y = yhat, color = species)) +
   theme(legend.position = "right")
 
 ```
+
 ```{r}
 
 # Define climate variables and their corresponding phenology stages
@@ -2001,5 +2006,3 @@ ggsave("../../images/pd_land_cover_impervious_irrigated.png",
        width = 10, height = 10, dpi = 300)
 
 ```
-
-
