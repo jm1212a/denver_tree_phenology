@@ -2120,6 +2120,50 @@ var_labels <- c(
   "irrigated_90m" = "Irrigated Land (%)"
 )
 
+# Plot land cover effects
+pd_land_cover %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy")),
+    var_label = var_labels[variable]
+  ) %>%
+  arrange(pheno_order, variable) %>%
+  mutate(
+    pheno_label = factor(pheno_label, levels = unique(pheno_label)),
+    var_label = factor(var_label, levels = var_labels)
+  ) %>%
+  ggplot(aes(x = x_value, y = yhat, color = species, linetype = species)) +
+  geom_smooth(se = FALSE, size = 1.2, alpha = 0.8) +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash", 
+                                   "longdash", "twodash", "solid", "dashed", 
+                                   "dotted", "dotdash", "longdash", "twodash")) +
+  #scale_color_brewer(palette = "Paired") +
+  facet_grid(pheno_label ~ var_label, scales = "free") +
+  labs(
+    x = "Land Cover (%)",
+    y = "Predicted Phenological Timing (DOY)",
+    title = "Land Cover Effects on Phenology"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(0.4, "cm"),
+    legend.key = element_blank(),
+    strip.text = element_text(face = "bold", size = 10)
+  ) +
+  guides(color = guide_legend(nrow = 3, ncol = 4, byrow = TRUE))
+
+# Save
+ggsave("../../images/pd_land_cover_impervious_irrigated.png", width = 10, height = 10, dpi = 300)
+
 ```
 
 ```{r}
@@ -2145,14 +2189,11 @@ pd_land_cover %>%
   ) %>%
   ggplot(aes(x = x_value, y = yhat)) +
   # Individual species lines
-  geom_smooth(aes(color = species, linetype = species), se = FALSE, size = 0.8, alpha = 0.5) +
+  geom_smooth(aes(color = species), se = FALSE, size = 0.8, alpha = 0.5) +
   # ONE overall linear trend line (dashed, black)
-  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash", 
-                                   "longdash", "twodash", "solid", "dashed", 
-                                   "dotted", "dotdash", "longdash", "twodash"))+
   geom_smooth(method = "lm", se = FALSE, color = "black", 
               size = 1.2, linetype = "dashed") +
-  #scale_color_brewer(palette = "Paired") +
+  scale_color_brewer(palette = "Paired") +
   facet_grid(pheno_label ~ var_label, scales = "free") +
   labs(
     x = "Land Cover (%)",
@@ -2172,3 +2213,4 @@ ggsave("../../images/pd_land_cover_impervious_irrigated.png",
        width = 10, height = 10, dpi = 300)
 
 ```
+
