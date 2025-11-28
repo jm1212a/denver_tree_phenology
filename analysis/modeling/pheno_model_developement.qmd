@@ -496,7 +496,6 @@ ggsave("../../images/phenology_climate_correlations.png",
 
 ```
 
-
 ```{r}
 
 source("../../R/plot_year.R")
@@ -1496,8 +1495,8 @@ xgb_table %>%
 importance_all %>% 
   select(-Cover, -Frequency) %>% 
   pivot_wider(names_from = Feature, values_from = Gain) %>% 
-  mutate(across(where(is.numeric), ~round(.x, 3))) #%>%
-  #write_csv("xgb_importance.csv")
+  mutate(across(where(is.numeric), ~round(.x, 3))) %>%
+  write_csv("xgb_importance.csv")
   
 
 ```
@@ -1615,7 +1614,7 @@ scenario_baseline <- expand_grid(
     by = "UID") 
 
 current_warm <- scenario_baseline %>%
-  mutate(across(all_of(temp_vars), ~.x + 1.1),
+  mutate(across(all_of(temp_vars), ~.x + 0.8),
          impervious_90m = mean(impervious_90m, na.rm = TRUE),
          irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
          unirrigated_90m = mean(unirrigated_90m),
@@ -1625,7 +1624,7 @@ current_warm <- scenario_baseline %>%
 
 # +2°C (modify ALL temperature variables)
 scenario_warm <- scenario_baseline %>%
-  mutate(across(all_of(temp_vars), ~.x + 2),
+  mutate(across(all_of(temp_vars), ~.x + 1.8),
          impervious_90m = mean(impervious_90m, na.rm = TRUE),
          irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
          unirrigated_90m = mean(unirrigated_90m),
@@ -1645,10 +1644,10 @@ scenario_warm_dry <- scenario_warm %>%
 cat("\n\n===== Predicting Climate Scenarios =====\n")
 
 predictions_baseline <- predict_climate_scenario(xgb_models, scenario_baseline, "Baseline")
-predictions_actual <- predict_climate_scenario(xgb_models, current_warm, "Actual Warming +1.1C")
-predictions_warm <- predict_climate_scenario(xgb_models, scenario_warm, "+2C")
-predictions_warm_wet <- predict_climate_scenario(xgb_models, scenario_warm_wet, "+2C +7% precip")
-predictions_warm_dry <- predict_climate_scenario(xgb_models, scenario_warm_dry, "+2C -7% precip")
+predictions_actual <- predict_climate_scenario(xgb_models, current_warm, "Actual Warming +0.8C")
+predictions_warm <- predict_climate_scenario(xgb_models, scenario_warm, "+1.8C")
+predictions_warm_wet <- predict_climate_scenario(xgb_models, scenario_warm_wet, "+1.8C +7% precip")
+predictions_warm_dry <- predict_climate_scenario(xgb_models, scenario_warm_dry, "+1.8C -7% precip")
 
 # Combine all scenarios
 all_scenario_predictions <- bind_rows(
@@ -1665,8 +1664,36 @@ all_scenario_predictions <- bind_rows(
 
 all_scenario_predictions %>% 
   group_by(species, phenology, scenario) %>% 
-  summarise(mean_doy = mean(predicted_doy),
-            sd = sd(predicted_doy)) 
+  summarise(mean_doy = mean(predicted_doy, na.rm = TRUE),
+            sd_doy = sd(predicted_doy, na.rm = TRUE),
+            .groups = "drop") %>%
+  pivot_wider(names_from = scenario, 
+              values_from = c(mean_doy, sd_doy)) %>%
+  mutate(
+   mean_diff_0.8C = `mean_doy_Actual Warming +0.8C` - mean_doy_Baseline,
+    mean_diff_1.8C = `mean_doy_+1.8C` - mean_doy_Baseline,
+    mean_diff_1.8C_dry = `mean_doy_+1.8C -7% precip`- mean_doy_Baseline,
+   mean_diff_1.8C_wet = `mean_doy_+1.8C +7% precip` - mean_doy_Baseline,
+ ) -> summary_table
+  
+p_values <- all_scenario_predictions %>%
+  group_by(species, phenology) %>%
+  summarise(
+    p_value_0.8C = t.test(predicted_doy[scenario == "Actual Warming +0.8C"], 
+                          predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C = t.test(predicted_doy[scenario == "+1.8C"], 
+                          predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C_dry = t.test(predicted_doy[scenario == "+1.8C -7% precip"], 
+                              predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C_wet = t.test(predicted_doy[scenario == "+1.8C +7% precip"], 
+                              predicted_doy[scenario == "Baseline"])$p.value,
+    .groups = "drop"
+  )
+
+# Combine
+summary_table %>%
+  left_join(p_values, by = c("species", "phenology")) %>% 
+  write_csv("../modeling/summary_table_climate_senarios")
   
 ```
 
