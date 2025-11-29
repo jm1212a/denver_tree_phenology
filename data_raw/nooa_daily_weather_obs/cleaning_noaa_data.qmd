@@ -412,3 +412,33 @@ list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
 ```
 
 
+```{r}
+
+read_fwf("./raw_data_sets/ghcnd-stations.txt", 
+         col_positions = fwf_widths(c(11, 10, 10, 10, 100))) %>% 
+  rename(station_id = X1, latitude = X2, longitude = X3, elevation_state = X4, Name = X5) %>% 
+  filter( station_id %in% c("USW00023062", "USC00052223")) %>% 
+  mutate(elevation = str_extract(elevation_state, "-?\\d+")) %>% 
+  mutate(state = str_extract(elevation_state, "[:upper:]+")) %>% 
+  mutate(elevation = case_when(
+    elevation == 999 | elevation == -999 ~ NA,  
+    TRUE ~ elevation)) %>% 
+  mutate(elevation = as.double(elevation)) %>%
+  select(-elevation_state) %>% 
+  right_join(read_and_clean("./raw_data_sets/USW00023062.dly"), 
+             by = "station_id")%>% 
+  mutate(year = year(date)) %>% 
+  filter(year >= 1970 & year <= 2025 ) %>% 
+  group_by(year, date, station_id) %>% 
+  mutate(
+    mean_temp = mean((TMAX + TMIN) / 2, na.rm = TRUE),
+    month = month(date),
+    day = day(date)) %>% 
+  rename(tmax = TMAX,
+         tmin = TMIN,
+         prcp = PRCP,
+         snow = SNOW,
+         snwd = SNWD)-> climate_data
+
+```
+

@@ -64,12 +64,16 @@ keywords = {Multi-sensor, Land surface phenology, Vegetation index, Image time s
 abstract = {Dense time series of Landsat 8 and Sentinel-2 imagery are creating exciting new opportunities to monitor, map, and characterize temporal dynamics in land surface properties with unprecedented spatial detail and quality. By combining imagery from the Landsat 8 Operational Land Imager and the MultiSpectral Instrument on-board Sentinel-2A and -2B, the remote sensing community now has access to moderate (10–30 m) spatial resolution imagery with repeat periods of ~3 days in the mid-latitudes. At the same time, the large combined data volume from Landsat 8 and Sentinel-2 introduce substantial new challenges for users. Land surface phenology (LSP) algorithms, which estimate the timing of phenophase transitions and quantify the nature and magnitude of seasonality in remotely sensed land surface conditions, provide an intuitive way to reduce data volumes and redundancy, while also furnishing data sets that are useful for a wide range of applications including monitoring ecosystem response to climate variability and extreme events, ecosystem modelling, crop-type discrimination, and land cover, land use, and land cover change mapping, among others. To support the need for operational LSP data sets, here we describe a continental-scale land surface phenology algorithm and data product based on harmonized Landsat 8 and Sentinel-2 (HLS) imagery. The algorithm creates high quality times series of vegetation indices from HLS imagery, which are then used to estimate the timing of vegetation phenophase transitions at 30 m spatial resolution. We present results from assessment efforts evaluating LSP retrievals, and provide examples illustrating the character and quality of information related to land cover and terrestrial ecosystem properties provided by the continental LSP dataset that we have developed. The algorithm is highly successful in ecosystems with strong seasonal variation in leaf area (e.g., deciduous forests). Conversely, results in evergreen systems are less interpretable and conclusive.}
 }
 
-@Manual{caret2024,
-  title = {caret: Classification and Regression Training},
-  author = {Max Kuhn},
-  year = {2024},
-  note = {R package version 6.0-94},
-  url = {https://CRAN.R-project.org/package=caret},
+@Article{caret2024,
+  title = {Building Predictive Models in R Using the caret Package},
+  volume = {28},
+  url = {https://www.jstatsoft.org/index.php/jss/article/view/v028i05},
+  doi = {10.18637/jss.v028.i05},
+  number = {5},
+  journal = {Journal of Statistical Software},
+  author = {{Kuhn} and {Max}},
+  year = {2008},
+  pages = {1–26},
 }
 
 @article{Chamberlan_2021,
@@ -187,9 +191,10 @@ abstract = {Urban forests provide important services to residents such as reduci
 
 @misc{drcog_land_cover,
   title        = {DRCOG Land Cover Data},
-  author       = {{Colorado Information Marketplace}},
-  howpublished = {https://data.colorado.gov/Environment/DRCOG-Land-Cover-Data/asfj-s9k5/about_data},
-  note         = {Accessed: 2025-09-29},
+  author       = {{Denver Regional Council of Governments}},
+  howpublished = {\url{https://data.colorado.gov/Environment/DRCOG-Land-Cover-Data/asfj-s9k5/about_data}},
+  note         = {Accessed: 2024-09-29},
+  year         = {2024}
 }
 
 @article{eilers2003,
@@ -243,12 +248,13 @@ keywords = {Remote sensing vegetation index, EVI, Time series reconstruction, Wh
 abstract = {Obtaining high quality remote sensing vegetation index that is not noticeably affected by abiotic factors is critical for agricultural, ecological, climate and hydrological studies. Here we developed a computationally efficient and well-performed denoising method for reconstructing remote sensing vegetation indices, namely wWHd (weighted Whittaker with dynamic parameter λ in spatial). The single parameter λ is automatically estimated for every pixel by a multiple linear regression. Weights updating and the inherit nature of Whittaker make Whittaker robust for contaminations. We applied the wWHd on the Google Earth Engine (GEE) platform for reconstructing 500 m resolution enhanced vegetation index (EVI) time series from moderate-resolution imaging spectroradiometer (MODIS) at global scale and for the period of 2000–2017. To demonstrate its robustness, wWHd was compared with four well-known denoising methods, i.e. Fourier-based approach (Fourier), Savitzky-Golay filter (SG), Asymmetric Gaussian (AG) and double logistic (DL) at 16,000 randomly selected sites. All approaches were evaluated using two indices at each site: (1) root mean square error (RMSE) between observed best quality EVI and gap-filled EVI series, and (2) roughness of gap-filled EVI series. Results show that wWHd has an RMSE (indicating fidelity) of ∼0.032, which is similar to Fourier and SG at ∼90% sampled sites, but outperforms (∼0.02 less in the RMSE) AG and DL at ∼45% and ∼25% sampled sites. Among the four, wWHd has the lowest (best) roughness of ∼0.003. These performances demonstrate that wWHd balances fidelity and roughness well. Another advantage is that the wWHd is computationally more efficient than others, and is currently the only one denoising method deployed on the GEE. Our results suggest that it is promising to use the proposed wWHd method for processing remote sensing vegetation indices with high spatiotemporal resolution and the reconstructed EVI product should be widely used by global community.}
 }
 
-@Manual{Kelley2022,
+@Manual{Kelley2024,
   title = {oce: Analysis of Oceanographic Data},
   author = {Dan Kelley and Clark Richards},
-  year = {2022},
-  note = {R package version 1.7-10},
+  year = {2024},
+  note = {R package version 1.8-3},
   url = {https://CRAN.R-project.org/package=oce},
+  doi = {10.32614/CRAN.package.oce},
 }
 
 @article{Kong2022,
@@ -260,6 +266,15 @@ abstract = {Obtaining high quality remote sensing vegetation index that is not n
   number  = {7},
   pages   = {1508--1527},
   doi     = {10.1111/2041-210x.13870}
+}
+
+@Manual{phenofit,
+  title = {phenofit: Extract Remote Sensing Vegetation Phenology},
+  author = {Dongdong Kong and Mingzhong Xiao and Yongqiang Zhang and Xihui Gu and Jianjian Cui},
+  year = {2025},
+  note = {R package version 0.3.10},
+  url = {https://CRAN.R-project.org/package=phenofit},
+  doi = {10.32614/CRAN.package.phenofit},
 }
 
 @techreport{McPherson2016,
@@ -540,12 +555,13 @@ abstract = {Urbanization-induced phenological shifts may provide evidence on how
   url = {https://www.R-project.org/},
 }
 
-@Manual{xgboost2024,
+@Manual{xgboost2025,
   title = {xgboost: Extreme Gradient Boosting},
-  author = {Tianqi Chen and Tong He and Michael Benesty and Vadim Khotilovich and Yuan Tang and Hyunsu Cho and Kailong Chen},
-  year = {2024},
-  note = {R package version 1.7.7.1},
+  author = {Tianqi Chen and Tong He and Michael Benesty and Vadim Khotilovich and Yuan Tang and Hyunsu Cho and Kailong Chen and Rory Mitchell and Ignacio Cano and Tianyi Zhou and Mu Li and Junyuan Xie and Min Lin and Yifeng Geng and Yutian Li and Jiaming Yuan},
+  year = {2025},
+  note = {R package version 1.7.11.1},
   url = {https://CRAN.R-project.org/package=xgboost},
+  doi = {10.32614/CRAN.package.xgboost},
 }
 
 @Article{lme42015,
@@ -568,6 +584,24 @@ abstract = {Urbanization-induced phenological shifts may provide evidence on how
   number = {43},
   pages = {1686},
   doi = {10.21105/joss.01686},
+}
+
+@Manual{patchwork2025,
+  title = {patchwork: The Composer of Plots},
+  author = {Thomas Lin Pedersen},
+  year = {2025},
+  note = {R package version 1.3.2},
+  url = {https://CRAN.R-project.org/package=patchwork},
+  doi = {10.32614/CRAN.package.patchwork},
+}
+
+@Manual{ggtext,
+  title = {ggtext: Improved Text Rendering Support for 'ggplot2'},
+  author = {Claus O. Wilke and Brenton M. Wiernik},
+  year = {2022},
+  note = {R package version 0.1.2},
+  url = {https://CRAN.R-project.org/package=ggtext},
+  doi = {10.32614/CRAN.package.ggtext},
 }
 
 @article{Wu2022,
@@ -596,6 +630,26 @@ url = {https://www.sciencedirect.com/science/article/pii/S0168192317306792},
 author = {Yingying Xie and Xiaojing Wang and Adam M. Wilson and John A. Silander},
 keywords = {Leaf coloration, Leaf drop, Species-specific response, Extreme weather events, Drought, Heat stress},
 abstract = {Shifts in the timing of autumnal leaf coloration and leaf drop in temperate forests with climate change can have substantial impacts on community and ecosystem processes (e.g. altered carbon/nitrogen cycling and biotic interactions). However, the environmental control of autumn phenology remains significantly understudied in striking contrast to spring phenology. In this study, we used linear mixed effects model with ground-based phenology observations in northeastern USA and found that both weather stressors (e.g. heat- and drought-stress and heavy rainfall) during the growing season and spring phenology significantly affected inter-annual variation in autumn phenology of twelve dominant deciduous tree species. While warm temperatures and drought lead to later fall phenology for most species, heavy rainfall and heat stress lead to earlier leaf coloration and leaf drop. We also found that the phenological sensitivities to weather stressors are diversely species-specific. Under future climate change projections, we predicted that greater summer heat-stress in the future will cause abbreviated leaf coloration seasons for most species. Our mixed-effects modeling framework suggested that accounting for phenological variations among individual trees, species and sites largely improved model predictions, which should not be overlooked in phenological model development. Our study improves our understanding of how species-specific autumnal phenology responds to weather stresses, and describes a new modeling framework to investigate both inter-annual phenological changes and local variations among trees, species, and sites. Our predictions on autumn phenological shifts will help in assessing the effects of climate change on forest community and ecosystem processes in the future.}
+}
+
+@Manual{mumin2025,
+  title = {MuMIn: Multi-Model Inference},
+  author = {Kamil Bartoń},
+  year = {2025},
+  note = {R package version 1.48.11},
+  url = {https://CRAN.R-project.org/package=MuMIn},
+  doi = {10.32614/CRAN.package.MuMIn},
+}
+
+@Article{performance2021,
+  title = {{performance}: An {R} Package for Assessment, Comparison and Testing of Statistical Models},
+  author = {Daniel Lüdecke and Mattan S. Ben-Shachar and Indrajeet Patil and Philip Waggoner and Dominique Makowski},
+  year = {2021},
+  journal = {Journal of Open Source Software},
+  volume = {6},
+  number = {60},
+  pages = {3139},
+  doi = {10.21105/joss.03139},
 }
 
 @article{ZHANG2003,

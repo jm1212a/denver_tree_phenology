@@ -8,17 +8,9 @@ editor: visual
 ```{r}
 
 library(tidyverse)
-library(phenofit)
-library(sf)
 library(patchwork)
-library(lme4)
-library(lmerTest)
-library(MuMIn)
-library(performance)
-library(caret)
-library(mgcv)
 library(xgboost)
-library(ggtext)
+library(caret)
 
 ```
 

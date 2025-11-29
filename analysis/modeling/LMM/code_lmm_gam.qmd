@@ -8,17 +8,10 @@ editor: visual
 ```{r}
 
 library(tidyverse)
-library(phenofit)
-library(sf)
-library(patchwork)
 library(lme4)
-library(lmerTest)
 library(MuMIn)
-library(performance)
 library(caret)
 library(mgcv)
-library(xgboost)
-library(ggtext)
 
 ```
 
@@ -48,7 +41,6 @@ climate_vars <- list(
 )
 
 ```
-
 
 # Mixed Effect Model top level regressions for each species, unique intercpes for each tree. Using k-fold cross validation to check model preforamance.
 
