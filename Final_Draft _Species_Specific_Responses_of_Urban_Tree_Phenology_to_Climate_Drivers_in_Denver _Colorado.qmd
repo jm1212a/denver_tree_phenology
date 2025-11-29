@@ -247,7 +247,7 @@ Initial attempts to model climate-phenology relationships using linear mixed-eff
 
 While large sample sizes and cross-validation suggested LMMs remained reasonable approximations, the pervasive assumption violations raised concerns about parameter estimate reliability and standard-error accuracy. We tested Generalized Additive Mixed Models (GAMMs) as an alternative that relaxes normality assumptions, but GAMMs either performed worse than LMMs or failed to converge. For that reason, we used XGBoost as the primary modeling framework.
 
-All analyses were conducted in R version 4.5.1 [@rcoreteam2024] using the lme4 [@lme42015], mgcv [@mgcv2017], caret [@caret2024], MuMIN [@mumin2025], and tidyverse [@tidyverse2019] packages.
+All analyses were conducted in R version 4.5.1 [@rcoreteam2024] using the lme4 [@lme42015], caret [@caret2024], MuMIN [@mumin2025], and tidyverse [@tidyverse2019] packages.
 
 ## 3. Results
 
