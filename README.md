@@ -25,7 +25,6 @@ Denver_Tree_Phenology/
 ├── analysis/
 │   ├── modeling/          # XGBoost model training and evaluation
 │   ├── graphs/            # Visualization scripts
-│   └── research_paper/    # Paper drafts and writing
 │
 ├── data/
 │   └── processed_trees_ndvi_lc_climate.rds          # Final processed dataset (1.5 GB)
