@@ -8,23 +8,12 @@ editor: visual
 ```{r}
 
 library(tidyverse)
-library(phenofit)
-library(sf)
-library(patchwork)
-library(lme4)
-library(lmerTest)
-library(MuMIn)
-library(performance)
-library(caret)
-library(mgcv)
-library(xgboost)
-library(ggtext)
 
 ```
 
 ```{r}
 
-read_rds("../..0/data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+read_rds("../../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
 
 ```
 
@@ -76,4 +65,12 @@ ggplot(df, aes(x = t, y = y)) +
     
 ```
 
+```{r}
 
+tree_ldc_metrics_climate %>%
+  group_by(species_common, leaf_persistence) %>%
+  summarize(n = length(unique(UID))) %>% 
+  filter(n > 50) %>% 
+  write.csv("../../tables/final_sample.csv")
+
+```

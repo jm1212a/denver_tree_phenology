@@ -12,14 +12,16 @@ format:
       text: |
         \usepackage{caption}
         \captionsetup{font=small}
-bibliography: biblio.bib
-csl: chicago-author-date.csl
+bibliography: ./literature_review/biblio.bib
+csl: ./literature_review/chicago-author-date.csl
 editor: visual
 execute:
   echo: false
   warning: false
   message: false
   freeze: false
+crossref:
+  tbl-prefix: "Table"
 ---
 
 ## Abstract
@@ -71,7 +73,7 @@ From this spatially filtered inventory, we implemented a three-part sampling app
 An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County \[#git_report_link\]. The final sample consisted of 23,779 individual trees from 15 species across 11 genera. The sample included 11 native species, 2 non-native species, and 2 invasive species (@tbl-species). The sample data set can be found here along with the corresponding cleaning code\[#git_report_link\].
 
 | Scientific Name | Common Name | Genus | Observations | Status | Leaf Type |
-|----|----|----|----|----|----|
+|------------|------------|------------|------------|------------|------------|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
 | *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
@@ -100,7 +102,7 @@ $$NDVI = (NIR - Red) / (NIR + Red)$$
 
 Tree-level NDVI values were extracted by overlaying tree locations from the Denver inventory with NDVI imagery. To capture canopy pixels rather than understory, each tree-date was filtered to retain only the top 25% of NDVI values within the buffer, reducing contamination from grass, pavement, or other non-target features while maintaining sufficient sample size. These daily observations were compiled into NDVI time series for each tree spanning 2018-2024, creating a multi-year record of vegetation greenness dynamics at the individual tree level, which served as the foundation for phenological curve fitting and metric extraction (@fig-ndvi-time-series).
 
-![Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](images/multiseason_tree_ndvi_plot.png){#fig-ndvi-time-series fig-align="center"}
+![Example multi-year NDVI time series for one tree from our sample of 23,779 trees.](./images/multiseason_tree_ndvi_plot.png){#fig-ndvi-time-series fig-align="center"}
 
 #### 2.1.3 Extracted Phenological Metrics
 
@@ -112,11 +114,40 @@ $$f(t) = mn + (mx - m_7 * t) \left[\frac{1}{1 + e^{(m_3'-t )/m_4'}} - \frac{1}{1
 
 where $mn$ and $mx$ are the minimum and maximum NDVI values, $t$ is time, $(m_3', m_5')$ are the start date of the gowning season (SOS) and end of growing season (EOS), respectively, and $(m_4', m_6')$ the slope of spring greening up or autumn senescence onset.
 
-After testing multiple curve types (specifically, **double-logistic, asymmetric Gaussian, Beck — CHECK**), the Elmore curve was selected because it consistently produced the most reliable fits across species and provided biologically interpretable parameters.
+After testing multiple curve types, the Elmore curve was selected because it consistently produced the most reliable fits across species and provided biologically interpretable parameters.
 
 Curve-fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least six growing seasons successfully detected over the seven-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal. Four phenological stage dates were extracted from each annual curve using the inflection point method [@ZHANG2003], which identifies the dates of maximum rate-of-change in the NDVI trajectory: (1) Greenup, the spring inflection point marking the beginning of leaf emergence, (2) Maturity, the date at which canopy development has reached a leveling-off point in the spring, (3) Senescence, the fall inflection point marking the start of leaf-loss, and (4) Dormancy, the date when a tree has lost its leaves and NDVI begins to level off for the winter. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they provide consistent timing estimates across species with different canopy densities.
 
-All extracted metrics, fitted-curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub link\]. After quality filtering, 3,450 trees across 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period \[githublink\]. The distribution of tree species in the final dataset is shown in Table **X \[ADD TABLE NUMBER\]**. The final dataset consisted entirely of deciduous species, as coniferous trees did not pass the quality-filtering checks.
+```{r}
+
+#| label: tbl-final-sample
+#| tbl-cap: "Final Sample of Tree by Species"
+#| echo: false
+
+library(tidyverse)
+
+sample_data <- read_csv("./tables/final_sample.csv") %>%
+  select(-`...1`) %>%
+  rename(Species = species_common, 
+         `Leaf Persistence` = leaf_persistence,
+         Observations = n) %>%
+  arrange(desc(Observations))
+
+total_row <- tibble(
+  Species = "Total",
+  `Leaf Persistence` = "",
+  Observations = sum(sample_data$Observations)
+)
+
+bind_rows(sample_data, total_row) %>%
+  knitr::kable(format = "markdown",  # Add this line
+               booktabs = TRUE,
+               align = c("l", "l", "r"),
+               format.args = list(big.mark = ","))
+
+```
+
+All extracted metrics, fitted-curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub link\]. After quality filtering, 3,450 trees across 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period \[githublink\]. The distribution of tree species in the final dataset is shown in @tbl-final-sample. The final dataset consisted entirely of deciduous species, as coniferous trees did not pass the quality-filtering checks.
 
 #### 2.1.4 Climate Data
 
@@ -127,7 +158,7 @@ Following a similar methodology to [@dixon2025], climate variables were aligned 
 The resulting climate dataset included 10 distinct seasonal periods (winter, late winter, spring, early spring, late spring, summer, late summer, fall, early fall, late fall) with corresponding temperature and precipitation metrics. This temporal structure was designed to maximize consistency across phenological stages while preserving sufficient climate variation to detect species-specific sensitivities to temperature versus precipitation drivers. @tbl-climate provides a complete breakdown of seasonal climate variables, their corresponding months, and which phenological were selected as predictors for modeling.
 
 | Seasonal Period | Months | Climate Metrics | Rationale |
-|----|----|----|----|
+|------------------|------------------|------------------|------------------|
 | Winter | Dec-Jan-Feb\* | Mean temp, Mean Tmax, Total precip, Precip days | Winter chilling requirements and moisture storage |
 | Late Winter | Feb-Mar | Mean temp^G^, Mean Tmax^G^, Total precip^G^, Precip days^G^, YTD cumulative precip | Transition to spring; pre-greenup conditions |
 | Spring | Mar-Apr-May | Mean temp, Mean Tmax, Total precip^M^, Precip days, YTD cumulative precip | Primary growing season onset |
@@ -186,7 +217,7 @@ To evaluate the model's performance 10-fold cross-validation was used. Data were
 RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately two to three times higher than RMSE values (2.1 to 4.9 days) reported by [@DAI2019] using gradient boosting for the prediction of tree phenology metrics (e.g., spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. [@DAI2019] modeled spring leaf-out dates from ground-based observations at individual species over a over several non-consecutive decades, instead of remote-sensing data collected over a seven-year period. Given the limitations of our data, we worked under the assumption that the species gradient-boosted models are with an exceptionable margin of error and effectively capture climate-phenology relationships.
 
 | Phenological Stage | N Species | Total Obs. | Mean R² | Mean RMSE (days) | Mean MAE (days) |
-|----|----|----|----|----|----|
+|------------|------------|------------|------------|------------|------------|
 | Maturity | 12 | 2,244 | 0.644 | 6.95 | 5.11 |
 | Green-up | 12 | 2,194 | 0.644 | 8.29 | 6.32 |
 | Senescence | 12 | 2,182 | 0.691 | 9.10 | 7.01 |
@@ -210,7 +241,7 @@ While large sample sizes and cross-validation suggested LMMs remained reasonable
 
 The Pearson correlation analysis revealed distinct patterns of climate sensitivity across phenological stages and species with the affect of temperature and precipitation varying depending on the season (@fig-cor-plot). To provide a more comprehensive analysis of these relationships, a partial-dependence analysis from the XGBoost models were used to examine how phenological timing responds to individual climate variables while holding all other predictors constant. By isolating the marginal influence of each climate variable, the partial-dependence plots (@fig-climate-pd) provide a more comprehensive assessment of climate effects while also revealing the nature of their relationships with phenolocial timing. We then compared the average gain from the XGBoost models for each climate variable within each phenological stage to assess the impact of each variable and to determine the prominent climate driver for each phenolgocial stage (@tbl-xgb-performance). The following section is organized by phonological phase.
 
-![Pearson correlation coefficients between phenological timing and seasonal climate variables across 12 tree species. Correlations are shown for individual species and the cross-species average. Green indicates positive correlations (later phenology with higher values), red indicates negative correlations (earlier phenology with higher values). Climate variables were selected based on biological relevance to each phenological stage (see @tbl-climate for seasonal definitions).](../../images/phenology_climate_correlations.png){#fig-cor-plot fig-align="center"}
+![Pearson correlation coefficients between phenological timing and seasonal climate variables across 12 tree species. Correlations are shown for individual species and the cross-species average. Green indicates positive correlations (later phenology with higher values), red indicates negative correlations (earlier phenology with higher values). Climate variables were selected based on biological relevance to each phenological stage (see @tbl-climate for seasonal definitions).](./images/phenology_climate_correlations.png){#fig-cor-plot fig-align="center"}
 
 #### 3.1.1 Climate Drivers of Greening-Up
 
@@ -228,7 +259,7 @@ Precipitation displayed more variable patterns across species, with some showing
 
 The XGBoost feature importance analysis, indicated that the number of late spring precipitation days was the dominant climate predictor .252 gain, followed by late spring mean temperature 0.173 gain. Maturity timing demonstrated the second strongest with a mean absolute correlation, across all spices, with a ($M_a(R)$) coefficient of .26.
 
-![Partial dependence plots showing species-specific climate responses across phenological stages. Each panel shows predicted phenological timing (DOY) as a function of a key climate variable from XGBoost models, with other predictors held constant.](../../images/partial_depences_climnate_responces.png){#fig-climate-pd fig-align="center"}
+![Partial dependence plots showing species-specific climate responses across phenological stages. Each panel shows predicted phenological timing (DOY) as a function of a key climate variable from XGBoost models, with other predictors held constant.](./images/partial_depences_climnate_responces.png){#fig-climate-pd fig-align="center"}
 
 #### 3.1.3 Climate Drivers on Senescence Timing
 
@@ -250,7 +281,7 @@ Fall precipitation days displayed predominantly negative relationships with dorm
 
 In general, Siberian Elm phenology seemed to be particularly influenced by fall climate conditions, with strong negative and positive correlations with fall mean temperature and fall precipitation days. On the other hand, Cottonwoods showed minimal climate sensitivity to fall and late fall conditions.
 
-![Partial dependence plots showing land cover effects on phenology across all stages. Each panel displays predicted phenological timing (DOY) as a function of impervious surface or irrigated land cover, with colored lines representing individual species responses and the dashed black line showing the overall linear trend across all species.](../../images/pd_land_cover_impervious_irrigated.png){#fig-landcover fig-align="center"}
+![Partial dependence plots showing land cover effects on phenology across all stages. Each panel displays predicted phenological timing (DOY) as a function of impervious surface or irrigated land cover, with colored lines representing individual species responses and the dashed black line showing the overall linear trend across all species.](./images/pd_land_cover_impervious_irrigated.png){#fig-landcover fig-align="center"}
 
 ### 3.2 Modeling Land Cover Effects Using Partial Dependence Analysis
 
@@ -262,7 +293,7 @@ Irrigated land a displayed slightly more ecologically interpersonal but still we
 
 ### 3.3 Future Climate Scenario Projections
 
-![Phenological timing across climate warming scenarios for 12 urban tree species. Boxplots show the distribution of predicted phenological stage timing (day of year) under baseline conditions (1970-2000) and four warming scenarios. The +0.8°C scenario represents observed warming over the past 30 years, while +1.8°C scenarios project future warming with varying precipitation conditions (moderate, ±7% precipitation).](../../images/climatechange_impact.png){#fig-climate-scenarios fig-align="center"
+![Phenological timing across climate warming scenarios for 12 urban tree species. Boxplots show the distribution of predicted phenological stage timing (day of year) under baseline conditions (1970-2000) and four warming scenarios. The +0.8°C scenario represents observed warming over the past 30 years, while +1.8°C scenarios project future warming with varying precipitation conditions (moderate, ±7% precipitation).](./images/climatechange_impact.png){#fig-climate-scenarios fig-align="center"
 
 To evaluate phonological responses to climate change, four warming scenarios, outlined in the @Bolinger2023 were modeled using species and phenogocal stage Boosted models. A +0.8°C increase scenario, representing the observed warming trends from the past 30 years, plus three 1.8°C increase scenario with three precipitation variants: moderate (no change), dry (-7% precipitation), and wet (+7% precipitation). Given the limitations of our data, 1.8°C is the highest scenario we can model within the expected 1.4°C to 3°C increase in average temperature by mid-centruy. In addition a Baseline scenario was run through the model using 1970-2000 climate normal predict phenological timing under unalterd climate conditions. For each scenario, predictions were generated for all species while holding land cover variables constant at their mean values, allowing us to isolate the effects of temperature and precipitation changes on phenological timing.
 
@@ -324,7 +355,7 @@ Despite these limitations, this study demonstrates that climate change has subst
 library(readr)
 library(knitr)
 
-xgb_performance <- read_csv("../modeling/xgb_prefromnce_table.csv")
+xgb_performance <- read_csv("./tables/xgb_prefromnce_table.csv")
 
 kable(xgb_performance, digits = 3)
 
@@ -338,7 +369,7 @@ kable(xgb_performance, digits = 3)
 library(tidyverse)
 library(kableExtra)
 
-importance_data <- read_csv("../modeling/xgb_importance.csv")
+importance_data <- read_csv("./tables/xgb_importance.csv")
 n_cols <- ncol(importance_data)
 
 # Calculate averages for numeric columns (excluding phenology and species)
@@ -370,7 +401,7 @@ importance_data %>%
 library(kableExtra)
 library(tidyverse)
 
-climate_data <- read_csv("../modeling/summary_table_climate_senarios") %>% 
+climate_data <- read_csv("./tables/summary_table_climate_senarios") %>% 
   mutate(phenology = factor(phenology, 
                             levels = c("Greenup_doy", "Maturity_doy", 
                                       "Senescence_doy", "Dormancy_doy"),
