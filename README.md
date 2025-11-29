@@ -39,7 +39,6 @@ Denver_Tree_Phenology/
 ├── images/                # Figures and plots
 │
 ├── literature_review/
-│   ├── Articles/          # Literature PDFs
 │   ├── biblio.bib         # Bibliography
 │   └── chicago-author-date.csl    # Citation style
 │
