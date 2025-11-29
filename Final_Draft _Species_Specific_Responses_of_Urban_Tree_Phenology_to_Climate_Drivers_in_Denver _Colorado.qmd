@@ -14,14 +14,16 @@ format:
         \captionsetup{font=small}
 bibliography: ./literature_review/biblio.bib
 csl: ./literature_review/chicago-author-date.csl
+crossref:
+  tbl-prefix: "Table"
+  fig-prefix: "Figure"
+  fig-title: "Figure"
 editor: visual
 execute:
   echo: false
   warning: false
   message: false
   freeze: false
-crossref:
-  tbl-prefix: "Table"
 ---
 
 ## Abstract
@@ -70,7 +72,7 @@ Our analysis focused exclusively on trees within Denver County boundaries west o
 
 From this spatially filtered inventory, we implemented a three-part sampling approach to select trees suitable for satellite-based remote sensing phenology analysis. First, we restricted the sample to mature trees with diameters of 24 inches or greater, as larger trees have crown sizes more readily detectable in moderate-resolution satellite imagery. Second, we selected 15 species based on their abundance in the Denver urban forest, ensuring adequate sample sizes for species-specific modeling. Third, we prioritized species diversity by including in our sample deciduous and coniferous species; species from multiple genera with intra-genus variation (e.g., Eastern Cottonwood and Plains Cottonwood); and a mix of native, non-native, and invasive species to capture variation in climate sensitivity and adaptation.
 
-An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County \[#git_report_link\]. The final sample consisted of 23,779 individual trees from 15 species across 11 genera. The sample included 11 native species, 2 non-native species, and 2 invasive species (@tbl-species). The sample data set can be found here along with the corresponding cleaning code\[#git_report_link\].
+An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County \[[github](https://github.com/jm1212a/denver_tree_phenology/tree/main/denver_trees_app)\]. The final sample consisted of 23,779 individual trees from 15 species across 11 genera. The sample included 11 native species, 2 non-native species, and 2 invasive species (@tbl-species). The sample data set can be found here along with the corresponding cleaning code \[[github](https://github.com/jm1212a/denver_tree_phenology/blob/main/data_raw/denver_tree/denver_trees_sample.geojson)\].
 
 | Scientific Name | Common Name | Genus | Observations | Status | Leaf Type |
 |------------|------------|------------|------------|------------|------------|
@@ -118,36 +120,42 @@ After testing multiple curve types, the Elmore curve was selected because it con
 
 Curve-fit quality was assessed using adjusted R², with trees retained in the final sample only if they met two criteria: (1) mean R² ≥ 0.90 across all fitted growing seasons, and (2) at least six growing seasons successfully detected over the seven-year study period. These conservative thresholds ensured high-quality phenological curves while excluding trees with poor NDVI signal. Four phenological stage dates were extracted from each annual curve using the inflection point method [@ZHANG2003], which identifies the dates of maximum rate-of-change in the NDVI trajectory: (1) Greenup, the spring inflection point marking the beginning of leaf emergence, (2) Maturity, the date at which canopy development has reached a leveling-off point in the spring, (3) Senescence, the fall inflection point marking the start of leaf-loss, and (4) Dormancy, the date when a tree has lost its leaves and NDVI begins to level off for the winter. Inflection points were chosen over alternative methods (e.g., threshold-based or derivative-based) because they provide consistent timing estimates across species with different canopy densities.
 
+All extracted metrics, fitted-curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[[github](https://github.com/jm1212a/denver_tree_phenology/blob/main/R/plot_year.R)\]. After quality filtering, 3,450 trees across 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period \[[github](https://github.com/jm1212a/denver_tree_phenology/tree/main/data)\]. The distribution of tree species in the final dataset is shown in . The final dataset consisted entirely of deciduous species, as coniferous trees did not pass the quality-filtering checks.
+
 ```{r}
 
 #| label: tbl-final-sample
 #| tbl-cap: "Final Sample of Tree by Species"
 #| echo: false
+#| column: margin
 
-library(tidyverse)
+library(kableExtra)
 
-sample_data <- read_csv("./tables/final_sample.csv") %>%
-  select(-`...1`) %>%
-  rename(Species = species_common, 
-         `Leaf Persistence` = leaf_persistence,
-         Observations = n) %>%
-  arrange(desc(Observations))
-
-total_row <- tibble(
-  Species = "Total",
-  `Leaf Persistence` = "",
-  Observations = sum(sample_data$Observations)
-)
-
-bind_rows(sample_data, total_row) %>%
-  knitr::kable(format = "markdown",  # Add this line
-               booktabs = TRUE,
-               align = c("l", "l", "r"),
-               format.args = list(big.mark = ","))
+tibble::tribble(
+  ~Species, ~`Leaf Persistence`, ~Observations,
+  "Silver Maple", "Deciduous", 952,
+  "Green Ash", "Deciduous", 495,
+  "Honey Locust", "Deciduous", 343,
+  "Siberian Elm", "Deciduous", 328,
+  "American Elm", "Deciduous", 313,
+  "Eastern Cottonwood", "Deciduous", 248,
+  "Common Hackberry", "Deciduous", 237,
+  "Plains Cottonwood", "Deciduous", 230,
+  "Tree of heaven", "Deciduous", 92,
+  "Northern Red Oak", "Deciduous", 86,
+  "American Linden", "Deciduous", 83,
+  "Western Catalpa", "Deciduous", 60,
+  "Total", "", 3467
+) %>%
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    align = c("l", "l", "r"),
+    format.args = list(big.mark = ",")
+  ) %>%
+  kable_styling()
 
 ```
-
-All extracted metrics, fitted-curve parameters, goodness-of-fit statistics, and curve metadata were saved for each tree-year observation. A custom R function was developed to facilitate visualization of annual curves with overlaid phenological metrics, available at \[GitHub link\]. After quality filtering, 3,450 trees across 12 species remained from the initial sample of 23,779 trees, providing 24,150 tree-year observations across the 2018-2024 study period \[githublink\]. The distribution of tree species in the final dataset is shown in @tbl-final-sample. The final dataset consisted entirely of deciduous species, as coniferous trees did not pass the quality-filtering checks.
 
 #### 2.1.4 Climate Data
 
@@ -225,7 +233,7 @@ RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinatio
 
 : XGBoost Model Performance by Phenological Stage {#tbl-species-summary}
 
-A complete breakdown of performance across all 48 individual species-stage models (@tbl-xgb-performance), as well as a breakdown of the importance of each variable in the models (@tbl-importance) can be found in Appendix. The importance values represent the "gain" metric from XGBoost, which measures the average improvement in prediction accuracy that each climate variable contributes when used to split the data in the model's decision trees. Higher gain values indicate that a variable is more influential in determining phenological timing.
+A complete breakdown of performance across all 48 individual species-stage models (@tbl-xgb-performance), as well as a breakdown of the importance of each variable in the models @tbl-importance can be found in Appendix. The importance values represent the "gain" metric from XGBoost, which measures the average improvement in prediction accuracy that each climate variable contributes when used to split the data in the model's decision trees. Higher gain values indicate that a variable is more influential in determining phenological timing.
 
 All analyses were conducted in R version 4.x [@rcoreteam2024] using the XGBoost [@xgboost2024], lme4 [@lme42015], mgcv [@mgcv2017], caret [@caret2024], and tidyverse [@tidyverse2019] packages.
 
@@ -293,11 +301,11 @@ Irrigated land a displayed slightly more ecologically interpersonal but still we
 
 ### 3.3 Future Climate Scenario Projections
 
-![Phenological timing across climate warming scenarios for 12 urban tree species. Boxplots show the distribution of predicted phenological stage timing (day of year) under baseline conditions (1970-2000) and four warming scenarios. The +0.8°C scenario represents observed warming over the past 30 years, while +1.8°C scenarios project future warming with varying precipitation conditions (moderate, ±7% precipitation).](./images/climatechange_impact.png){#fig-climate-scenarios fig-align="center"
+![Phenological timing across climate warming scenarios for 12 urban tree species. Boxplots show the distribution of predicted phenological stage timing (day of year) under baseline conditions (1970-2000) and four warming scenarios. The +0.8°C scenario represents observed warming over the past 30 years, while +1.8°C scenarios project future warming with varying precipitation conditions (moderate, ±7% precipitation).](./images/climatechange_impact.png){#fig-climate-scenarios fig-align="center"}
 
 To evaluate phonological responses to climate change, four warming scenarios, outlined in the @Bolinger2023 were modeled using species and phenogocal stage Boosted models. A +0.8°C increase scenario, representing the observed warming trends from the past 30 years, plus three 1.8°C increase scenario with three precipitation variants: moderate (no change), dry (-7% precipitation), and wet (+7% precipitation). Given the limitations of our data, 1.8°C is the highest scenario we can model within the expected 1.4°C to 3°C increase in average temperature by mid-centruy. In addition a Baseline scenario was run through the model using 1970-2000 climate normal predict phenological timing under unalterd climate conditions. For each scenario, predictions were generated for all species while holding land cover variables constant at their mean values, allowing us to isolate the effects of temperature and precipitation changes on phenological timing.
 
-Climate warming scenarios revealed substantial phenological shifts across all species, with the most pronounced changes occurring in autumn phenology (@tbl-climate-scenarios, @fig-climate-scenarios). Current warming scenario (+0.8°C), the species models predicted that average growing season ($dormancy - greenup$) for all species has lengthened by 8.2 days over the 1970-2000 baseline. The change has been primarily driven by delayed dormancy and senescence rather than greenup and matruity timing. Senescence was delays 3.6 days and dormancy delays 8.1 days.
+Climate warming scenarios revealed substantial phenological shifts across all species, with the most pronounced changes occurring in autumn phenology (see @fig-climate-scenarios; and @tbl-climate-scenarios in the appendix). Current warming scenario (+0.8°C), the species models predicted that average growing season ($dormancy - greenup$) for all species has lengthened by 8.2 days over the 1970-2000 baseline. The change has been primarily driven by delayed dormancy and senescence rather than greenup and matruity timing. Senescence was delays 3.6 days and dormancy delays 8.1 days.
 
 Species responses under the +0.8°C scenario varied substantially, revealing differential adaptation trajectories. Tree of Heaven, Common Hackberry, Honely Locus, and Western Catalpa showed the most dramatic responses, with growing seasons extending by 11-16 days through substantial dormancy delays. In contrast, Northern Red Oak, Green Ash, Siberian Elms, and cottonwoods exhibited modest growing season changes (-0.5 to 6.2 days), maintaining relatively conservative phenological timing despite almost three decades of warming. Peak canopy duration ($Senescence timing - Maturity timing$) under the current warming ranged from 0 days (Common Hackberry) to 16.9 days (Siberian Elm), with most species showing on average, 4.4 adtional days of peak canopy coverage. Interestingly, Red Oak and Siberian Elms, had some of the lowest changes in growing seasons, but had some of the highest changes in peak canopy timing, increasing from 8.7 and 16.9 days respectively. The combined effect of stable greenup, modestly advanced maturity, delayed senescence, and strongly delayed dormancy suggests that the past 30 years of warming have already substantially extended both the period of active canopy cover and the total growing season length for Denver's urban forest.
 
@@ -365,7 +373,7 @@ kable(xgb_performance, digits = 3)
 
 #| label: tbl-importance
 #| tbl-cap: "XGBoost Feature Importance (Gain) by Species and Phenological Stage"
-#| echo: false
+
 library(tidyverse)
 library(kableExtra)
 
@@ -395,9 +403,10 @@ importance_data %>%
 ```
 
 ```{r}
+
 #| label: tbl-climate-scenarios
 #| tbl-cap: "Phenological timing (day of year) and changes (Δ) for 12 tree species under climate warming scenarios"
-#| echo: false
+
 library(kableExtra)
 library(tidyverse)
 
