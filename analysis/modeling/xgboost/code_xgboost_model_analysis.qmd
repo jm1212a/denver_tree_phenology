@@ -1,0 +1,980 @@
+---
+title: "XGBoost Model | Partial Dependent Analysis | Climate Modeling"
+author: "Jared Martin"
+format: pdf
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(phenofit)
+library(sf)
+library(patchwork)
+library(lme4)
+library(lmerTest)
+library(MuMIn)
+library(performance)
+library(caret)
+library(mgcv)
+library(xgboost)
+library(ggtext)
+
+```
+
+# 1. Reading In Processed Phenodata
+
+```{r}
+
+read_rds("../../../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+
+```
+
+# 2. Organizing Varibles into groupd by phenologica metric
+
+```{r}
+
+tree_ldc_metrics_climate %>%
+  group_by(species_common, leaf_persistence) %>%
+  summarize(n = length(unique(UID))) %>% 
+  filter(n > 50) %>% 
+  pull(1) -> species_list
+
+pheno_vars <- c("Greenup_doy", "Maturity_doy", 
+                "Senescence_doy", "Dormancy_doy")
+
+# Define climate variables (same as before)
+climate_vars <- list(
+  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","late_winter_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
+  Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax","late_spring_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"), 
+  Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp", "late_summer_mean_tmax", "late_summer_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
+  Dormancy_doy = c("fall_cumulative_prcp", "fall_prcp_days", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
+)
+
+```
+
+# 3. XGBoost (Gradient Boosted Machines)
+
+```{r}
+
+set.seed(1)
+
+# Modified function that trains final model after CV
+fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data) {
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name, year < 2025) %>%
+    select(all_of(c(pheno_var, "UID", climate_predictors))) %>%
+    na.omit()
+  
+  if (nrow(xgb_data) < 20) return(NULL)
+  
+  # Add tree-level features to capture hierarchy
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[pheno_var]], na.rm = TRUE),
+      tree_sd_pheno = sd(.data[[pheno_var]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  # Create feature matrix
+  feature_cols <- c(climate_predictors, "tree_mean_pheno", "tree_n_obs", "UID_numeric")
+  X <- as.matrix(xgb_data %>% select(all_of(feature_cols)))
+  y <- xgb_data[[pheno_var]]
+  
+  # 10-fold CV for evaluation
+  set.seed(123)
+  folds <- createFolds(1:nrow(xgb_data), k = 10, returnTrain = FALSE)
+  predictions <- numeric(nrow(xgb_data))
+  actuals <- y
+  
+  for(fold_idx in 1:length(folds)) {
+    test_idx <- folds[[fold_idx]]
+    train_idx <- setdiff(1:nrow(xgb_data), test_idx)
+    
+    dtrain <- xgb.DMatrix(data = X[train_idx, ], label = y[train_idx])
+    dtest <- xgb.DMatrix(data = X[test_idx, ], label = y[test_idx])
+    
+    xgb_model <- xgb.train(
+      data = dtrain,
+      nrounds = 500,
+      objective = "reg:squarederror",
+      max_depth = 4,
+      eta = 0.01,
+      subsample = 0.7,
+      colsample_bytree = 0.7,
+      verbose = 0
+    )
+    
+    predictions[test_idx] <- predict(xgb_model, dtest)
+  }
+  
+  # Calculate CV metrics
+  errors <- actuals - predictions
+  cv_r2 <- cor(actuals, predictions)^2
+  cv_rmse <- sqrt(mean(errors^2))
+  cv_mae <- mean(abs(errors))
+  cv_mape <- mean(abs(errors / actuals)) * 100 
+  
+  cat("\n  Training final model on all data...")
+  dtrain_all <- xgb.DMatrix(data = X, label = y)
+  
+  final_model <- xgb.train(
+    data = dtrain_all,
+    nrounds = 500,
+    objective = "reg:squarederror",
+    max_depth = 4,
+    eta = 0.01,
+    subsample = 0.7,
+    colsample_bytree = 0.7,
+    verbose = 0
+  )
+  
+  # Get feature importance from final model
+  importance <- xgb.importance(model = final_model)
+  
+  # Store UID mapping for prediction
+  uid_mapping <- data.frame(
+    UID = xgb_data$UID,
+    UID_numeric = xgb_data$UID_numeric
+  ) %>% distinct()
+  
+  # Store tree-level stats for prediction
+  tree_stats <- xgb_data %>%
+    group_by(UID) %>%
+    summarise(
+      tree_mean_pheno = mean(.data[[pheno_var]], na.rm = TRUE),
+      tree_sd_pheno = sd(.data[[pheno_var]], na.rm = TRUE),
+      tree_n_obs = n(),
+      .groups = "drop"
+    )
+  
+  return(list(
+    # Model objects
+    model = final_model,
+    
+    # Model metadata
+    species = species_name,
+    phenology = pheno_var,
+    climate_predictors = climate_predictors,
+    feature_cols = feature_cols,
+    
+    # Training data info
+    n_obs = nrow(xgb_data),
+    uid_mapping = uid_mapping,
+    tree_stats = tree_stats,
+    
+    # CV performance metrics
+    cv_r2 = cv_r2,
+    cv_rmse = cv_rmse,
+    cv_mae = cv_mae,
+    cv_mape = cv_mape,
+    
+    # CV predictions for diagnostics
+    cv_predictions = predictions,
+    cv_actuals = actuals,
+    cv_errors = errors,
+    
+    # Feature importance
+    importance = importance
+  ))
+}
+
+# Run for all models
+xgb_results <- list()
+
+for (i in pheno_vars) {
+  for (j in species_list) {
+    cat("\nFitting XGBoost:", i, "for", j, "...")
+    
+    result <- tryCatch({
+      fit_xgboost_model(j, i, climate_vars[[i]], tree_ldc_metrics_climate)
+    }, error = function(e) {
+      cat(" ERROR:", e$message)
+      return(NULL)
+    })
+    
+    if (!is.null(result)) {
+      xgb_results[[paste(j, i, sep = "_")]] <- result
+      cat(" CV R²:", round(result$cv_r2, 3))
+    }
+  }
+}
+
+# Save all models
+cat("\n\nSaving models...\n")
+saveRDS(xgb_results, "xgb_models_full.rds")
+cat("Models saved to: xgb_models_full.rds\n")
+
+# Extract results table
+xgb_table <- map_df(xgb_results, function(x) {
+  data.frame(
+    species = x$species,
+    phenology = x$phenology,
+    n_obs = x$n_obs,
+    RMSE = x$cv_rmse,
+    MAE = x$cv_mae,
+    MAPE = x$cv_mape,
+    R2 = x$cv_r2
+  )
+})
+
+# Save feature importance for all models
+importance_all <- map_df(names(xgb_results), function(model_name) {
+  x <- xgb_results[[model_name]]
+  x$importance %>%
+    mutate(
+      species = x$species,
+      phenology = x$phenology
+    )
+})
+
+```
+
+# 4. Summary Stats Tables
+
+```{r}
+data.frame(
+  Phenological_Stage = names(climate_vars),
+  Variables = sapply(climate_vars, function(x) paste(x, collapse = ", "))
+)
+
+xgb_table %>%
+  group_by(phenology) %>%
+  summarise(
+    N_Species = n(),
+    Total_Obs = sum(n_obs),
+    Mean_R2 = mean(R2, na.rm = TRUE),
+    Mean_RMSE = mean(RMSE, na.rm = TRUE),
+    Mean_MAE = mean(MAE, na.rm = TRUE)
+  ) %>%
+  arrange(Mean_RMSE)
+
+xgb_table %>%
+  group_by(phenology, species) %>%
+  summarise(
+    Total_Obs = n(),  # or sum(n_obs) if n_obs is a column
+    Mean_R2 = mean(R2, na.rm = TRUE),
+    Mean_RMSE = mean(RMSE, na.rm = TRUE),
+    Mean_MAE = mean(MAE, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(phenology = factor(phenology, 
+                            levels = c("Greenup_doy", "Maturity_doy", "Senescence_doy",
+                                       "Dormancy_doy"))) %>%
+  arrange(phenology, species) %>% 
+  write_csv("../../../tables/xgb_prefromnce_table.csv")
+  
+
+importance_all %>% 
+  select(-Cover, -Frequency) %>% 
+  pivot_wider(names_from = Feature, values_from = Gain) %>% 
+  mutate(across(where(is.numeric), ~round(.x, 3))) %>%
+  write_csv("../../../tables/xgb_importance.csv")
+  
+
+```
+
+#5. Predicting Climate Senarios
+
+```{r}
+
+xgb_models <- readRDS("xgb_models_full.rds")
+
+cat("Loaded", length(xgb_models), "models\n")
+
+predict_climate_scenario <- function(models_list, scenario_data, scenario_name = "Scenario") {
+  
+  results <- map_df(names(models_list), function(model_name) {
+    
+    model_obj <- models_list[[model_name]]
+    
+    cat("\nPredicting:", model_obj$species, "-", model_obj$phenology)
+    
+    # Filter data for this species
+    species_data <- scenario_data %>%
+      filter(species_common == model_obj$species)
+    
+    if (nrow(species_data) == 0) {
+      cat(" - No data for this species")
+      return(NULL)
+    }
+    
+    # Add tree-level features from training data
+    species_data <- species_data %>%
+      left_join(model_obj$tree_stats, by = "UID", 
+                suffix = c("", "_from_training")) %>%
+      left_join(model_obj$uid_mapping, by = "UID",
+                suffix = c("", "_from_mapping"))
+    
+    # Check if we have new UIDs not in training
+    duplicate_cols <- grep("_from_training$|_from_mapping$", names(species_data), value = TRUE)
+    if (length(duplicate_cols) > 0) {
+      cat("\n  ⚠️  Warning: Duplicate columns detected:", paste(duplicate_cols, collapse = ", "))
+      cat("\n  Keeping scenario values, not training values\n")
+    }
+    
+    if (any(is.na(species_data$UID_numeric))) {
+      # Assign new numeric IDs
+      max_uid <- max(model_obj$uid_mapping$UID_numeric)
+      species_data <- species_data %>%
+        mutate(
+          UID_numeric = ifelse(is.na(UID_numeric), 
+                              max_uid + row_number(), 
+                              UID_numeric)
+        )
+      
+      # For new trees, use species average
+      species_avg <- mean(model_obj$tree_stats$tree_mean_pheno, na.rm = TRUE)
+      species_data <- species_data %>%
+        mutate(
+          tree_mean_pheno = ifelse(is.na(tree_mean_pheno), species_avg, tree_mean_pheno),
+          tree_n_obs = ifelse(is.na(tree_n_obs), 1, tree_n_obs)
+        )
+    }
+    
+    # Check if all required features exist
+    missing_features <- setdiff(model_obj$feature_cols, names(species_data))
+    if (length(missing_features) > 0) {
+      cat(" - Missing features:", paste(missing_features, collapse = ", "))
+      return(NULL)
+    }
+    
+    # Create feature matrix
+    X_new <- as.matrix(species_data %>% select(all_of(model_obj$feature_cols)))
+    
+    # Predict
+    predictions <- predict(model_obj$model, X_new)
+    
+    # Return results
+    data.frame(
+      scenario = scenario_name,
+      UID = species_data$UID,
+      species = model_obj$species,
+      phenology = model_obj$phenology,
+      predicted_doy = predictions
+    )
+  })
+  
+  return(results)
+}
+
+```
+
+```{r}
+
+xgb_models <- readRDS("xgb_models_full.rds")
+
+# Get current climate averages
+current_climate <- read_csv("../../../data_raw/nooa_daily_weather_obs/climate_variables/climate_baseline.csv")
+
+prcp_vars <- c("late_winter_prcp", "spring_prcp", "late_summer_prcp", "fall_cumulative_prcp")
+
+temp_vars <- c("late_winter_temp", "late_winter_mean_tmax", "late_spring_temp", 
+               "late_spring_mean_tmax","early_fall_temp", "early_fall_mean_tmax",
+               "fall_mean_tmax","late_fall_temp" )
+
+landcover_vars <- c("impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
+
+# Scenario 1: Baseline (current average)
+scenario_baseline <- expand_grid(
+  UID = unique(tree_ldc_metrics_climate$UID),
+  current_climate
+  ) %>%
+  left_join(
+    tree_ldc_metrics_climate %>%
+      select(UID, species_common, all_of(landcover_vars)) %>%
+      distinct(),
+    by = "UID") 
+
+current_warm <- scenario_baseline %>%
+  mutate(across(all_of(temp_vars), ~.x + 0.8),
+         impervious_90m = mean(impervious_90m, na.rm = TRUE),
+         irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
+         unirrigated_90m = mean(unirrigated_90m),
+         water_90m = mean(water_90m),
+         tree_canopy_90m = mean(tree_canopy_90m)
+         )
+
+# +2°C (modify ALL temperature variables)
+scenario_warm <- scenario_baseline %>%
+  mutate(across(all_of(temp_vars), ~.x + 1.8),
+         impervious_90m = mean(impervious_90m, na.rm = TRUE),
+         irrigated_90m = mean(irrigated_90m, na.rm = TRUE),
+         unirrigated_90m = mean(unirrigated_90m),
+         water_90m = mean(water_90m),
+         tree_canopy_90m = mean(tree_canopy_90m)
+         )
+
+# +2°C + 10% more precipitation
+scenario_warm_wet <- scenario_warm %>%
+  mutate(across(all_of(prcp_vars), ~.x * 1.07))
+
+# +2°C - 10% less precipitation
+scenario_warm_dry <- scenario_warm %>%
+  mutate(across(all_of(prcp_vars), ~.x * 0.93))
+
+# ===== Predict all scenarios =====
+cat("\n\n===== Predicting Climate Scenarios =====\n")
+
+predictions_baseline <- predict_climate_scenario(xgb_models, scenario_baseline, "Baseline")
+predictions_actual <- predict_climate_scenario(xgb_models, current_warm, "Actual Warming +0.8C")
+predictions_warm <- predict_climate_scenario(xgb_models, scenario_warm, "+1.8C")
+predictions_warm_wet <- predict_climate_scenario(xgb_models, scenario_warm_wet, "+1.8C +7% precip")
+predictions_warm_dry <- predict_climate_scenario(xgb_models, scenario_warm_dry, "+1.8C -7% precip")
+
+# Combine all scenarios
+all_scenario_predictions <- bind_rows(
+  predictions_baseline,
+  predictions_actual,
+  predictions_warm,
+  predictions_warm_wet,
+  predictions_warm_dry
+)
+
+```
+
+```{r}
+
+all_scenario_predictions %>% 
+  group_by(species, phenology, scenario) %>% 
+  summarise(mean_doy = mean(predicted_doy, na.rm = TRUE),
+            sd_doy = sd(predicted_doy, na.rm = TRUE),
+            .groups = "drop") %>%
+  pivot_wider(names_from = scenario, 
+              values_from = c(mean_doy, sd_doy)) %>%
+  mutate(
+   mean_diff_0.8C = `mean_doy_Actual Warming +0.8C` - mean_doy_Baseline,
+    mean_diff_1.8C = `mean_doy_+1.8C` - mean_doy_Baseline,
+    mean_diff_1.8C_dry = `mean_doy_+1.8C -7% precip`- mean_doy_Baseline,
+   mean_diff_1.8C_wet = `mean_doy_+1.8C +7% precip` - mean_doy_Baseline,
+ ) -> summary_table
+  
+p_values <- all_scenario_predictions %>%
+  group_by(species, phenology) %>%
+  summarise(
+    p_value_0.8C = t.test(predicted_doy[scenario == "Actual Warming +0.8C"], 
+                          predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C = t.test(predicted_doy[scenario == "+1.8C"], 
+                          predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C_dry = t.test(predicted_doy[scenario == "+1.8C -7% precip"], 
+                              predicted_doy[scenario == "Baseline"])$p.value,
+    p_value_1.8C_wet = t.test(predicted_doy[scenario == "+1.8C +7% precip"], 
+                              predicted_doy[scenario == "Baseline"])$p.value,
+    .groups = "drop"
+  )
+
+summary_table %>%
+  left_join(p_values, by = c("species", "phenology")) %>% 
+  write_csv("../../../tables/summary_table_climate_senarios")
+  
+```
+
+#6. Graphing Climate Senarios
+
+```{r}
+
+all_scenario_predictions %>% 
+  mutate(
+    phenology = factor(phenology, 
+                      levels = c("Dormancy_doy", "Senescence_doy", "Maturity_doy", "Greenup_doy"),
+                      labels = c("Dormancy", "Senescence", "Maturity", "Greenup"))  # Clean labels here!
+   ) %>%
+  ggplot(aes(x = species, y = predicted_doy, fill = scenario)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~phenology, ncol = 1, scales = "free_y", strip.position = "right") +
+  scale_y_continuous(n.breaks = 6) +
+  labs(
+    x = "",
+    y = "Day of Year",
+    fill = "Scenario"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.key.size = unit(.5, "lines"),
+    legend.background = element_rect(fill = "white", color = "grey80"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text.y.right = element_text(angle = 90, face = "bold", size = 11),
+    strip.background = element_rect(fill = "grey95", color = "grey80"),
+    panel.spacing = unit(0.5, "lines")
+  ) 
+  ggsave("../../../images/climatechange_impact.png", width = 10, height = 10, dpi = 300)
+
+```
+
+#7. Partial Dependence Temp. and Prcp.
+
+```{r}
+get_partial_dependence <- function(species_name, phenology_stage, pred_var, 
+                                   xgb_models, data, climate_vars) {
+  
+  # Get model
+  model_key <- paste0(species_name, "_", phenology_stage)
+  model_result <- xgb_models[[model_key]]
+  model <- model_result$model
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name) %>%
+    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
+    na.omit()
+  
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  feature_cols <- model_result$feature_cols
+  train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
+  
+  # Find the tree whose tree_mean_pheno is closest to the overall mean
+  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
+  tree_info <- train_data %>%
+    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
+    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
+    arrange(dist_from_mean)
+  
+  typical_tree <- tree_info[1, ]  # Get first row using base R
+  
+  # Temperature range
+  var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
+                   max(train_data[[pred_var]], na.rm = TRUE),
+                   length.out = 100)
+  
+  # Create prediction grid
+  pred_grid <- data.frame(matrix(ncol = length(feature_cols), nrow = length(var_range)))
+  names(pred_grid) <- feature_cols
+  
+  # Set all variables
+  for(col in feature_cols) {
+    if(col == pred_var) {
+      pred_grid[[col]] <- var_range  # Vary only this variable
+    } else if(col == "UID_numeric") {
+      pred_grid[[col]] <- typical_tree$UID_numeric  # Use the typical tree's ID
+    } else if(col == "tree_mean_pheno") {
+      pred_grid[[col]] <- typical_tree$tree_mean_pheno  # Use the typical tree's mean
+    } else if(col == "tree_n_obs") {
+      pred_grid[[col]] <- typical_tree$tree_n_obs  # Use the typical tree's n_obs
+    } else {
+      pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)  # Mean for climate vars
+    }
+  }
+  
+  # Make predictions
+  predictions <- predict(model, as.matrix(pred_grid))
+  
+  pd_result <- data.frame(
+    x = var_range,
+    yhat = predictions,
+    species = species_name,
+    phenology = phenology_stage,
+    variable = pred_var
+  )
+  
+  names(pd_result)[1] <- pred_var
+  return(pd_result)
+}
+```
+
+#8. Ploting Individual Dependence Plot
+
+```{r}
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all species and create PD data
+pd_all_species <- map_df(species_list, function(sp) {
+  tryCatch({
+    get_partial_dependence(
+      species_name = sp,
+      phenology_stage = "Senescence_doy",
+      pred_var = "late_summer_mean_tmax",
+      xgb_models = xgb_results,
+      data = tree_ldc_metrics_climate,
+      climate_vars = climate_vars
+    )
+  }, error = function(e) {
+    cat("\nError for", sp, ":", e$message)
+    return(NULL)
+  })
+})
+
+# Plot all species together with both color and linetype
+ggplot(pd_all_species, aes(x = late_summer_mean_tmax, y = yhat, 
+                            color = species, linetype = species)) +
+  geom_smooth(size = 1) +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash", 
+                                   "longdash", "twodash", "solid", "dashed", 
+                                   "dotted", "dotdash", "longdash", "twodash")) +
+  labs(
+    x = "Late Summer Mean Tmax (°C)",
+    y = "Predicted Senescence DOY",
+    title = "Senescence Response to Temperature Across Species",
+    color = "Species",
+    linetype = "Species"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+```
+
+#9. Ploting All Individual Dependence Plot
+
+```{r}
+
+# Define climate variables and their corresponding phenology stages
+climate_var_mapping <- data.frame(
+  variable = c("late_winter_prcp", "late_winter_temp", 
+                   "late_spring_prcp_days", 
+                   "late_spring_temp",
+                   "spring_prcp",
+                   "late_summer_mean_tmax", "early_fall_mean_tmax", "late_summer_prcp",
+                   "fall_prcp_days", "fall_mean_tmax"),
+  phenology = c("Greenup_doy", "Greenup_doy", "Maturity_doy",
+                "Maturity_doy", "Maturity_doy", 
+                "Senescence_doy", "Senescence_doy", "Senescence_doy",
+                "Dormancy_doy", "Dormancy_doy")
+)
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all combinations
+pd_all_results <- map_df(1:nrow(climate_var_mapping), function(i) {
+  
+  var <- climate_var_mapping$variable[i]
+  pheno <- climate_var_mapping$phenology[i]
+  
+  cat("\nProcessing", var, "for", pheno, "\n")
+  
+  # Loop through species
+  map_df(species_list, function(sp) {
+    tryCatch({
+      pd <- get_partial_dependence(
+        species_name = sp,
+        phenology_stage = pheno,
+        pred_var = var,
+        xgb_models = xgb_results,
+        data = tree_ldc_metrics_climate,
+        climate_vars = climate_vars
+      )
+      
+      # Rename first column to standardized name
+      pd <- pd %>%
+        rename(x_value = 1) %>%
+        select(x_value, yhat, species, phenology, variable)
+      
+      return(pd)
+      
+    }, error = function(e) {
+      cat("  Error for", sp, ":", e$message, "\n")
+      return(NULL)
+    })
+  })
+})
+
+# Create labels with units
+var_labels <- c(
+  "late_winter_prcp" = "Late Winter Precip (mm)",
+  "late_winter_temp" = "Late Winter Temp (°C)",
+  "late_spring_prcp_days" = "Late Spring Precip Days",
+  "late_spring_temp" = "Late Spring Temp (°C)",  
+  "late_spring_mean_tmax" = "Late Spring Tmax (°C)",
+  "spring_prcp" = "Spring Precip (mm)",
+  "late_summer_mean_tmax" = "Late Summer Tmax (°C)",
+  "early_fall_mean_tmax" = "Early Fall Tmax (°C)",
+  "late_summer_prcp" = "Late Summer Precip (mm)",
+  "fall_prcp_days" = "Fall Precip Days",
+  "fall_mean_tmax" = "Fall Tmax (°C)",
+  "fall_cumulative_prcp" = "Fall Cumulative Precip (mm)"
+)
+
+pd_all_results %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    # Identify variable type
+    var_type = case_when(
+      str_detect(variable, "prcp") ~ "Precipitation",
+      str_detect(variable, "temp|tmax") ~ "Temperature"
+    ),
+    var_label = paste0(var_labels[variable], "\n(", pheno_label, ")"),
+    # Order phenology stages
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy"))
+  ) %>%
+  arrange(pheno_order, var_type, variable) %>%
+  mutate(var_label = factor(var_label, levels = unique(var_label))) %>%
+  ggplot(aes(x = x_value, y = yhat, color = species, linetype = species)) +
+  geom_smooth(se = FALSE, size = 1) +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash", 
+                                   "longdash", "twodash", "solid", "dashed", 
+                                   "dotted", "dotdash", "longdash", "twodash")) +
+  facet_wrap(~var_label, scales = "free", nrow = 6, ncol = 2) +
+  labs(
+    x = NULL, 
+    y = "Predicted Phenological Timing (DOY)",
+    color = "Species",
+    linetype = "Species"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.5, "cm"),
+    legend.key = element_blank(),
+    strip.text = element_text(face = "bold", size = 9)
+  )
+
+ggsave("../../../images/partial_depences_climnate_responces.png", 
+       width = 16, height = 17, units = "in", dpi = 300)
+
+```
+
+#10. Partial Dependence Plots - Land Cover Variables
+
+```{r}
+
+get_partial_dependence <- function(species_name, phenology_stage, pred_var, 
+                                   xgb_models, data, climate_vars) {
+  
+  # Get model
+  model_key <- paste0(species_name, "_", phenology_stage)
+  model_result <- xgb_models[[model_key]]
+  model <- model_result$model
+  
+  # Prepare data
+  xgb_data <- data %>%
+    filter(species_common == species_name) %>%
+    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
+    na.omit()
+  
+  xgb_data <- xgb_data %>%
+    group_by(UID) %>%
+    mutate(
+      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
+      tree_n_obs = n()
+    ) %>%
+    ungroup() %>%
+    mutate(UID_numeric = as.numeric(as.factor(UID)))
+  
+  feature_cols <- model_result$feature_cols
+  train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
+  
+  # Find the tree whose tree_mean_pheno is closest to the overall mean
+  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
+  tree_info <- train_data %>%
+    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
+    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
+    arrange(dist_from_mean)
+  
+  typical_tree <- tree_info[1, ]
+  
+  # Identify land cover variables
+  land_cover_vars <- c("impervious_90m", "irrigated_90m", "tree_canopy_90m", 
+                       "water_90m", "pervious_90m", "unirrigated_90m")
+  land_cover_vars <- land_cover_vars[land_cover_vars %in% feature_cols]
+  
+  # Variable range
+  var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
+                   max(train_data[[pred_var]], na.rm = TRUE),
+                   length.out = 100)
+  
+  # Create prediction grid
+  pred_grid <- data.frame(matrix(ncol = length(feature_cols), nrow = length(var_range)))
+  names(pred_grid) <- feature_cols
+  
+  # Special handling for land cover variables
+  if(pred_var %in% land_cover_vars) {
+    
+    # Get baseline proportions of other land cover types
+    other_lc_vars <- setdiff(land_cover_vars, pred_var)
+    baseline_lc <- sapply(other_lc_vars, function(v) mean(train_data[[v]], na.rm = TRUE))
+    baseline_total <- sum(baseline_lc)
+    
+    # For each value of pred_var, adjust other land covers proportionally
+    for(i in 1:length(var_range)) {
+      pred_val <- var_range[i]
+      remaining_proportion <- 1 - pred_val
+      
+      # Redistribute remaining proportion based on original ratios
+      if(baseline_total > 0) {
+        for(lc_var in other_lc_vars) {
+          pred_grid[[lc_var]][i] <- baseline_lc[lc_var] * (remaining_proportion / baseline_total)
+        }
+      } else {
+        # If baseline total is 0, distribute evenly
+        for(lc_var in other_lc_vars) {
+          pred_grid[[lc_var]][i] <- remaining_proportion / length(other_lc_vars)
+        }
+      }
+      
+      pred_grid[[pred_var]][i] <- pred_val
+    }
+    
+  } else {
+    # For non-land-cover variables, vary only the target variable
+    pred_grid[[pred_var]] <- var_range
+  }
+  
+  # Set all other variables (non-land-cover or those not yet set)
+  for(col in feature_cols) {
+    if(is.na(pred_grid[[col]][1])) {  # If not already set
+      if(col == "UID_numeric") {
+        pred_grid[[col]] <- typical_tree$UID_numeric
+      } else if(col == "tree_mean_pheno") {
+        pred_grid[[col]] <- typical_tree$tree_mean_pheno
+      } else if(col == "tree_n_obs") {
+        pred_grid[[col]] <- typical_tree$tree_n_obs
+      } else {
+        pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)
+      }
+    }
+  }
+  
+  # Make predictions
+  predictions <- predict(model, as.matrix(pred_grid))
+  
+  pd_result <- data.frame(
+    x = var_range,
+    yhat = predictions,
+    species = species_name,
+    phenology = phenology_stage,
+    variable = pred_var
+  )
+  
+  names(pd_result)[1] <- pred_var
+  return(pd_result)
+}
+
+```
+
+```{r}
+
+# Define land cover variables (just impervious and irrigated)
+land_cover_vars <- c("impervious_90m", "irrigated_90m")
+
+# Create mapping for land cover across all stages
+climate_var_mapping <- expand.grid(
+  variable = land_cover_vars,
+  phenology = c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy"),
+  stringsAsFactors = FALSE
+)
+
+species_list <- c("American Elm", "American Linden", "Common Hackberry", 
+                  "Eastern Cottonwood", "Green Ash", "Honey Locust",
+                  "Northern Red Oak", "Plains Cottonwood", "Siberian Elm",
+                  "Silver Maple", "Tree of heaven", "Western Catalpa")
+
+# Loop through all combinations
+pd_land_cover <- map_df(1:nrow(climate_var_mapping), function(i) {
+  
+  var <- climate_var_mapping$variable[i]
+  pheno <- climate_var_mapping$phenology[i]
+  
+  cat("\nProcessing", var, "for", pheno, "\n")
+  
+  # Loop through species
+  map_df(species_list, function(sp) {
+    tryCatch({
+      pd <- get_partial_dependence(
+        species_name = sp,
+        phenology_stage = pheno,
+        pred_var = var,
+        xgb_models = xgb_results,
+        data = tree_ldc_metrics_climate,
+        climate_vars = climate_vars
+      )
+      
+      # Rename first column to standardized name
+      pd <- pd %>%
+        rename(x_value = 1) %>%
+        select(x_value, yhat, species, phenology, variable)
+      
+      return(pd)
+      
+    }, error = function(e) {
+      cat("  Error for", sp, ":", e$message, "\n")
+      return(NULL)
+    })
+  })
+})
+
+# Create labels
+var_labels <- c(
+  "impervious_90m" = "Impervious Surface (%)",
+  "irrigated_90m" = "Irrigated Land (%)"
+)
+
+```
+
+```{r}
+
+# Plot land cover effects with ONE overall trend line
+pd_land_cover %>%
+  mutate(
+    pheno_label = case_when(
+      phenology == "Greenup_doy" ~ "Green-up",
+      phenology == "Maturity_doy" ~ "Maturity",
+      phenology == "Senescence_doy" ~ "Senescence",
+      phenology == "Dormancy_doy" ~ "Dormancy"
+    ),
+    pheno_order = factor(phenology, 
+                        levels = c("Greenup_doy", "Maturity_doy", 
+                                   "Senescence_doy", "Dormancy_doy")),
+    var_label = var_labels[variable]
+  ) %>%
+  arrange(pheno_order, variable) %>%
+  mutate(
+    pheno_label = factor(pheno_label, levels = unique(pheno_label)),
+    var_label = factor(var_label, levels = var_labels)
+  ) %>%
+  ggplot(aes(x = x_value, y = yhat)) +
+  # Individual species lines
+  geom_smooth(aes(color = species, linetype = species), se = FALSE, size = 0.8, alpha = 0.5) +
+  # ONE overall linear trend line (dashed, black)
+  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash", 
+                                   "longdash", "twodash", "solid", "dashed", 
+                                   "dotted", "dotdash", "longdash", "twodash"))+
+  geom_smooth(method = "lm", se = FALSE, color = "black", 
+              size = 1.2, linetype = "dashed") +
+  #scale_color_brewer(palette = "Paired") +
+  facet_grid(pheno_label ~ var_label, scales = "free") +
+  labs(
+    x = "Land Cover (%)",
+    y = "Predicted Phenological Timing (DOY)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    legend.key.size = unit(0.4, "cm"),
+    legend.key = element_blank(),
+    strip.text = element_text(face = "bold", size = 10)
+  ) +
+  guides(color = guide_legend(nrow = 3, ncol = 4, byrow = TRUE))
+
+ggsave("../../../images/pd_land_cover_impervious_irrigated.png", 
+       width = 10, height = 10, dpi = 300)
+
+```

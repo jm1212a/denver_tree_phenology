@@ -501,9 +501,10 @@ ggsave("../../images/phenology_climate_correlations.png",
 source("../../R/plot_year.R")
 
 plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection")) 
-plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative")) 
 
+ggsave("../../../images/pheno_curve_metrics.png", width = 10, height = 6, dpi = 300)
 
+#plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative")) 
 
 # Plot with smoother
 

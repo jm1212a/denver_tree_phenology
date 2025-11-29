@@ -1,0 +1,79 @@
+---
+title: "Graphing - Phenocurve and Metrics"
+author: "Jared Martin"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(phenofit)
+library(sf)
+library(patchwork)
+library(lme4)
+library(lmerTest)
+library(MuMIn)
+library(performance)
+library(caret)
+library(mgcv)
+library(xgboost)
+library(ggtext)
+
+```
+
+```{r}
+
+read_rds("../..0/data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+
+```
+
+```{r}
+
+source("../../R/plot_year.R")
+
+plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Inflection")) 
+
+ggsave("../../images/pheno_curve_metrics.png", width = 10, height = 6, dpi = 300)
+
+#plot_year(tree_ldc_metrics_climate, "2020", "10006", metrics = c("Derivative")) 
+
+# Plot with smoother
+
+df <- data.frame(
+  t = tree_ldc_metrics_climate$season_data[[10]]$t,
+  y = tree_ldc_metrics_climate$season_data[[10]]$y,
+  lat = tree_ldc_metrics_climate$y_lat[10],
+  long = tree_ldc_metrics_climate$x_long[10],
+  species_botanice = tree_ldc_metrics_climate$species_botanic[10],
+  species_common = tree_ldc_metrics_climate$species_common[10]  # adjust column name as needed
+)%>%
+  filter(year(t) < 2025)
+
+# Plot with smoother
+ggplot(df, aes(x = t, y = y)) +
+  geom_point(alpha = 0.6, size = 2, color = "black") +
+  labs(
+    title = paste(df$species_botanice[1], "-", df$species_common[1]),
+    subtitle = paste("Lat: ", round(df$lat[1], 4), "° | Long: ", round(df$long[1], 4), "°"),
+    x = "Date",
+    y = "NDVI"
+  ) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    axis.title = element_text(size = 12, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 11, hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    plot.margin = margin(10, 10, 10, "mm")
+  ) 
+
+
+  ggsave("../../images/multiseason_tree_ndvi_plot.png", width = 10, height = 6, dpi = 300)
+    
+    
+```
+
+
