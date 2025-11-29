@@ -11,6 +11,9 @@ Analysis of climate impacts on urban tree phenology across 12 deciduous species 
 
 This capstone project analyzes how climate variables influence the timing of seasonal changes (phenology) in urban trees. Using PlanetScope satellite imagery, NOAA climate data, and Denver's tree inventory, the study models phenological transitions for 3,450 trees across 12 deciduous species over a 7-year period.
 
+### Interactive Shiny Application
+An interactive Shiny application (`denver_trees_app/`) was developed to facilitate sample selection and quality control during the research process.
+
 ## Repository Structure
 ```
 Denver_Tree_Phenology/
@@ -34,6 +37,8 @@ Denver_Tree_Phenology/
 │   ├── denver_tree/                # Denver tree inventory
 │   ├── tree_leaf_taxanomy/         # Species characteristics
 │   └── [other raw data folders]
+│
+├── denver_trees_app/      # Interactive Shiny application for QC and exploration
 │
 ├── tables/                # Summary tables for paper
 ├── images/                # Figures and plots
