@@ -75,7 +75,7 @@ From this spatially filtered inventory, we implemented a three-part sampling app
 An interactive Shiny application was developed to facilitate sample selection and quality control, allowing visual inspection of candidate trees' spatial distribution across Denver County \[[github](https://github.com/jm1212a/denver_tree_phenology/tree/main/denver_trees_app)\]. The final sample consisted of 23,779 individual trees from 15 species across 11 genera. The sample included 11 native species, 2 non-native species, and 2 invasive species (@tbl-species). The sample data set can be found here along with the corresponding cleaning code \[[github](https://github.com/jm1212a/denver_tree_phenology/blob/main/data_raw/denver_tree/denver_trees_sample.geojson)\].
 
 | Scientific Name | Common Name | Genus | Observations | Status | Leaf Type |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | *Acer saccharinum* | Silver Maple | *Acer* | 6,217 | Native | Deciduous |
 | *Ailanthus altissima* | Tree of Heaven | *Ailanthus* | 426 | Invasive | Deciduous |
 | *Catalpa speciosa* | Western Catalpa | *Catalpa* | 656 | Native | Deciduous |
@@ -168,7 +168,7 @@ Following a similar methodology to @dixon2025, climate variables were aligned wi
 The resulting climate dataset included 10 distinct seasonal periods (winter, late winter, spring, early spring, late spring, summer, late summer, fall, early fall, late fall) with corresponding temperature and precipitation metrics. This temporal structure was designed to maximize consistency across phenological stages while preserving sufficient climate variation to detect species-specific sensitivities to temperature versus precipitation drivers. @tbl-climate provides a complete breakdown of seasonal climate variables, their corresponding months, and which phenological were selected as predictors for modeling.
 
 | Seasonal Period | Months | Climate Metrics | Rationale |
-|------------------|------------------|------------------|------------------|
+|----|----|----|----|
 | Winter | Dec-Jan-Feb\* | Mean temp, Mean Tmax, Total precip, Precip days | Winter chilling requirements and moisture storage |
 | Late Winter | Feb-Mar | Mean temp^G^, Mean Tmax^G^, Total precip^G^, Precip days^G^, YTD cumulative precip | Transition to spring; pre-green-up conditions |
 | Spring | Mar-Apr-May | Mean temp, Mean Tmax, Total precip^M^, Precip days, YTD cumulative precip | Primary growing season onset |
@@ -229,7 +229,7 @@ To evaluate the model's performance 10-fold cross-validation was used. Data were
 RMSE values ranging from 5.9 to 12.9 days across all 48 species-stage combinations. These error magnitudes are approximately two to three times higher than RMSE values (2.1 to 4.9 days) reported by [@DAI2019] using gradient boosting for the prediction of tree phenology metrics (e.g., spring leaf-out). The significant difference could be attributed to differences in data sources used to derive the phenological metrics. [@DAI2019] modeled spring leaf-out dates from ground-based observations at individual species over a over several non-consecutive decades, instead of remote-sensing data collected over a seven-year period. Given the limitations of our data, we worked under the assumption that the species gradient-boosted models are with an exceptionable margin of error and effectively capture climate-phenology relationships.
 
 | Phenological Stage | N Species | Total Obs. | Mean R² | Mean RMSE (days) | Mean MAE (days) |
-|------------|------------|------------|------------|------------|------------|
+|----|----|----|----|----|----|
 | Maturity | 12 | 2,244 | 0.644 | 6.95 | 5.11 |
 | Green-up | 12 | 2,194 | 0.644 | 8.29 | 6.32 |
 | Senescence | 12 | 2,182 | 0.691 | 9.10 | 7.01 |
