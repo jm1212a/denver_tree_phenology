@@ -38,6 +38,8 @@ read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
 ```
 
+# Code for processing - mean R2 > .9 and 6 season for each tree
+
 ```{r}
 
 batch_size <- 20
@@ -249,6 +251,7 @@ message(sprintf("Done! Final dataset has %d rows from %d batches",
 
 ```
 
+# Code for processing - R2 > .9 for each curve
 
 ```{r}
 
