@@ -274,7 +274,7 @@ tree_batches <- split(all_trees, ceiling(seq_along(all_trees) / batch_size))
 message(sprintf("Processing %d trees in %d batches of ~%d", 
                 total_trees, n_batches, batch_size))
 
-# Function to process one tree (unchanged from your original)
+# Function to process one tree
 process_tree <- function(tree_data, trees, total_trees, p = NULL) {
   
   if (!is.null(p)) p()  
@@ -292,7 +292,7 @@ process_tree <- function(tree_data, trees, total_trees, p = NULL) {
     
     # Preprocess NDVI
     tree_data %>% 
-      mutate(ndvi = despike(ndvi, "median", n = 3, k = 5)) %>%
+      mutate(ndvi = despike(ndvi, "median", n = 2, k = 5)) %>%
       mutate(
         time_numeric = as.numeric(im_date),
         trend = predict(lm(ndvi ~ time_numeric)),
@@ -319,7 +319,7 @@ process_tree <- function(tree_data, trees, total_trees, p = NULL) {
     )
     
     # Fit phenology curves
-    fit <- curvefits(test_input, brks_mov)
+    fit <- curvefits(x_detrended, brks_mov)
     stats <- get_GOF(fit)
     
     # Check fit quality
@@ -350,7 +350,7 @@ process_tree <- function(tree_data, trees, total_trees, p = NULL) {
       
       season_curve <- tibble(
         UID = i,
-        season_data = list(test_input))
+        season_data = list(x_detrended))
       
       # Join fit objects to statistics
       stats <- stats %>%
@@ -440,9 +440,9 @@ for (batch_num in seq_along(tree_batches)) {
   message(sprintf("Saved batch %d with %d obs.", batch_num, nrow(batch_results)))
   
   # Clean up memory
-  rm(extracts_split, results, pheno_metrix_date, pheno_metrix_doy, 
-     fit_stats, phen_metrix, batch_results)
-  gc()
+  #rm(extracts_split, results, pheno_metrix_date, pheno_metrix_doy, 
+  #   fit_stats, phen_metrix, batch_results)
+  #gc()
 }
 
 # Combine all batches
@@ -470,12 +470,48 @@ message(sprintf("Done! Final dataset has %d rows from %d batches",
 read_rds("./pheno_curve_metrics/extracted_metrics_.9_test.rds") -> test_data
 
 test_data %>% 
+  filter(flag != "2025_1") -> test_data
+
+test_data %>% 
+  group_by(flag) %>% 
+  summarise(n = n()) %>% 
+  ggplot(aes(x = flag, y = n)) +
+  geom_col()
+
+test_data %>% 
   group_by(UID) %>% 
   summarise(n = n())
 
-#source("../../R/plot_year.R")
+nrow(test_data)/(7*1000)
 
-#plot_year(extracted, "2019_1", "8691", metrics = "Inflection")
+test_data %>% 
+  group_by(UID, flag) %>% 
+  summarise(n = n()) %>% 
+  filter(flag == "2020_1")
+
+test_data %>% 
+  group_by(UID, flag) %>% 
+  summarise(n = n())
+
+source("../../R/plot_year.R")
+
+plot_year(test_data, "2020_1", "10999", metrics = "Inflection")
+
+test_data %>% 
+  filter(UID == "10999") -> test_data
+
+plot_data <- data.frame(
+  t = as.Date(test_data$season_data[[1]]$t, origin = "1970-01-01"),
+  y = test_data$season_data[[1]]$y
+)
+
+ggplot(plot_data, aes(x = t, y = y)) +
+  geom_point()
+
+fit_stats %>% 
+  group_by(flag, meth) %>% 
+  summarise(mean_r = mean(R2)) 
+  
 
 ```
 

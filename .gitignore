@@ -2,3 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
+*.rds
+pheno_curve_metrics/
