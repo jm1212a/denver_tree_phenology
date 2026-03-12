@@ -38,7 +38,7 @@ read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
 
 ```
 
-# Code for processing - mean R2 > .9 and 6 season for each tree
+# Code for processing - mean R2 \> .9 and 6 season for each tree
 
 ```{r}
 
@@ -251,9 +251,11 @@ message(sprintf("Done! Final dataset has %d rows from %d batches",
 
 ```
 
-# Code for processing - R2 > .9 for each curve
+# Code for processing - R2 \> .9 for each curve
 
 ```{r}
+
+set.seed(1)
 
 batch_size <- 20
 output_dir <- "./pheno_curve_metrics/batches_.9"
@@ -261,6 +263,7 @@ dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Get all trees
 extracts %>% 
+  filter(ndvi < 0, na.rm = TRUE) %>% 
   group_by(UID) %>% 
   summarise(n = n()) %>% 
   sample_n(200) %>%
@@ -273,6 +276,24 @@ tree_batches <- split(all_trees, ceiling(seq_along(all_trees) / batch_size))
 
 message(sprintf("Processing %d trees in %d batches of ~%d", 
                 total_trees, n_batches, batch_size))
+
+set_options(season = list(
+  r_max = 0.05,
+  r_min = 0.01,
+  calendarYear = TRUE
+  ))
+
+# if (phenofit:::.options$season$ypeak_min < 0.05) {
+#   stop("set_options did not work — ypeak_min is still below 0.2")
+# }
+# 
+# if (phenofit:::.options$season$r_max < 0.05) {
+#   stop("set_options did not work — r_max is still below 0.3")
+# }
+# 
+# if (phenofit:::.options$season$r_min < 0.01) {
+#   stop("set_options did not work — r_min is still below 0.15")
+# }
 
 # Function to process one tree
 process_tree <- function(tree_data, trees, total_trees, p = NULL) {
@@ -313,20 +334,24 @@ process_tree <- function(tree_data, trees, total_trees, p = NULL) {
     )
     
     # Detect growing seasons
-    brks_mov <- season_mov(
-      x_detrended,
-      options = list(rFUN = "smooth_wWHIT")
-    )
+    brks_mov <- season_mov(x_detrended,
+                           options = list(rFUN = "smooth_wWHIT")
+                           )
+    
+    if (!is.null(brks_mov$dt)) {
+      brks_mov$dt <- brks_mov$dt[brks_mov$dt$season == 1, ]
+    }
     
     # Fit phenology curves
     fit <- curvefits(x_detrended, brks_mov)
+    
     stats <- get_GOF(fit)
     
     # Check fit quality
     good_seasons <- stats %>%
       filter(meth == "Elmore") %>%
-      mutate(UID = i) %>%
-      filter(R2 > 0.90) 
+      mutate(UID = i) #%>%
+      #filter(R2 > 0.90) 
      
     if (nrow(good_seasons) >= 1) {
       
@@ -464,7 +489,6 @@ message(sprintf("Done! Final dataset has %d rows from %d batches",
 
 ```
 
-
 ```{r}
 
 read_rds("./pheno_curve_metrics/extracted_metrics_.9_test.rds") -> test_data
@@ -480,14 +504,15 @@ test_data %>%
 
 test_data %>% 
   group_by(UID) %>% 
-  summarise(n = n())
+  summarise(n = n()) %>% 
+  arrange(desc(n))
 
-nrow(test_data)/(7*1000)
+nrow(test_data)/(7*200)
 
 test_data %>% 
   group_by(UID, flag) %>% 
   summarise(n = n()) %>% 
-  filter(flag == "2020_1")
+  filter(flag == "2024_2")
 
 test_data %>% 
   group_by(UID, flag) %>% 
@@ -495,10 +520,12 @@ test_data %>%
 
 source("../../R/plot_year.R")
 
-plot_year(test_data, "2020_1", "10999", metrics = "Inflection")
+plot_year(test_data, "2020_1", "10160", metrics = "Inflection")
+
+plot_year(test_data, "2021_1", "10160", metrics = "Inflection")
 
 test_data %>% 
-  filter(UID == "10999") -> test_data
+  filter(UID == "6004") -> test_data
 
 plot_data <- data.frame(
   t = as.Date(test_data$season_data[[1]]$t, origin = "1970-01-01"),
@@ -508,15 +535,67 @@ plot_data <- data.frame(
 ggplot(plot_data, aes(x = t, y = y)) +
   geom_point()
 
+#plot_year(test_data, "2020_1", "6004", metrics = "Inflection")
+
+#plot_year(test_data, "2021_1", "6004", metrics = "Inflection")
+
 fit_stats %>% 
   group_by(flag, meth) %>% 
-  summarise(mean_r = mean(R2)) 
+  summarise(mean_r = mean(R2)) %>% 
+  filter(meth == "Elmore")
   
+fit_stats
+
+
+```
+
+
+```{r}
+
+test_data %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  arrange(desc(n))
+
+
+```
+
+
+```{r}
+
+extracts %>%
+  group_by(UID) %>% 
+  summarise(min_ndvi = min(ndvi)) %>%
+  ggplot(aes(x = min_ndvi)) +
+  geom_histogram(bins = 30) +
+  scale_x_continuous(limits = c(-1, 1)) +
+  labs(x = "Minimum NDVI", y = "Count", title = "Distribution of Minimum NDVI by Tree")
+
+```
+```{r}
+
+uid_sample <- c(11763, 19630, 3330, 924, 5412)
+
+# extracts %>%
+#   filter(UID %in% uid_sample) %>% 
+#   write.csv("./pheno_curve_metrics/extracts_uid_sample.rds")
+
+read.csv("./pheno_curve_metrics/extracts_uid_sample.rds")
 
 ```
 
 ```{r}
 
-plot_year(phen_metrix, "2018_1", "20788", metrics = "Derivative")
+extracts %>%
+  filter(UID == "924") %>% 
+  filter(is.na(ndvi))
+
+extracts %>%
+  filter(UID == "924") %>%
+  mutate(year = lubridate::year(im_date),
+         doy = lubridate::yday(im_date)) %>%
+  ggplot(aes(x = doy, y = year)) +
+  geom_point()
 
 ```
+
