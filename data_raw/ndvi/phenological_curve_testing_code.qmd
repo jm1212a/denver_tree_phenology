@@ -179,11 +179,11 @@ fit_annual_curve <- function(growing_seasons){
     
     peak_doy_boot <- doy[which.max(bootstrapped_curves[, i])]
     
-    concavity_spring <- concavity_doys[concavity_doys < peak_doy_boot]
-    concavity_fall   <- concavity_doys[concavity_doys > peak_doy_boot]
-    
-    maxima_spring <- maxima_doys[maxima_doys < peak_doy_boot]
-    minima_fall   <- minima_doys[minima_doys > peak_doy_boot]
+    concavity_spring <- len_zero(concavity_doys[concavity_doys < peak_doy])
+    concavity_fall   <- len_zero(concavity_doys[concavity_doys > peak_doy])
+
+    maxima_spring <- len_zero(maxima_doys[maxima_doys < peak_doy])
+    minima_fall   <- len_zero(minima_doys[minima_doys > peak_doy])
     
     data.frame(
       Greenup_doy = safe_get(maxima_spring, 2, 1),
@@ -305,11 +305,11 @@ fit_annual_curve <- function(growing_seasons){
     
     peak_doy <- doy[which.max(fitted_curve)]
 
-    concavity_spring <- concavity_doys[concavity_doys < peak_doy]
-    concavity_fall   <- concavity_doys[concavity_doys > peak_doy]
+    concavity_spring <- len_zero(concavity_doys[concavity_doys < peak_doy])
+    concavity_fall   <- len_zero(concavity_doys[concavity_doys > peak_doy])
 
-    maxima_spring <- maxima_doys[maxima_doys < peak_doy]
-    minima_fall   <- minima_doys[minima_doys > peak_doy]
+    maxima_spring <- len_zero(maxima_doys[maxima_doys < peak_doy])
+    minima_fall   <- len_zero(minima_doys[minima_doys > peak_doy])
 
       data.frame(
         UID = unique(growing_seasons$UID),
@@ -334,7 +334,7 @@ fit_annual_curve <- function(growing_seasons){
 
 ```{r}
 
-fit_annual_curve(seasons[[1]])
+fit_annual_curve(seasons[[4]])
 
 ```
 
@@ -576,5 +576,73 @@ plot_annual_curve(seasons[[1]], show_kprime = TRUE, show_transitions = TRUE)
 ```
 
 
+```{r}
+pheno_metrics <- function(location){
+  extracts %>%
+    filter(UID == location) %>% 
+    mutate(ndvi = despike(ndvi, "median", n = 2, k = 5)) -> extracts_samp
+  
+  growing_season(extracts_samp, maxtroughhight = .4) -> seasons
 
+  map(seasons, possibly(fit_annual_curve, otherwise = NULL))%>%
+    compact() %>%
+    bind_rows()
+}
+
+```
+
+
+```{r}
+
+extracts %>% 
+  select(UID) %>% 
+  distinct() %>% 
+  slice_sample(n = 10) %>% 
+  pull() %>% 
+  map(pheno_metrics()) %>% 
+    compact() %>%
+    bind_rows()
+
+```
+
+
+```{r, warning=FALSE}
+
+extracts %>% 
+  select(UID) %>% 
+  distinct() %>% 
+  slice_sample(n = 100) %>% 
+  pull() -> uids
+
+results_list <- list()
+
+for (i in seq_along(uids)) {
+  current_metrics <- pheno_metrics(i)
+  results_list[[i]] <- as.data.frame(current_metrics)
+}
+
+dplyr::bind_rows(results_list)
+
+```
+
+
+```{r}
+
+extracts %>% 
+  filter(UID == "3330") %>% 
+  mutate(ndvi = despike(ndvi, "median", n = 2, k = 5)) -> extracts_samp
+
+growing_season(extracts_samp, maxtroughhight = .4) -> seasons
+
+map(seasons, possibly(fit_annual_curve, otherwise = NULL))%>%
+  compact() %>%
+  bind_rows()
+
+```
+
+```{r}
+
+
+
+```
 
