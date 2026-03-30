@@ -111,13 +111,6 @@ plot_growing_season <- function(ndvi_samples, df = 30, maxtroughhight = .3,
 
 ```{r}
 
-seasons
-
-```
-
-
-```{r}
-
 extracts %>% 
   filter(UID == "3330") %>% 
   mutate(ndvi = despike(ndvi, "median", n = 2, k = 5)) -> extracts_samp
@@ -136,6 +129,24 @@ fit_annual_curve <- function(growing_seasons){
     m[1] + (m[2] - m[7]*t) * ((1/(1+exp((m[3]-t)/m[4]))) - (1/(1+exp((m[5]-t)/m[6]))))
   }
   
+  safe_get <- function(x, l, i) {
+    if ( length(x) > l) {
+      return(NA) # Returns NA if index is out of bounds
+      } else if (is.na(x[i])) {
+        return(NA)
+      } else {
+        return(x[i])
+      }
+    }
+  
+  len_zero <- function(x){
+    if ( length(x) == 0){
+      return(c(NA))
+      } else {
+        return(x)
+      }
+    }
+
   get_transitions_doys <- function(bootstrapped_curves, doy, ci = .95, year){
   
    results <- vector("list", ncol(bootstrapped_curves))
@@ -162,6 +173,10 @@ fit_annual_curve <- function(growing_seasons){
     doy_d2 <- doy[1:length(d2)]
     concavity_doys <- doy_d2[which(diff(sign(d2)) != 0)]
     
+    concavity_doys <- len_zero(concavity_doys)
+    maxima_doys <- len_zero(maxima_doys)
+    minima_doys <- len_zero(minima_doys)
+    
     peak_doy_boot <- doy[which.max(bootstrapped_curves[, i])]
     
     concavity_spring <- concavity_doys[concavity_doys < peak_doy_boot]
@@ -171,16 +186,16 @@ fit_annual_curve <- function(growing_seasons){
     minima_fall   <- minima_doys[minima_doys > peak_doy_boot]
     
     data.frame(
-      Greenup_doy = maxima_spring[1],
-      SOS_doy = tail(concavity_spring, 1),
-      Maturity_doy = maxima_spring[2],
-      Senescence_doy = minima_fall[1],
-      EOS_doy = concavity_fall[1],
-      Dormancy_doy = minima_fall[2],
+      Greenup_doy = safe_get(maxima_spring, 2, 1),
+      SOS_doy = safe_get(concavity_spring, 1, 1),
+      Maturity_doy = safe_get(maxima_spring, 2, 2),
+      Senescence_doy = safe_get(minima_fall, 2, 1),
+      EOS_doy = safe_get(concavity_fall, 1, 1),
+      Dormancy_doy = safe_get(minima_fall, 2, 2),
       Peak_NDVI_doy = peak_doy_boot) -> results[[i]]
   }
    
-do.call(rbind, results) %>%
+   do.call(rbind, results) %>%
   summarise(
     across(
       c(Greenup_doy, SOS_doy, Maturity_doy, Senescence_doy,
@@ -193,64 +208,65 @@ do.call(rbind, results) %>%
       ),
       .names = "{.fn}_boot_{.col}"
     )
-  ) %>% 
+  ) %>%
   mutate(season = year)
-}
-  
+
+   }
+
   smooth.spline(growing_seasons$im_doy, growing_seasons$ndvi, df = 7) -> annual_spline
 
-  seq(min(growing_seasons$im_doy), max(growing_seasons$im_doy), by = 1) -> x_daily 
+  seq(min(growing_seasons$im_doy), max(growing_seasons$im_doy), by = 1) -> x_daily
 
-  x_daily[x_daily <= 180] -> x_daily_spring 
-  x_daily[x_daily > 180] -> x_daily_fall   
+  x_daily[x_daily <= 180] -> x_daily_spring
+  x_daily[x_daily > 180] -> x_daily_fall
 
-  diff(predict(annual_spline, x_daily_spring)$y) -> dy_spring 
-  diff(predict(annual_spline, x_daily_fall)$y) -> dy_fall 
-  
-  x_daily_spring[which.max(dy_spring)] -> sos_doy_est 
-  x_daily_fall[which.min(dy_fall)] -> eos_doy_est 
+  diff(predict(annual_spline, x_daily_spring)$y) -> dy_spring
+  diff(predict(annual_spline, x_daily_fall)$y) -> dy_fall
+
+  x_daily_spring[which.max(dy_spring)] -> sos_doy_est
+  x_daily_fall[which.min(dy_fall)] -> eos_doy_est
 
   x0 <- growing_seasons$im_doy
-  y0 <- growing_seasons$ndvi 
-   
-  m1_idx <- which(x0 < 90 | x0 > 330)          
-  m1 <- quantile(y0[m1_idx], 0.50)              
-  m2 <- quantile(y0, 0.99) - m1                 
+  y0 <- growing_seasons$ndvi
+
+  m1_idx <- which(x0 < 90 | x0 > 330)
+  m1 <- quantile(y0[m1_idx], 0.50)
+  m2 <- quantile(y0, 0.99) - m1
   m3 <- sos_doy_est
-  m4 <- 10                            
+  m4 <- 10
   m5 <- eos_doy_est
-  m6 <- 10                            
+  m6 <- 10
   m7 <- 4
-  
+
   fit1 <- nlsLM(y0 ~ a + (b - g*x0) * ((1/(1+exp((c-x0)/d))) - (1/(1+exp((e-x0)/f)))),
                 start = list(a=m1, b=m2, c=m3, d=m4, e=m5, f=m6, g=m7))
-  
+
   p1 <- fit1$m$getPars()
   w1 <- max(abs(residuals(fit1)))^2 - abs(residuals(fit1))^2
-  
+
   fit2 <- nlsLM(y0 ~ a + (b - g*x0) * ((1/(1+exp((c-x0)/d))) - (1/(1+exp((e-x0)/f)))),
                 start = list(a=p1[1], b=p1[2], c=p1[3], d=p1[4], e=p1[5], f=p1[6], g=p1[7]),
                 weights = w1)
-  
+
   p2 <- fit2$m$getPars()
   w2 <- max(abs(residuals(fit2)))^2 - abs(residuals(fit2))^2
-  
+
   fit3 <- nlsLM(y0 ~ a + (b - g*x0) * ((1/(1+exp((c-x0)/d))) - (1/(1+exp((e-x0)/f)))),
                 start = list(a=p2[1], b=p2[2], c=p2[3], d=p2[4], e=p2[5], f=p2[6], g=p2[7]),
                 weights = w2)
-  
+
   p3 <- fit3$m$getPars()
   w3 <- max(abs(residuals(fit3)))^2 - abs(residuals(fit3))^2
-  
+
   fitted_vals <- elmore_curve(p3, x0)
   resids <- y0 - fitted_vals
-  
+
   pred_mat <- matrix(NA, nrow = max(x0) - min(x0), ncol = 50)
-  
+
   doy <- seq(min(x0), max(x0))
-  
+
   pred_mat <- matrix(NA, nrow = length(doy), ncol = 50)
-  
+
   for (j in seq(50)) {
     yb <- fitted_vals + sample(resids, replace = TRUE)
     try({
@@ -260,47 +276,41 @@ do.call(rbind, results) %>%
       pred_mat[, j] <- elmore_curve(fit_b$m$getPars(), doy)
     }, silent = TRUE)
   }
-  
+
   fitted_curve <- elmore_curve(p3, doy)
-  
-    d1 <- diff(fitted_curve)              
-    d2 <- diff(d1)                         
-    d1_aligned <- d1[-length(d1)]          
-    K  <- d2 / (1 + d1_aligned^2)^(3/2)   
-    Kprime <- diff(K)                          
-    Kpp    <- diff(Kprime)                     
+
+    d1 <- diff(fitted_curve)
+    d2 <- diff(d1)
+    d1_aligned <- d1[-length(d1)]
+    K  <- d2 / (1 + d1_aligned^2)^(3/2)
+    Kprime <- diff(K)
+    Kpp    <- diff(Kprime)
     doy_Kp <- doy[1:length(Kprime)]
-    
+
     # Local extrema of K' are where K'' changes sign
     sc         <- which(diff(sign(Kpp)) != 0)
     directions <- diff(sign(Kpp))[sc]
-    
-    # Local maxima of K' (K'' goes + to -) → Greenup, Maturity 
+
+    # Local maxima of K' (K'' goes + to -) → Greenup, Maturity
     maxima_doys <- doy_Kp[sc[directions < 0]]
     # Local minima of K' (K'' goes - to +) → Senescence, Dormancy
     minima_doys <- doy_Kp[sc[directions > 0]]
-      
+
     doy_d2           <- doy[1:length(d2)]
     concavity_doys   <- doy_d2[which(diff(sign(d2)) != 0)]
-  
+    
+    concavity_doys <- len_zero(concavity_doys)
+    maxima_doys <- len_zero(maxima_doys)
+    minima_doys <- len_zero(minima_doys)
+    
     peak_doy <- doy[which.max(fitted_curve)]
-  
+
     concavity_spring <- concavity_doys[concavity_doys < peak_doy]
     concavity_fall   <- concavity_doys[concavity_doys > peak_doy]
 
     maxima_spring <- maxima_doys[maxima_doys < peak_doy]
     minima_fall   <- minima_doys[minima_doys > peak_doy]
-  
-  # if (length(transition_doys) != 6) {
-  #   warning(paste("UID",
-  #                 unique(growing_seasons$UID), 
-  #                 "- Growing Season",
-  #                 unique(growing_seasons$season), 
-  #                 ": 4th derivative did not detect 6 inflection points (found", 
-  #                 length(transition_doys),
-  #                 ")"), call. = FALSE)
-  #   return(NULL)
-  #   }else {
+
       data.frame(
         UID = unique(growing_seasons$UID),
         flag = unique(growing_seasons$flag),
@@ -309,23 +319,22 @@ do.call(rbind, results) %>%
         R2 = 1 - (sum((y0 - elmore_curve(p3, x0))^2 / sum((y0 - mean(y0))^2))),
         R = sqrt(1 - (sum((y0 - elmore_curve(p3, x0))^2 / sum((y0 - mean(y0))^2)))),
         RMSE = sqrt(mean((y0 - elmore_curve(p3, x0))^2)),
-        Greenup_doy = maxima_spring[1],
-        SOS_doy = tail(concavity_spring, 1),
-        Maturity_doy = maxima_spring[2],
-        Senescence_doy = minima_fall[1],
-        EOS_doy = concavity_fall[1],
-        Dormancy_doy = minima_fall[2],
-        Peak_NDVI_doy = peak_doy) %>% 
+        Greenup_doy = safe_get(maxima_spring, 2, 1),
+        SOS_doy = safe_get(concavity_spring, 1, 1),
+        Maturity_doy = safe_get(maxima_spring, 2, 2),
+        Senescence_doy = safe_get(minima_fall, 2, 1),
+        EOS_doy = safe_get(concavity_fall, 1, 1),
+        Dormancy_doy = safe_get(minima_fall, 2, 2),
+        Peak_NDVI_doy = peak_doy) %>%
         left_join(get_transitions_doys(pred_mat, doy, year = unique(growing_seasons$season))
               , by = "season")
-      #}
 }
 
 ```
 
 ```{r}
 
-fit_annual_curve(seasons[[5]])
+fit_annual_curve(seasons[[1]])
 
 ```
 
@@ -562,7 +571,7 @@ plot_annual_curve <- function(growing_seasons, show_ci = TRUE, ci = 0.95,
 
 ```{r}
 
-plot_annual_curve(seasons[[6]], show_kprime = TRUE, show_transitions = TRUE)
+plot_annual_curve(seasons[[1]], show_kprime = TRUE, show_transitions = TRUE)
 
 ```
 
