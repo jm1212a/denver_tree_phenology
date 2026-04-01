@@ -1,0 +1,113 @@
+---
+title: "NDVI Nomalizing Code"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+
+```
+
+```{r}
+
+read_rds("./raw_extracts/extracted_ndvi_value.rds") -> extracts
+
+```
+
+```{r}
+
+bind_rows(read_csv("./metadata/pss4_metadata_Denver_sensitivity_2018_2024(in).csv"),
+          read_csv("./metadata/pss4_metadata_Denver_2024_2025(in).csv") ) %>% 
+  mutate(  date = as.Date(date, format = "%m/%d/%Y"),
+    time = stringr::str_pad(as.character(time), 6, pad = "0"),
+         date = as_date(date),
+    im_date_time = as.POSIXct(paste(date, time),
+                             format="%Y-%m-%d %H%M%S",
+                             tz = "UTC")) %>% 
+  select(im_date_time, pss4_instrument) -> meta_data
+
+extracts %>% 
+  left_join(meta_data, by = "im_date_time") %>% 
+  mutate(
+    instrument_clean = fix_hex_id(pss4_instrument),
+    sensor_gen = case_when(
+      grepl("^0[ef][0-9a-f]{2}$|^10[0-9a-f]{2}$", instrument_clean) ~ "PS2.SD",
+      grepl("^2[2345]",                             instrument_clean) ~ "PSB.SD",
+      TRUE ~ "PS2.SD"
+    ),
+    doy = yday(im_date),
+    month = month(im_date, label = TRUE)   
+  ) -> extracts_sensor_gen -> extracts_sensor_gen
+
+```
+
+```{r}
+
+set.seed(42)
+
+extracts_sensor_gen %>% 
+  slice_sample(n = 50000) %>% 
+  ggplot(aes(x = doy, y = ndvi)) +
+  geom_point(aes(color = sensor_gen), alpha = 0.02, size = 0.8) +
+  geom_smooth(aes(color = sensor_gen, group = sensor_gen),
+              method = "loess", span = 0.3,
+              se = TRUE, linewidth = 1.2) +
+  geom_smooth(color = "black", linetype = "dashed",  # <- overall trend
+              method = "loess", span = 0.3,
+              se = FALSE, linewidth = 1) +
+  scale_color_manual(values = c("PS2.SD" = "#1f78b4", "PSB.SD" = "#33a02c")) +
+  scale_x_continuous(breaks = c(1, 91, 182, 274, 365),
+                     labels = c("Jan", "Apr", "Jul", "Oct", "Dec")) +
+  labs(
+    title   = "NDVI Seasonal Curve by Sensor Generation",
+    x       = NULL,
+    y       = "NDVI",
+    color   = "Sensor",
+    caption = "Dashed line = overall trend"
+  ) +
+  theme_minimal(base_size = 12)
+
+extracts_sensor_gen %>% 
+  slice_sample(n = 50000) %>% 
+  ggplot(aes(x = sensor_gen, y = ndvi, fill = sensor_gen)) +
+  geom_boxplot(outlier.alpha = 0.1, outlier.size = 0.5) +
+  scale_fill_manual(values = c("PS2.SD" = "#1f78b4", "PSB.SD" = "#33a02c")) +
+  labs(
+    title = "NDVI Distribution by Sensor Generation",
+    x     = NULL,
+    y     = "NDVI"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+
+extracts_sensor_gen %>% 
+  slice_sample(n = 50000) %>% 
+  ggplot(aes(x = month, y = ndvi, fill = sensor_gen)) +
+  geom_boxplot(outlier.alpha = 0.05, outlier.size = 0.3) +
+  scale_fill_manual(values = c("PS2.SD" = "#1f78b4", "PSB.SD" = "#33a02c")) +
+  labs(
+    title = "NDVI by Month and Sensor Generation",
+    x     = NULL,
+    y     = "NDVI",
+    fill  = "Sensor"
+  ) +
+  theme_minimal(base_size = 12)
+
+extracts_sensor_gen %>% 
+  slice_sample(n = 50000) %>% 
+  mutate(year = factor(year(im_date))) %>%
+  ggplot(aes(x = year, y = ndvi, fill = sensor_gen)) +
+  geom_boxplot(outlier.alpha = 0.05, outlier.size = 0.3) +
+  scale_fill_manual(values = c("PS2.SD" = "#1f78b4", "PSB.SD" = "#33a02c")) +
+  labs(
+    title = "NDVI by Year and Sensor Generation",
+    x     = NULL,
+    y     = "NDVI",
+    fill  = "Sensor"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
