@@ -175,7 +175,6 @@ plot_growing_season <- function(ndvi_data, ndvi_obs , df = 30, maxtroughhight = 
 
 ```
 
-
 ```{r}
 fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
   
@@ -184,14 +183,14 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
   }
   
   safe_get <- function(x, l, i) {
-    if ( length(x) > l) {
-      return(NA) # Returns NA if index is out of bounds
-      } else if (is.na(x[i])) {
-        return(NA)
-      } else {
-        return(x[i])
-      }
+    if (length(x) < i || length(x) > l) {
+      return(NA)  # too few elements OR too many
+    } else if (is.na(x[i])) {
+      return(NA)
+    } else {
+      return(x[i])
     }
+  }
   
   len_zero <- function(x){
     if ( length(x) == 0){
@@ -246,7 +245,7 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
       Senescence_doy = safe_get(minima_fall, 2, 1),
       EOS_doy = safe_get(concavity_fall, 1, 1),
       Dormancy_doy = safe_get(minima_fall, 2, 2),
-      Peak_NDVI_doy = peak_doy_boot) -> results[[i]]
+      Peak_NDVI_doy = safe_get(peak_doy_boot, 1, 1)) -> results[[i]]
   }
    
    do.call(rbind, results) %>%
@@ -345,7 +344,7 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
     doy_Kp <- doy[1:length(Kprime)]
 
     # Local extrema of K' are where K'' changes sign
-    sc         <- which(diff(sign(Kpp)) != 0)
+    sc  <- which(diff(sign(Kpp)) != 0)
     directions <- diff(sign(Kpp))[sc]
 
     # Local maxima of K' (K'' goes + to -) → Greenup, Maturity
@@ -367,7 +366,13 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
 
     maxima_spring <- len_zero(maxima_doys[maxima_doys < peak_doy])
     minima_fall   <- len_zero(minima_doys[minima_doys > peak_doy])
-
+    
+   tryCatch(get_transitions_doys(pred_mat, doy, year = unique(growing_seasons$season)),
+    error = function(e) {
+      warning("Bootstrap transition extraction failed for UID ", 
+              unique(growing_seasons$UID), ": ", e$message)
+      NULL}) -> boot_transitions 
+    
       data.frame(
         UID = unique(growing_seasons$UID),
         flag = unique(growing_seasons$flag),
@@ -382,29 +387,21 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
         Senescence_doy = safe_get(minima_fall, 2, 1),
         EOS_doy = safe_get(concavity_fall, 1, 1),
         Dormancy_doy = safe_get(minima_fall, 2, 2),
-        Peak_NDVI_doy = peak_doy) %>%
-        left_join(get_transitions_doys(pred_mat, doy, year = unique(growing_seasons$season))
-              , by = "season")
+        Peak_NDVI_doy = peak_doy) -> output_df
+      
+        if (!is.null(boot_transitions)) {
+          output_df %>% 
+            left_join(boot_transitions, by = "season")
+          } else {
+            output_df 
+            }
 }
 
-```
-
-
-```{r}
-
-normalized_ndvi_extracts %>% 
-    filter(UID == "3330") %>% 
-    mutate(ndvi_normalized = despike(ndvi_normalized, "median", n = 2, k = 5)) -> extracts_samp
-  
-growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .4) -> seasons
-
-fit_annual_curve(seasons[[2]], ndvi_obs = ndvi_normalized) 
+# fit_annual_curve(seasons[[3]], ndvi_obs = ndvi_normalized) 
 
 ```
 
-
 ```{r}
-
 plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci = TRUE, ci = 0.95,
                               show_transitions = TRUE, show_sos_eos = TRUE,
                               show_kprime = FALSE){
@@ -626,7 +623,7 @@ plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci 
   }
 }
 
-# plot_annual_curve(seasons[[2]], ndvi_obs = ndvi_normalized , show_kprime = TRUE, show_transitions = TRUE) #use example
+#plot_annual_curve(seasons[[4]], ndvi_obs = ndvi_normalized , show_kprime = TRUE, show_transitions = TRUE) #use example
 
 ```
 
@@ -638,7 +635,7 @@ pheno_metrics <- function(location, ndvi_data) {
     filter(UID == location) %>% 
     mutate(ndvi_normalized = despike(ndvi_normalized, "median", n = 2, k = 5)) -> extracts_samp
   
-  growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .4) -> seasons
+  growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .6) -> seasons
   
   map(seasons, possibly(~fit_annual_curve(.x, ndvi_obs = ndvi_normalized), otherwise = NULL)) %>%
     compact() %>%
@@ -649,7 +646,7 @@ pheno_metrics <- function(location, ndvi_data) {
 
 ## Start of the loop
 
-```{r, warning=FALSE}
+```{r}
 
 normalized_ndvi_extracts %>% 
   select(UID) %>% 
@@ -664,10 +661,52 @@ for (i in seq_along(uids)) {
   results_list[[i]] <- as.data.frame(current_metrics)
 }
 
-bind_rows(results_list)
+bind_rows(results_list) -> sample_extracts
 
 ```
 
 
+```{r}
+
+sample_extracts 
+
+sample_extracts %>% 
+  filter(R2 >= .9) %>% 
+  group_by(season) %>% 
+  summarise(n = n())
+
+```
+
+```{r}
+
+
+sample_extracts %>% 
+  group_by(UID, season) %>% 
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = season,
+              values_from = n,
+              values_fill = 0) %>% 
+  right_join(sample_extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  filter(n < 7))
+
+```
+
+```{r}
+
+normalized_ndvi_extracts %>% 
+    filter(UID == "13525") %>% 
+    mutate(ndvi_normalized = despike(ndvi_normalized, "median", n = 2, k = 5)) -> extracts_samp
+  
+growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .6) -> seasons
+
+plot_growing_season(extracts_samp, ndvi_obs = ndvi, maxtroughhight = .6) #use example 
+
+fit_annual_curve(seasons[[3]], ndvi_obs = ndvi_normalized) 
+
+plot_annual_curve(seasons[[4]], ndvi_obs = ndvi_normalized , show_kprime = TRUE, show_transitions = TRUE) #use example
+
+```
 
 
