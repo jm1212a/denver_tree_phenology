@@ -1,0 +1,106 @@
+---
+title: "Phenological Curve Fiting and Metric Deriving 2.0 - with Custom Phenocode"
+author: "Jared Martin"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+library(pracma)
+library(oce)
+library(minpack.lm)
+library(progress)
+
+```
+
+```{r}
+
+source("../../R/fix_hex_id.R")
+source("../../R/growing_season.R")
+source("../../R/fit_annual_curve.R")
+source("../../R/pheno_metrics.R")
+
+```
+
+```{r, warning=FALSE}
+
+bind_rows(read_csv("./metadata/pss4_metadata_Denver_sensitivity_2018_2024(in).csv"),
+          read_csv("./metadata/pss4_metadata_Denver_2024_2025(in).csv") ) %>% 
+  mutate(date = as.Date(date, format = "%m/%d/%Y"),
+         time = stringr::str_pad(as.character(time), 6, pad = "0"),
+         date = as_date(date),
+         im_date_time = as.POSIXct(paste(date, time),
+                                   format="%Y-%m-%d %H%M%S",
+                                   tz = "UTC")) %>% 
+  select(im_date_time, pss4_instrument) -> meta_data
+
+read_rds("./raw_extracts/extracted_ndvi_value.rds") %>% 
+  filter(ndvi >= 0) %>% 
+  left_join(meta_data, by = "im_date_time") %>% 
+  mutate(instrument_clean = fix_hex_id(pss4_instrument),
+    sensor_gen = case_when(
+      grepl("^0[ef][0-9a-f]{2}$|^10[0-9a-f]{2}$", instrument_clean) ~ "PS2.SD",
+      grepl("^2[2345]", instrument_clean) ~ "PSB.SD",
+      TRUE ~ "PS2.SD"),
+    doy = yday(im_date),
+    month = month(im_date, label = TRUE)) -> extracts_sensor_gen 
+
+extracts_sensor_gen %>% 
+  slice_sample(n = 100000) -> spline_sample
+
+loess_overall <- loess(ndvi ~ doy, data = spline_sample, span = 0.3)  # <- was dspline_sample
+loess_ps2 <- loess(ndvi ~ doy, data = filter(spline_sample, sensor_gen == "PS2.SD"), span = 0.3)
+loess_psb <- loess(ndvi ~ doy, data = filter(spline_sample, sensor_gen == "PSB.SD"), span = 0.3)
+
+# Step 3: build DOY lookup table — 365 predictions instead of 17M
+tibble(doy = 1:366) %>%
+  mutate(fitted_overall = predict(loess_overall, newdata = data.frame(doy = doy)),
+    fitted_ps2 = predict(loess_ps2, newdata = data.frame(doy = doy)),
+    fitted_psb = predict(loess_psb, newdata = data.frame(doy = doy)),
+    offset_ps2 = fitted_overall - fitted_ps2,
+    offset_psb = fitted_overall - fitted_psb) %>%
+  select(doy, offset_ps2, offset_psb) %>% 
+  right_join(extracts_sensor_gen %>% 
+      select(-any_of(c("offset_ps2", "offset_psb", "ndvi_normalized"))),  by = "doy") %>%
+  mutate(ndvi_normalized = case_when(sensor_gen == "PS2.SD" ~ ndvi + offset_ps2,
+                                     sensor_gen == "PSB.SD" ~ ndvi + offset_psb)) %>% 
+  select(UID) %>% 
+  distinct() %>% 
+  slice_sample(n = 100) %>% 
+  pull() %>% 
+  map_df(~ pheno_metrics(.x, ndvi_data = normalized_ndvi_extracts), 
+       .progress = TRUE ) -> sample_extracts
+
+```
+
+
+```{r}
+
+sample_extracts 
+
+sample_extracts %>% 
+  filter(R2 >= .9) %>% 
+  group_by(season) %>% 
+  summarise(n_kept = n())
+
+
+```
+
+```{r}
+
+sample_extracts %>% 
+  group_by(UID, season) %>% 
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = season,
+              values_from = n,
+              values_fill = 0) %>% 
+  right_join(sample_extracts %>% 
+  group_by(UID) %>% 
+  summarise(n = n()) %>% 
+  filter(n < 7))
+
+```
+
+

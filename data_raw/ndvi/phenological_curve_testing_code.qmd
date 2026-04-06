@@ -11,6 +11,7 @@ library(tidyverse)
 library(pracma)
 library(oce)
 library(minpack.lm)
+library(progress)
 
 ```
 
@@ -176,7 +177,7 @@ plot_growing_season <- function(ndvi_data, ndvi_obs , df = 30, maxtroughhight = 
 ```
 
 ```{r}
-fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
+fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, ci = .95){
   
   elmore_curve <- function(m, t) {
     m[1] + (m[2] - m[7]*t) * ((1/(1+exp((m[3]-t)/m[4]))) - (1/(1+exp((m[5]-t)/m[6]))))
@@ -200,7 +201,7 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
         }
     }
 
-  get_transitions_doys <- function(bootstrapped_curves, doy, ci = .95, year){
+  get_transitions_doys <- function(bootstrapped_curves, doy, CI = ci, year){
   
    results <- vector("list", ncol(bootstrapped_curves))
   
@@ -256,8 +257,8 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
       list(
         mean  = ~mean(.x, na.rm = TRUE),
         sd    = ~sd(.x,   na.rm = TRUE),
-        ci_lo = ~quantile(.x, probs = (1 - ci) / 2,       na.rm = TRUE),
-        ci_hi = ~quantile(.x, probs = 1 - (1 - ci) / 2,  na.rm = TRUE)
+        ci_lo = ~quantile(.x, probs = (1 - CI) / 2,       na.rm = TRUE),
+        ci_hi = ~quantile(.x, probs = 1 - (1 - CI) / 2,  na.rm = TRUE)
       ),
       .names = "{.fn}_boot_{.col}"
     )
@@ -293,7 +294,7 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
   m5 <- eos_doy_est
   m6 <- 10
   m7 <- 4
-
+  
   fit1 <- nlsLM(y0 ~ a + (b - g*x0) * ((1/(1+exp((c-x0)/d))) - (1/(1+exp((e-x0)/f)))),
                 start = list(a=m1, b=m2, c=m3, d=m4, e=m5, f=m6, g=m7))
 
@@ -317,11 +318,11 @@ fit_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50){
   fitted_vals <- elmore_curve(p3, x0)
   resids <- y0 - fitted_vals
 
-  pred_mat <- matrix(NA, nrow = max(x0) - min(x0), ncol = 50)
+  pred_mat <- matrix(NA, nrow = max(x0) - min(x0), ncol = boot_int)
 
   doy <- seq(min(x0), max(x0))
 
-  pred_mat <- matrix(NA, nrow = length(doy), ncol = 50)
+  pred_mat <- matrix(NA, nrow = length(doy), ncol = boot_int)
 
   for (j in seq(boot_int)) {
     yb <- fitted_vals + sample(resids, replace = TRUE)
@@ -410,7 +411,7 @@ plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci 
     m[1] + (m[2] - m[7]*t) * ((1/(1+exp((m[3]-t)/m[4]))) - (1/(1+exp((m[5]-t)/m[6]))))
   }
 
-  get_transitions_doys <- function(bootstrapped_curves, doy, ci = .95, year){
+  get_transitions_doys <- function(bootstrapped_curves, doy, CI = ci, year){
 
     results <- vector("list", ncol(bootstrapped_curves))
 
@@ -460,8 +461,8 @@ plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci 
           list(
             mean  = ~mean(.x, na.rm = TRUE),
             sd    = ~sd(.x,   na.rm = TRUE),
-            ci_lo = ~quantile(.x, probs = (1 - ci) / 2,      na.rm = TRUE),
-            ci_hi = ~quantile(.x, probs = 1 - (1 - ci) / 2, na.rm = TRUE)
+            ci_lo = ~quantile(.x, probs = (1 - CI) / 2,      na.rm = TRUE),
+            ci_hi = ~quantile(.x, probs = 1 - (1 - CI) / 2, na.rm = TRUE)
           ),
           .names = "{.fn}_boot_{.col}"
         )
@@ -492,7 +493,7 @@ plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci 
   m5 <- eos_doy_est
   m6 <- 10
   m7 <- 4
-
+  
   fit1 <- nlsLM(y0 ~ a + (b - g*x0) * ((1/(1+exp((c-x0)/d))) - (1/(1+exp((e-x0)/f)))),
                 start = list(a=m1, b=m2, c=m3, d=m4, e=m5, f=m6, g=m7))
   p1 <- fit1$m$getPars()
@@ -514,7 +515,7 @@ plot_annual_curve <- function(growing_seasons, ndvi_obs, boot_int = 50, show_ci 
   resids      <- y0 - fitted_vals
 
   doy      <- seq(min(x0), max(x0))
-  pred_mat <- matrix(NA, nrow = length(doy), ncol = 50)
+  pred_mat <- matrix(NA, nrow = length(doy), ncol = boot_int)
 
   for (j in seq(boot_int)) {
     yb <- fitted_vals + sample(resids, replace = TRUE)
@@ -646,22 +647,31 @@ pheno_metrics <- function(location, ndvi_data) {
 
 ## Start of the loop
 
-```{r}
+```{r, warning=FALSE}
 
 normalized_ndvi_extracts %>% 
   select(UID) %>% 
   distinct() %>% 
-  slice_sample(n = 100) %>% 
+  slice_sample(n = 1000) %>% 
   pull() -> uids
 
-results_list <- list()
+# list() -> results_list 
+# 
+# progress_bar$new(format = "Processing (:spin) [:bar] :percent eta: :eta",
+#                  total = length(uids),
+#                  width = 60) -> progress
+# 
+# 
+# for (i in seq_along(uids)) {
+#   pheno_metrics(uids[i], ndvi_data = normalized_ndvi_extracts) -> current_metrics 
+#   as.data.frame(current_metrics) -> results_list[[i]]
+#   progress$tick()
+# }
+# 
+# bind_rows(results_list) -> sample_extracts
 
-for (i in seq_along(uids)) {
-  current_metrics <- pheno_metrics(uids[i], ndvi_data = normalized_ndvi_extracts)
-  results_list[[i]] <- as.data.frame(current_metrics)
-}
-
-bind_rows(results_list) -> sample_extracts
+map_df(uids, ~ pheno_metrics(.x, ndvi_data = normalized_ndvi_extracts), 
+       .progress = TRUE ) -> sample_extracts
 
 ```
 
@@ -673,12 +683,25 @@ sample_extracts
 sample_extracts %>% 
   filter(R2 >= .9) %>% 
   group_by(season) %>% 
-  summarise(n = n())
+  summarise(n_kept = n())
+
+sample_extracts %>% 
+  group_by(season) %>% 
+  summarise(n_proceed = n()) %>% 
+  left_join(
+    sample_extracts %>% 
+      filter(R2 >= .9) %>% 
+      group_by(season) %>% 
+      summarise(n_kept = n()),
+    by = "season"
+  ) %>% 
+  mutate(kept_per = n_kept / n_proceed,
+         proc_per = n_proceed / length(uids))
+
 
 ```
 
 ```{r}
-
 
 sample_extracts %>% 
   group_by(UID, season) %>% 
@@ -696,16 +719,17 @@ sample_extracts %>%
 ```{r}
 
 normalized_ndvi_extracts %>% 
-    filter(UID == "13525") %>% 
+    filter(UID == "1266") %>% 
     mutate(ndvi_normalized = despike(ndvi_normalized, "median", n = 2, k = 5)) -> extracts_samp
   
 growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .6) -> seasons
 
-plot_growing_season(extracts_samp, ndvi_obs = ndvi, maxtroughhight = .6) #use example 
+plot_growing_season(extracts_samp, ndvi_obs = ndvi_normalized, maxtroughhight = .6) #use example 
 
-fit_annual_curve(seasons[[3]], ndvi_obs = ndvi_normalized) 
+fit_annual_curve(seasons[[2]], boot_int = 100, ci = .95, ndvi_obs = ndvi_normalized) 
 
-plot_annual_curve(seasons[[4]], ndvi_obs = ndvi_normalized , show_kprime = TRUE, show_transitions = TRUE) #use example
+plot_annual_curve(seasons[[2]], ndvi_obs = ndvi_normalized , show_kprime = FALSE, show_transitions = TRUE, boot_int = 100, ci = .99) #use example
+
 
 ```
 
