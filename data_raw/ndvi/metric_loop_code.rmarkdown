@@ -82,7 +82,7 @@ normalized_ndvi_extracts %>%
 
 read_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds") %>% 
   filter(across(c(sd_boot_Greenup_doy, sd_boot_Maturity_doy, sd_boot_Senescence_doy, sd_boot_Dormancy_doy), ~ .x <= 7)) %>% 
-  write_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds")
 
 ```
+
 

@@ -40,12 +40,8 @@ anti_join(tree_ldc_metrics_climate, multi_cylce,
   ungroup() %>% 
   select(-flag)%>% 
   mutate(growing_season = Dormancy_doy - Greenup_doy) %>% 
-  write_rds("../data/processed_trees_ndvi_lc_climate.rds")
-
-```
-
-```{r}
-
-names(tree_ldc_metrics_climate)
+  filter(condition %in% c("Fair", "Good", "Excellent"),
+         species_common %in%  c("American Elm", "American Linden", "Augustine Elm", "Common Hackberry", "Eastern Cottonwood", "Green Ash", "Honey Locust", "Littleleaf Linden", "Northern Red Oak", "Plains Cottonwood", "Siberian Elm", "Silver Maple", "Tree of heaven", "Western Catalpa")) #%>% 
+  #write_rds("../data/processed_trees_ndvi_lc_climate.rds")
 
 ```

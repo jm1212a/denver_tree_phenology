@@ -74,7 +74,7 @@ fit_xgboost_model <- function(species_name, pheno_var, climate_predictors, data)
     mutate(UID_numeric = as.numeric(as.factor(UID)))
   
   # Create feature matrix
-  feature_cols <- c(climate_predictors, "tree_mean_pheno", "tree_n_obs", "UID_numeric")
+  feature_cols <- climate_predictors
   X <- as.matrix(xgb_data %>% select(all_of(feature_cols)))
   y <- xgb_data[[pheno_var]]
   
@@ -269,6 +269,11 @@ importance_all %>%
   write_csv("../../../tables/xgb_importance.csv")
   
 
+importance_all %>% 
+  select(-Cover, -Frequency) %>% 
+  pivot_wider(names_from = Feature, values_from = Gain) %>% 
+  mutate(across(where(is.numeric), ~round(.x, 3)))
+
 ```
 
 #5. Predicting Climate Senarios
@@ -296,47 +301,14 @@ predict_climate_scenario <- function(models_list, scenario_data, scenario_name =
       return(NULL)
     }
     
-    # Add tree-level features from training data
-    species_data <- species_data %>%
-      left_join(model_obj$tree_stats, by = "UID", 
-                suffix = c("", "_from_training")) %>%
-      left_join(model_obj$uid_mapping, by = "UID",
-                suffix = c("", "_from_mapping"))
-    
-    # Check if we have new UIDs not in training
-    duplicate_cols <- grep("_from_training$|_from_mapping$", names(species_data), value = TRUE)
-    if (length(duplicate_cols) > 0) {
-      cat("\n  ⚠️  Warning: Duplicate columns detected:", paste(duplicate_cols, collapse = ", "))
-      cat("\n  Keeping scenario values, not training values\n")
-    }
-    
-    if (any(is.na(species_data$UID_numeric))) {
-      # Assign new numeric IDs
-      max_uid <- max(model_obj$uid_mapping$UID_numeric)
-      species_data <- species_data %>%
-        mutate(
-          UID_numeric = ifelse(is.na(UID_numeric), 
-                              max_uid + row_number(), 
-                              UID_numeric)
-        )
-      
-      # For new trees, use species average
-      species_avg <- mean(model_obj$tree_stats$tree_mean_pheno, na.rm = TRUE)
-      species_data <- species_data %>%
-        mutate(
-          tree_mean_pheno = ifelse(is.na(tree_mean_pheno), species_avg, tree_mean_pheno),
-          tree_n_obs = ifelse(is.na(tree_n_obs), 1, tree_n_obs)
-        )
-    }
-    
-    # Check if all required features exist
+    # Check if all required features exist (ONLY climate)
     missing_features <- setdiff(model_obj$feature_cols, names(species_data))
     if (length(missing_features) > 0) {
       cat(" - Missing features:", paste(missing_features, collapse = ", "))
       return(NULL)
     }
     
-    # Create feature matrix
+    # Create feature matrix - climate variables ONLY
     X_new <- as.matrix(species_data %>% select(all_of(model_obj$feature_cols)))
     
     # Predict
@@ -355,9 +327,6 @@ predict_climate_scenario <- function(models_list, scenario_data, scenario_name =
   return(results)
 }
 
-```
-
-```{r}
 
 xgb_models <- readRDS("xgb_models_full.rds")
 
@@ -428,10 +397,6 @@ all_scenario_predictions <- bind_rows(
   predictions_warm_dry
 )
 
-```
-
-```{r}
-
 all_scenario_predictions %>% 
   group_by(species, phenology, scenario) %>% 
   summarise(mean_doy = mean(predicted_doy, na.rm = TRUE),
@@ -464,12 +429,6 @@ summary_table %>%
   left_join(p_values, by = c("species", "phenology")) %>% 
   write_csv("../../../tables/summary_table_climate_senarios")
   
-```
-
-#6. Graphing Climate Senarios
-
-```{r}
-
 all_scenario_predictions %>% 
   mutate(
     phenology = factor(phenology, 
@@ -511,34 +470,16 @@ get_partial_dependence <- function(species_name, phenology_stage, pred_var,
   model_result <- xgb_models[[model_key]]
   model <- model_result$model
   
-  # Prepare data
+  # Prepare data - CLIMATE VARIABLES ONLY
   xgb_data <- data %>%
     filter(species_common == species_name) %>%
-    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
+    select(all_of(c(phenology_stage, climate_vars[[phenology_stage]]))) %>%
     na.omit()
   
-  xgb_data <- xgb_data %>%
-    group_by(UID) %>%
-    mutate(
-      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
-      tree_n_obs = n()
-    ) %>%
-    ungroup() %>%
-    mutate(UID_numeric = as.numeric(as.factor(UID)))
-  
-  feature_cols <- model_result$feature_cols
+  feature_cols <- model_result$feature_cols  # Now just climate_predictors
   train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
   
-  # Find the tree whose tree_mean_pheno is closest to the overall mean
-  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
-  tree_info <- train_data %>%
-    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
-    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
-    arrange(dist_from_mean)
-  
-  typical_tree <- tree_info[1, ]  # Get first row using base R
-  
-  # Temperature range
+  # Create range for the variable to vary
   var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
                    max(train_data[[pred_var]], na.rm = TRUE),
                    length.out = 100)
@@ -551,14 +492,8 @@ get_partial_dependence <- function(species_name, phenology_stage, pred_var,
   for(col in feature_cols) {
     if(col == pred_var) {
       pred_grid[[col]] <- var_range  # Vary only this variable
-    } else if(col == "UID_numeric") {
-      pred_grid[[col]] <- typical_tree$UID_numeric  # Use the typical tree's ID
-    } else if(col == "tree_mean_pheno") {
-      pred_grid[[col]] <- typical_tree$tree_mean_pheno  # Use the typical tree's mean
-    } else if(col == "tree_n_obs") {
-      pred_grid[[col]] <- typical_tree$tree_n_obs  # Use the typical tree's n_obs
     } else {
-      pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)  # Mean for climate vars
+      pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)  # Mean for other climate vars
     }
   }
   
@@ -576,6 +511,7 @@ get_partial_dependence <- function(species_name, phenology_stage, pred_var,
   names(pd_result)[1] <- pred_var
   return(pd_result)
 }
+
 ```
 
 #8. Ploting Individual Dependence Plot
@@ -744,122 +680,6 @@ ggsave("../../../images/partial_depences_climnate_responces.png",
 ```
 
 #10. Partial Dependence Plots - Land Cover Variables
-
-```{r}
-
-get_partial_dependence <- function(species_name, phenology_stage, pred_var, 
-                                   xgb_models, data, climate_vars) {
-  
-  # Get model
-  model_key <- paste0(species_name, "_", phenology_stage)
-  model_result <- xgb_models[[model_key]]
-  model <- model_result$model
-  
-  # Prepare data
-  xgb_data <- data %>%
-    filter(species_common == species_name) %>%
-    select(all_of(c(phenology_stage, "UID", climate_vars[[phenology_stage]]))) %>%
-    na.omit()
-  
-  xgb_data <- xgb_data %>%
-    group_by(UID) %>%
-    mutate(
-      tree_mean_pheno = mean(.data[[phenology_stage]], na.rm = TRUE),
-      tree_n_obs = n()
-    ) %>%
-    ungroup() %>%
-    mutate(UID_numeric = as.numeric(as.factor(UID)))
-  
-  feature_cols <- model_result$feature_cols
-  train_data <- as.data.frame(xgb_data %>% select(all_of(feature_cols)))
-  
-  # Find the tree whose tree_mean_pheno is closest to the overall mean
-  mean_pheno <- mean(train_data$tree_mean_pheno, na.rm = TRUE)
-  tree_info <- train_data %>%
-    distinct(UID_numeric, tree_mean_pheno, tree_n_obs) %>%
-    mutate(dist_from_mean = abs(tree_mean_pheno - mean_pheno)) %>%
-    arrange(dist_from_mean)
-  
-  typical_tree <- tree_info[1, ]
-  
-  # Identify land cover variables
-  land_cover_vars <- c("impervious_90m", "irrigated_90m", "tree_canopy_90m", 
-                       "water_90m", "pervious_90m", "unirrigated_90m")
-  land_cover_vars <- land_cover_vars[land_cover_vars %in% feature_cols]
-  
-  # Variable range
-  var_range <- seq(min(train_data[[pred_var]], na.rm = TRUE),
-                   max(train_data[[pred_var]], na.rm = TRUE),
-                   length.out = 100)
-  
-  # Create prediction grid
-  pred_grid <- data.frame(matrix(ncol = length(feature_cols), nrow = length(var_range)))
-  names(pred_grid) <- feature_cols
-  
-  # Special handling for land cover variables
-  if(pred_var %in% land_cover_vars) {
-    
-    # Get baseline proportions of other land cover types
-    other_lc_vars <- setdiff(land_cover_vars, pred_var)
-    baseline_lc <- sapply(other_lc_vars, function(v) mean(train_data[[v]], na.rm = TRUE))
-    baseline_total <- sum(baseline_lc)
-    
-    # For each value of pred_var, adjust other land covers proportionally
-    for(i in 1:length(var_range)) {
-      pred_val <- var_range[i]
-      remaining_proportion <- 1 - pred_val
-      
-      # Redistribute remaining proportion based on original ratios
-      if(baseline_total > 0) {
-        for(lc_var in other_lc_vars) {
-          pred_grid[[lc_var]][i] <- baseline_lc[lc_var] * (remaining_proportion / baseline_total)
-        }
-      } else {
-        # If baseline total is 0, distribute evenly
-        for(lc_var in other_lc_vars) {
-          pred_grid[[lc_var]][i] <- remaining_proportion / length(other_lc_vars)
-        }
-      }
-      
-      pred_grid[[pred_var]][i] <- pred_val
-    }
-    
-  } else {
-    # For non-land-cover variables, vary only the target variable
-    pred_grid[[pred_var]] <- var_range
-  }
-  
-  # Set all other variables (non-land-cover or those not yet set)
-  for(col in feature_cols) {
-    if(is.na(pred_grid[[col]][1])) {  # If not already set
-      if(col == "UID_numeric") {
-        pred_grid[[col]] <- typical_tree$UID_numeric
-      } else if(col == "tree_mean_pheno") {
-        pred_grid[[col]] <- typical_tree$tree_mean_pheno
-      } else if(col == "tree_n_obs") {
-        pred_grid[[col]] <- typical_tree$tree_n_obs
-      } else {
-        pred_grid[[col]] <- mean(train_data[[col]], na.rm = TRUE)
-      }
-    }
-  }
-  
-  # Make predictions
-  predictions <- predict(model, as.matrix(pred_grid))
-  
-  pd_result <- data.frame(
-    x = var_range,
-    yhat = predictions,
-    species = species_name,
-    phenology = phenology_stage,
-    variable = pred_var
-  )
-  
-  names(pd_result)[1] <- pred_var
-  return(pd_result)
-}
-
-```
 
 ```{r}
 

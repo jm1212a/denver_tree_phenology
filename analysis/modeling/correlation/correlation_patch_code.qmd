@@ -19,6 +19,7 @@ library(ggtext)
 
 read_rds("../../../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
 
+
 ```
 
 ## 2. Organizing Varibles into groupd by phenologica metric
@@ -102,7 +103,7 @@ calc_species_cor <- function(species_name, data){
 }
 
 # Calculate for all species
-map(species_list, ~calc_species_cor(.x, tree_ldc_metrics_climate)) %>% 
+map(species_list, ~calc_species_cor(.x, tree_ldc_metrics_climate )) %>% 
   compact() %>%
   reduce(full_join, by = c("pheno_var", "climate_var")) -> all_cors
 
