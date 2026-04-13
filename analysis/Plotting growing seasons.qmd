@@ -1,0 +1,95 @@
+---
+title: "Plotting species growing seasons"
+format: html
+editor: visual
+---
+
+```{r}
+
+library(tidyverse)
+
+
+```
+
+```{r}
+
+read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+
+```
+
+```{r}
+
+elmore_curve <- function(m1 = 0.15, m2 = 0.75, m3, m4, m5, m6, m7 = 0, t) {
+  m1 + (m2 - m7 * t) * ((1/(1+exp((m3-t)/m4))) - (1/(1+exp((m5-t)/m6))))
+}
+
+
+tree_ldc_metrics_climate %>% 
+    filter(year < 2025, 
+           condition %in% c("Fair", "Good", "Excellent")) %>%  
+  group_by(species_common, year) %>% 
+  summarise(across(Greenup_doy:Peak_NDVI_doy, ~ mean(.x, na.rm = TRUE))) %>% 
+  rowwise() %>% 
+  mutate(est = list(tibble(doy = 1:365,
+                           ndvi = elmore_curve(m3 = Greenup_doy,
+                                               m4 = (Maturity_doy - Greenup_doy) / 4.4,
+                                               m5 = Senescence_doy,
+                                               m6 = (Dormancy_doy - Senescence_doy) / 4.4,
+                                               t = 1:365)))) %>% 
+  unnest(est) -> species_est
+
+tree_ldc_metrics_climate %>%
+    filter(year < 2025, 
+           condition %in% c("Fair", "Good", "Excellent")) %>% 
+  group_by(year) %>%
+  summarise(across(Greenup_doy:Peak_NDVI_doy,
+                   ~ mean(.x, na.rm = TRUE),
+                   .names = "year_{.col}")) %>% 
+  rowwise() %>% 
+  mutate(est = list(tibble(doy = 1:365,
+                           ndvi = elmore_curve(m3 = year_Greenup_doy,
+                                               m4 = (year_Maturity_doy - year_Greenup_doy) / 4.4,
+                                               m5 = year_Senescence_doy,
+                                               m6 = (year_Dormancy_doy - year_Senescence_doy) / 4.4,
+                                               t = 1:365)))) %>% 
+  unnest(est) %>% 
+  rename_with(~ str_remove(.x, "^year_")) %>%
+  mutate(species_common = "average") -> year_est
+
+bind_rows(year_est, species_est) %>% 
+  filter(species_common != "average") %>% 
+  ggplot(aes(x = doy, y = ndvi, color = species_common)) +
+  geom_line(data = year_est 
+            %>% select(-species_common), 
+            color = "black", linewidth = 1, linetype = "dashed") +
+  geom_line() +
+  coord_cartesian(xlim = c(50, 325))+
+  facet_grid(species_common ~ year)+
+  theme_classic()+
+  theme(legend.position = "none",
+        strip.text.y = element_text(angle = 0))
+
+```
+
+```{r}
+
+bind_rows(year_est, species_est) %>% 
+  filter(species_common != "average") %>% 
+  ggplot(aes(x = doy, y = ndvi, color = species_common)) +
+  geom_line(data = year_est 
+            %>% select(-species_common), 
+            color = "black", linewidth = 1, linetype = "dashed") +
+  geom_line() +
+  coord_cartesian(xlim = c(50, 325))+
+  facet_grid(species_common ~ year)+
+  theme_classic()+
+  theme(legend.position = "none",
+        strip.text.y = element_text(angle = 0))
+
+
+```
+
+
+
+
+
