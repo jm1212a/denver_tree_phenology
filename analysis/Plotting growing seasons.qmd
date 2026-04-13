@@ -8,12 +8,13 @@ editor: visual
 
 library(tidyverse)
 
-
 ```
 
 ```{r}
 
-read_rds("../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
+read_rds("../data/processed_trees_ndvi_lc_climate.rds")%>%
+    filter(year < 2025, 
+           condition %in% c("Fair", "Good", "Excellent"))  -> tree_ldc_metrics_climate 
 
 ```
 
@@ -25,8 +26,6 @@ elmore_curve <- function(m1 = 0.15, m2 = 0.75, m3, m4, m5, m6, m7 = 0, t) {
 
 
 tree_ldc_metrics_climate %>% 
-    filter(year < 2025, 
-           condition %in% c("Fair", "Good", "Excellent")) %>%  
   group_by(species_common, year) %>% 
   summarise(across(Greenup_doy:Peak_NDVI_doy, ~ mean(.x, na.rm = TRUE))) %>% 
   rowwise() %>% 
@@ -39,8 +38,6 @@ tree_ldc_metrics_climate %>%
   unnest(est) -> species_est
 
 tree_ldc_metrics_climate %>%
-    filter(year < 2025, 
-           condition %in% c("Fair", "Good", "Excellent")) %>% 
   group_by(year) %>%
   summarise(across(Greenup_doy:Peak_NDVI_doy,
                    ~ mean(.x, na.rm = TRUE),
@@ -73,22 +70,29 @@ bind_rows(year_est, species_est) %>%
 
 ```{r}
 
-bind_rows(year_est, species_est) %>% 
-  filter(species_common != "average") %>% 
-  ggplot(aes(x = doy, y = ndvi, color = species_common)) +
-  geom_line(data = year_est 
-            %>% select(-species_common), 
-            color = "black", linewidth = 1, linetype = "dashed") +
-  geom_line() +
-  coord_cartesian(xlim = c(50, 325))+
-  facet_grid(species_common ~ year)+
-  theme_classic()+
-  theme(legend.position = "none",
-        strip.text.y = element_text(angle = 0))
-
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(y = species_common, x = Dormancy_doy)) +
+  geom_violin(draw_quantiles = 0.5) +
+  geom_vline(data = tree_ldc_metrics_climate %>% 
+               group_by(year) %>% 
+               summarise(median = median(Dormancy_doy, na.rm = TRUE)),
+             aes(xintercept = median), color = "red", linewidth = .5, linetype = "dashed") +
+  facet_grid(~ year)
 
 ```
 
+```{r}
+
+tree_ldc_metrics_climate %>% 
+  select(year, species_common, Greenup_doy:Peak_NDVI_doy) %>% 
+  pivot_longer(cols = Greenup_doy:Peak_NDVI_doy, names_to = "pheno_metric", values_to = "doy") %>% 
+  filter(pheno_metric %in% c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy")) %>% 
+  ggplot(aes(y = pheno_metric, x = doy, fill = species_common)) +
+  geom_violin(draw_quantiles = 0.5) +
+  facet_grid(~ year)
+  
+
+```
 
 
 
