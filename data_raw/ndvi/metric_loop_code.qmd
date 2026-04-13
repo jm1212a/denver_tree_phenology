@@ -49,7 +49,6 @@ loess_overall <- loess(ndvi ~ doy, data = spline_sample, span = 0.3)  # <- was d
 loess_ps2 <- loess(ndvi ~ doy, data = filter(spline_sample, sensor_gen == "PS2.SD"), span = 0.3)
 loess_psb <- loess(ndvi ~ doy, data = filter(spline_sample, sensor_gen == "PSB.SD"), span = 0.3)
 
-# Step 3: build DOY lookup table — 365 predictions instead of 17M
 tibble(doy = 1:366) %>%
   mutate(fitted_overall = predict(loess_overall, newdata = data.frame(doy = doy)),
     fitted_ps2 = predict(loess_ps2, newdata = data.frame(doy = doy)),
@@ -72,17 +71,9 @@ normalized_ndvi_extracts %>%
        .progress = TRUE ) %>% 
   filter(R2 >= .90) %>% 
   filter(across(c(Greenup_doy, Maturity_doy, Senescence_doy, Dormancy_doy), ~ !is.na(.x))) %>% 
-  write_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds")
-
-```
-
-
-
-```{r}
-
-read_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds") %>% 
   filter(across(c(sd_boot_Greenup_doy, sd_boot_Maturity_doy, sd_boot_Senescence_doy, sd_boot_Dormancy_doy), ~ .x <= 7)) %>% 
   write_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds")
 
 ```
+
 

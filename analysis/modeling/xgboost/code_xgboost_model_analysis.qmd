@@ -20,6 +20,9 @@ library(caret)
 
 read_rds("../../../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
 
+
+names(tree_ldc_metrics_climate )
+
 ```
 
 # 2. Organizing Varibles into groupd by phenologica metric
@@ -226,6 +229,76 @@ importance_all <- map_df(names(xgb_results), function(model_name) {
 })
 
 ```
+
+```{r}
+
+ map_df(names(xgb_results), function(model_name) {
+  x <- xgb_results[[model_name]]
+  data.frame(
+    residuals = x$cv_errors,
+    predictions = x$cv_predictions,
+    actual = x$cv_actuals,
+    species = x$species,
+    phenology = x$phenology
+  )
+}) %>%
+  ggplot(aes(x = predictions, y = residuals)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  facet_wrap(~phenology) +
+  theme_minimal()
+
+map_df(names(xgb_results), function(model_name) {
+  x <- xgb_results[[model_name]]
+  
+  # CV error
+  cv_rmse <- x$cv_rmse
+  
+  # Training error (fit on all data)
+  train_error <- sqrt(mean((x$cv_actuals - x$cv_predictions)^2))
+  
+  data.frame(
+    model = model_name,
+    species = x$species,
+    phenology = x$phenology,
+    cv_rmse = cv_rmse,
+    train_rmse = train_error,
+    overfit_ratio = cv_rmse / train_error  # Should be close to 1.0
+  )
+}) %>%
+  arrange(desc(overfit_ratio))
+
+species_test <- "Green Ash"
+pheno_test <- "Greenup_doy"
+
+xgb_data <- tree_ldc_metrics_climate %>%
+  filter(species_common == species_test) %>%
+  select(all_of(c(pheno_test, climate_vars[[pheno_test]]))) %>%
+  na.omit()
+
+X <- as.matrix(xgb_data %>% select(all_of(climate_vars[[pheno_test]])))
+y <- xgb_data[[pheno_test]]
+
+# Fit with early stopping
+dtrain <- xgb.DMatrix(data = X, label = y)
+
+xgb_cv <- xgb.cv(
+  data = dtrain,
+  nrounds = 500,
+  nfold = 10,
+  objective = "reg:squarederror",
+  max_depth = 4,
+  eta = 0.01,
+  early_stopping_rounds = 20,
+  verbose = 0
+)
+
+# Check at which round error plateaus
+head(xgb_cv$evaluation_log, 20)
+tail(xgb_cv$evaluation_log, 20)
+
+```
+
 
 # 4. Summary Stats Tables
 
