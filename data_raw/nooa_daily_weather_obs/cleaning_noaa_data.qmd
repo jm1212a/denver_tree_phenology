@@ -17,7 +17,6 @@ source("./helper_functions/read_and_clean.R")
 ```
 
 ```{r}
-
 read_fwf("./raw_data_sets/ghcnd-stations.txt", 
          col_positions = fwf_widths(c(11, 10, 10, 10, 100))) %>% 
   rename(station_id = X1, latitude = X2, longitude = X3, elevation_state = X4, Name = X5) %>% 
@@ -44,6 +43,11 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
          snow = SNOW,
          snwd = SNWD)-> climate_data
 
+```
+
+
+
+```{r}
 climate_data %>%
   filter((month %in% c(1, 2, 12))) %>%
   mutate(winter_year = ifelse(month == 12, year + 1, year)) %>%
@@ -411,7 +415,6 @@ list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
 
 ```
 
-
 ```{r}
 
 read_fwf("./raw_data_sets/ghcnd-stations.txt", 
@@ -441,4 +444,3 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
          snwd = SNWD)-> climate_data
 
 ```
-

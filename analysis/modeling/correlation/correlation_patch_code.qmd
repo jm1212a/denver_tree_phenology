@@ -19,29 +19,27 @@ library(ggtext)
 
 read_rds("../../../data/processed_trees_ndvi_lc_climate.rds") -> tree_ldc_metrics_climate 
 
-
 ```
 
 ## 2. Organizing Varibles into groupd by phenologica metric
 
 ```{r}
-
 tree_ldc_metrics_climate %>%
-  group_by(species_common, leaf_persistence) %>%
+  group_by(species_common, species_sci, leaf_persistence) %>%
   summarize(n = length(unique(UID))) %>% 
   filter(n > 50) %>% 
+  arrange(species_sci) %>% 
   pull(1) -> species_list
 
-pheno_vars <- c("Greenup_doy", "Maturity_doy", 
-                "Senescence_doy", "Dormancy_doy")
+pheno_vars <- c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy")
 
-# Define climate variables (same as before)
-climate_vars <- list(
-  Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","late_winter_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
-  Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax","late_spring_prcp_days", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"), 
-  Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp", "late_summer_mean_tmax", "late_summer_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m"),
-  Dormancy_doy = c("fall_cumulative_prcp", "fall_prcp_days", "fall_mean_tmax", "late_fall_temp", "impervious_90m", "irrigated_90m", "unirrigated_90m", "tree_canopy_90m", "water_90m")
-)
+# # Define climate variables (same as before)
+# climate_vars <- list(
+#   Greenup_doy = c("late_winter_temp", "late_winter_prcp", "late_winter_mean_tmax","late_winter_prcp_days"),
+#   Maturity_doy = c("late_spring_temp", "spring_prcp", "late_spring_mean_tmax","late_spring_prcp_days"), 
+#   Senescence_doy = c("late_summer_prcp", "late_summer_prcp_days", "early_fall_mean_tmax", "early_fall_temp", "late_summer_mean_tmax", "late_summer_temp"),
+#   Dormancy_doy = c("fall_cumulative_prcp", "fall_prcp_days", "fall_mean_tmax", "late_fall_temp")
+# )
 
 ```
 
@@ -49,43 +47,56 @@ climate_vars <- list(
 
 ```{r}
 
-# Updated phenology variables to match your labels
-pheno_vars <- c("Greenup_doy", 
-                "Senescence_doy", "Dormancy_doy", "Maturity_doy")
-
 # Use only existing climate variables
 greenup_climate <- c(
-  "winter_temp", "winter_mean_tmax", "winter_prcp", "winter_prcp_days",
-  "late_winter_temp", "late_winter_mean_tmax", "late_winter_prcp", "late_winter_prcp_days",
-  "early_spring_temp", "early_spring_mean_tmax", "early_spring_prcp", "early_spring_prcp_days",
+  # Temperature
+  "winter_temp", "winter_mean_tmax",
+  "late_winter_temp", "late_winter_mean_tmax",
+  "early_spring_temp", "early_spring_mean_tmax",
+  # Precipitation
+  "winter_prcp", "winter_prcp_days","late_winter_prcp", "late_winter_prcp_days",
+  "early_spring_prcp", "early_spring_prcp_days",
   "later_winter_cumulative_prcp", "early_spring_cumulative_prcp"
 )
 
 maturity_climate <- c(
-  "spring_temp", "spring_mean_tmax", "spring_prcp", "spring_prcp_days",
-  "late_spring_temp", "late_spring_mean_tmax", "late_spring_prcp", "late_spring_prcp_days",
+  # Temperature
+  "spring_temp", "spring_mean_tmax","late_spring_temp", "late_spring_mean_tmax",
+  # Precipitation
+  "spring_prcp", "spring_prcp_days","late_spring_prcp", "late_spring_prcp_days",
   "spring_prcp_cumulative_prcp", "late_spring_cumulative_prcp"
 )
 
 senescence_climate <- c(
-  "summer_temp", "summer_mean_tmax", "summer_prcp", "summer_prcp_days",
-  "late_summer_temp", "late_summer_mean_tmax", "late_summer_prcp", "late_summer_prcp_days",
-  "early_fall_temp", "early_fall_mean_tmax", "early_fall_prcp", "early_fall_prcp_days",
-  "summer_cumulative_prcp", "late_summer_cumulative_prcp", "early_fall_cumulative_prcp"
+  # Temperature
+  "summer_temp", "summer_mean_tmax","late_summer_temp", "late_summer_mean_tmax",
+  "early_fall_temp", "early_fall_mean_tmax",
+  # Precipitation
+  "summer_prcp", "summer_prcp_days",
+  "late_summer_prcp", "late_summer_prcp_days","early_fall_prcp", 
+  "early_fall_prcp_days","summer_cumulative_prcp", "late_summer_cumulative_prcp", 
+  "early_fall_cumulative_prcp"
 )
 
 dormancy_climate <- c(
-  "fall_temp", "fall_mean_tmax", "fall_prcp", "fall_prcp_days",
-  "late_fall_temp", "late_fall_prcp", "late_fall_prcp_days",
+  # Temperature
+  "fall_temp", "fall_mean_tmax","late_fall_temp",
+  # Precipitation
+  "fall_prcp", "fall_prcp_days","late_fall_prcp", "late_fall_prcp_days",
   "fall_cumulative_prcp", "late_fall_cumulative_prcp"
 )
+
+climate_var_levels <- c(greenup_climate, maturity_climate, senescence_climate,
+                        dormancy_climate,"Species absolute mean", "Species SD")
 
 all_climate_vars <- unique(c(greenup_climate, maturity_climate, senescence_climate, 
                              dormancy_climate))
 
 calc_species_cor <- function(species_name, data){
   data %>% 
-    filter(year < 2025, species_common == species_name) %>% 
+    filter(year < 2025, 
+           species_common == species_name,
+           condition %in% c("Fair", "Good", "Excellent")) %>% 
     select(all_of(c(pheno_vars, all_climate_vars))) %>% 
     cor(use = "pairwise.complete.obs") %>% 
     as.data.frame() %>% 
@@ -206,6 +217,8 @@ all_cors %>%
   )) %>%
   mutate(pheno_var = factor(pheno_var, 
                             levels = c("Green-up", "Maturity", "Senescence", "Dormancy", "Total"))) %>%
+  mutate(climate_var = factor(climate_var, levels = rev(climate_var_levels))) %>%
+  mutate(species = factor(species, levels = c(species_list, "Mean"))) %>% 
   ggplot(aes(x = species, y = climate_var, fill = correlation)) +
   geom_tile(color = "white", linewidth = 0.5) +
   geom_text(aes(label = sprintf("%.2f", correlation)), size = 3.5) +
@@ -226,3 +239,5 @@ ggsave("../../../images/phenology_climate_correlations.png",
        width = 16, height = 17, units = "in", dpi = 300)
 
 ```
+
+
