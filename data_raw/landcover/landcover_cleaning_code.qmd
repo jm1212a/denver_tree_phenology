@@ -20,11 +20,11 @@ read.csv("./raw_extracts/lc_fracs_by_circle_FULL.csv") %>%
          barren_rock = class_7,
          cropland = class_8,
          scrubland = class_9) %>% 
-  mutate(unirrigated_90m = rowSums(across(c(prairie_grassland, scrubland)), 
+  mutate(unirrigated_90m = rowSums(across(c(prairie_grassland, scrubland, barren_rock)), 
                                na.rm = TRUE),
          irrigated_90m = rowSums(across(c(cropland, irrigated_land)), 
                              na.rm = TRUE),
-         impervious_90m = rowSums(across(c(structures, impervious_surfaces, barren_rock)), 
+         impervious_90m = rowSums(across(c(impervious_surfaces, structures)), 
                               na.rm = TRUE),
          pervious_90m = rowSums(across(c(prairie_grassland, scrubland, cropland, irrigated_land, tree_canopy_90m)), 
                               na.rm = TRUE)) %>% 
@@ -61,11 +61,4 @@ read_rds("./cleaned_data/land_cover.rds")
 
 ```
 
-```{r}
 
-summary(lc_90$impervious_90m)
-
-lc_90 %>% 
-  slice_max(impervious_90m, n = 1)
-
-```

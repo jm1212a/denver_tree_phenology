@@ -71,19 +71,6 @@ bind_rows(year_est, species_est) %>%
 ```{r}
 
 tree_ldc_metrics_climate %>% 
-  ggplot(aes(y = species_common, x = Dormancy_doy)) +
-  geom_violin(draw_quantiles = 0.5) +
-  geom_vline(data = tree_ldc_metrics_climate %>% 
-               group_by(year) %>% 
-               summarise(median = median(Dormancy_doy, na.rm = TRUE)),
-             aes(xintercept = median), color = "red", linewidth = .5, linetype = "dashed") +
-  facet_grid(~ year)
-
-```
-
-```{r}
-
-tree_ldc_metrics_climate %>% 
   select(year, species_common, Greenup_doy:Peak_NDVI_doy) %>% 
   pivot_longer(cols = Greenup_doy:Peak_NDVI_doy, names_to = "pheno_metric", values_to = "doy") %>% 
   filter(pheno_metric %in% c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy")) %>% 
@@ -91,8 +78,39 @@ tree_ldc_metrics_climate %>%
   geom_violin(draw_quantiles = 0.5) +
   facet_grid(~ year)
   
+```
+
+# Violin Plots
+
+```{r}
+
+pheno_metrics <- c("Greenup_doy", "Maturity_doy", "Senescence_doy", "Dormancy_doy")
+
+species_year_violins_plots <- function(pheno_metric){
+  tree_ldc_metrics_climate %>% 
+    ggplot(aes(y = species_common, x = .data[[pheno_metric]])) +
+    geom_violin(draw_quantiles = 0.5) +
+    geom_vline(data = tree_ldc_metrics_climate %>% 
+               group_by(year) %>% 
+               summarise(median = median(.data[[pheno_metric]], na.rm = TRUE)),
+             aes(xintercept = median), color = "red", linewidth = .5, 
+             linetype = "dashed") +
+    facet_grid(~ year)+
+    theme_clean()
+  }
+
+map(pheno_metrics, species_year_violins_plots)
 
 ```
+
+```{r}
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_90m, y = Greenup_doy))+
+  geom_point()
+
+```
+
 
 
 
