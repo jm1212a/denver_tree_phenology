@@ -45,6 +45,47 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
 
 ```
 
+```{r}
+ 
+season_metric_months <- function(data, mon, years, growing_days_threshold = 10){
+  
+  data %>%
+    filter(year >= years[1] & year <= years[2]) %>%
+    group_by(year) %>%
+    summarise(!!paste0("cumulative_prcp_", month.abb[mon]) := sum(prcp[month %in% seq(1, mon)], na.rm = TRUE),
+              !!paste0("cumulative_growing_days_", month.abb[mon]) := sum(tmax[month %in% seq(1, mon)] >= growing_days_threshold, 
+                                                                          na.rm = TRUE),
+              !!paste0("cumulative_above_freezing_days_", month.abb[mon]) := sum(tmin[month %in% seq(1, mon)] > 0, 
+                                                                                 na.rm = TRUE)) -> cumula_data
+  
+  data %>%
+    filter(month %in% mon,
+           year >= years[1] & year <= years[2]) %>%
+    group_by(year) %>%
+    summarise(!!paste0("prcp_", month.abb[mon]) := sum(prcp, na.rm = TRUE),
+            !!paste0("prcp_days_", month.abb[mon]) := sum(prcp != 0, na.rm = TRUE),
+            !!paste0("winter_temp_", month.abb[mon]) := mean(mean_temp, na.rm = TRUE),
+            !!paste0("winter_mean_tmax_", month.abb[mon]) := mean(tmax, na.rm = TRUE),
+            !!paste0("growing_days_", month.abb[mon]) := sum(tmax >= growing_days_threshold, na.rm = TRUE),
+            !!paste0("above_freezing_days_", month.abb[mon]) := sum(tmin > 0, na.rm = TRUE)) %>%
+    left_join(cumula_data, by = "year") #%>% 
+    #mutate(year = as.character(year))
+  }
+
+seq(1, 12) %>% 
+  map(~season_metric_months(climate_data, mon = .x, years = c(2017,2024))) %>%
+  reduce(full_join, by = "year") %>% 
+  write_csv("./climate_variables/climate_variables_monthly.csv")
+
+```
+
+
+```{r}
+
+climate_data %>% 
+  mutate( week = week(date))
+
+```
 
 
 ```{r}
@@ -415,32 +456,3 @@ list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
 
 ```
 
-```{r}
-
-read_fwf("./raw_data_sets/ghcnd-stations.txt", 
-         col_positions = fwf_widths(c(11, 10, 10, 10, 100))) %>% 
-  rename(station_id = X1, latitude = X2, longitude = X3, elevation_state = X4, Name = X5) %>% 
-  filter( station_id %in% c("USW00023062", "USC00052223")) %>% 
-  mutate(elevation = str_extract(elevation_state, "-?\\d+")) %>% 
-  mutate(state = str_extract(elevation_state, "[:upper:]+")) %>% 
-  mutate(elevation = case_when(
-    elevation == 999 | elevation == -999 ~ NA,  
-    TRUE ~ elevation)) %>% 
-  mutate(elevation = as.double(elevation)) %>%
-  select(-elevation_state) %>% 
-  right_join(read_and_clean("./raw_data_sets/USW00023062.dly"), 
-             by = "station_id")%>% 
-  mutate(year = year(date)) %>% 
-  filter(year >= 1970 & year <= 2025 ) %>% 
-  group_by(year, date, station_id) %>% 
-  mutate(
-    mean_temp = mean((TMAX + TMIN) / 2, na.rm = TRUE),
-    month = month(date),
-    day = day(date)) %>% 
-  rename(tmax = TMAX,
-         tmin = TMIN,
-         prcp = PRCP,
-         snow = SNOW,
-         snwd = SNWD)-> climate_data
-
-```
