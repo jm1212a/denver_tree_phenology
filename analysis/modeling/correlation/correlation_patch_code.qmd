@@ -239,5 +239,3 @@ ggsave("../../../images/phenology_climate_correlations.png",
        width = 16, height = 17, units = "in", dpi = 300)
 
 ```
-
-

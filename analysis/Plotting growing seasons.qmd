@@ -60,9 +60,9 @@ bind_rows(year_est, species_est) %>%
             %>% select(-species_common), 
             color = "black", linewidth = 1, linetype = "dashed") +
   geom_line() +
-  coord_cartesian(xlim = c(50, 325))+
+  coord_cartesian(xlim = c(225, 325))+
   facet_grid(species_common ~ year)+
-  theme_classic()+
+  #theme_classic()+
   theme(legend.position = "none",
         strip.text.y = element_text(angle = 0))
 
@@ -95,19 +95,56 @@ species_year_violins_plots <- function(pheno_metric){
                summarise(median = median(.data[[pheno_metric]], na.rm = TRUE)),
              aes(xintercept = median), color = "red", linewidth = .5, 
              linetype = "dashed") +
-    facet_grid(~ year)+
-    theme_clean()
+    facet_grid(~ year)
   }
 
-map(pheno_metrics, species_year_violins_plots)
+
+species_year_violins_plots("Greenup_doy")
+
+#map(pheno_metrics, species_year_violins_plots)
 
 ```
 
 ```{r}
 
 tree_ldc_metrics_climate %>% 
-  ggplot(aes(x = impervious_90m, y = Greenup_doy))+
-  geom_point()
+  ggplot(aes(x = impervious_30_90m, y = Greenup_doy, color = species_common))+
+  geom_boxplot()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30_90m, y = Maturity_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30_90m, y = Senescence_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30_90m, y = Dormancy_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30m, y = Greenup_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30m, y = Maturity_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30m, y = Senescence_doy))+
+  geom_point()+
+  geom_smooth()
+
+tree_ldc_metrics_climate %>% 
+  ggplot(aes(x = impervious_30m, y = Dormancy_doy))+
+  geom_point()+
+  geom_smooth()
 
 ```
 

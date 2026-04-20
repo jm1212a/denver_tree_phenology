@@ -75,5 +75,3 @@ normalized_ndvi_extracts %>%
   write_rds("./pheno_curve_metrics/extracted_metrics_2.0.rds")
 
 ```
-
-

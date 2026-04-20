@@ -7,6 +7,7 @@ editor: visual
 ```{r}
 
 library(tidyverse)
+source("../../R/fix_hex_id.R")
 
 ```
 
@@ -83,6 +84,7 @@ extracts_sensor_gen %>%
   theme(legend.position = "none")
 
 extracts_sensor_gen %>% 
+  filter(year(im_date) == 201) %>% 
   slice_sample(n = 50000) %>% 
   ggplot(aes(x = month, y = ndvi, fill = sensor_gen)) +
   geom_boxplot(outlier.alpha = 0.05, outlier.size = 0.3) +
@@ -111,3 +113,8 @@ extracts_sensor_gen %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+
+
+
+
+

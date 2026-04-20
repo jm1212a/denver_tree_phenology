@@ -299,7 +299,6 @@ tail(xgb_cv$evaluation_log, 20)
 
 ```
 
-
 # 4. Summary Stats Tables
 
 ```{r}
