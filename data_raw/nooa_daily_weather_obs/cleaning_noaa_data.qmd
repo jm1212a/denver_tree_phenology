@@ -112,7 +112,24 @@ climate_data %>%
 
 seq(2,52, by = 2) %>% 
   map(~season_metric_weeks(climate_data, .x, 2, years = c(2018,2024))) %>% 
-  reduce(full_join, by = "year")
+  reduce(full_join, by = "year") %>% 
+  write_csv("./climate_variables/climate_variables_bi-weekly.csv")
+
+```
+
+
+```{r}
+
+climate_data %>% 
+  mutate(doy = yday(date),
+         growing_days = tmax >= 10,
+         above_freezing_days = tmin > 0,
+         prcp_day = prcp > 0) %>% 
+  group_by(year) %>%
+  mutate(cumulative_growing_days = cumsum(growing_days),
+         cumulative_above_freezing_days = cumsum(above_freezing_days),
+         cumulative_prcp_day = cumsum(prcp_day)) %>% 
+  write_csv("./climate_variables/climate_variables_doy.csv")
 
 ```
 
