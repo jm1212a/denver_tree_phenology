@@ -1,0 +1,28 @@
+---
+title: "geom_contour"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+
+```
+
+
+```{r}
+
+read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_doy.csv") 
+
+read_rds("../data_raw/ndvi/pheno_curve_metrics/extracted_metrics_2.0.rds")[, 1:14] %>% 
+  left_join(st_drop_geometry(st_read("../data_raw/denver_tree/denver_trees_sample.geojson")) %>% 
+              mutate(UID = as.character(row_number())), by = "UID") %>% 
+  pivot_longer(cols = ends_with("doy"), names_to = "metric_type", values_to = "doy") %>% 
+  mutate(date = as_date(doy-1, origin = paste0(season,"-01-01"))) %>% 
+  left_join(read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_doy.csv"),
+            by = "date") 
+
+```
+
+
