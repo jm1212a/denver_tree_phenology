@@ -7,22 +7,227 @@ editor: visual
 ```{r}
 library(tidyverse)
 library(sf)
+library(lmtest)
+library(sandwich)
+library(car)
+library(nlme)
+library(lmerTest)
+library(DHARMa)
+library(performance)
 
 ```
-
 
 ```{r}
 
-read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_doy.csv") 
-
 read_rds("../data_raw/ndvi/pheno_curve_metrics/extracted_metrics_2.0.rds")[, 1:14] %>% 
   left_join(st_drop_geometry(st_read("../data_raw/denver_tree/denver_trees_sample.geojson")) %>% 
-              mutate(UID = as.character(row_number())), by = "UID") %>% 
-  pivot_longer(cols = ends_with("doy"), names_to = "metric_type", values_to = "doy") %>% 
-  mutate(date = as_date(doy-1, origin = paste0(season,"-01-01"))) %>% 
+              mutate(UID = as.character(row_number())), by = "UID") %>%
+  mutate(Greenup_doy = case_when(Greenup_doy > mean(Greenup_doy) + sd(Greenup_doy)*3 |           
+                                   Greenup_doy < mean(Greenup_doy) - sd(Greenup_doy)*3 ~ NA,
+                                 .default = Greenup_doy)) %>% 
+pivot_longer(cols = ends_with("doy"), names_to = "metric_type", values_to = "doy") %>%
+  mutate(date = as_date(doy-1, origin = paste0(season,"-01-01"))) %>%
   left_join(read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_doy.csv"),
-            by = "date") 
+            by = "date") %>%
+  filter(species_common != "Augustine Elm",
+         species_botanic != "Pinus nigra",
+         species_botanic != "Pinus ponderosa") %>% 
+  left_join(read_rds("../data_raw/landcover/cleaned_data/land_cover.rds"), 
+            by = "UID") -> modeling_data
+
+modeling_data %>% 
+  left_join(read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_monthly.csv"), by = "year") %>% 
+  left_join(read_csv("../data_raw/nooa_daily_weather_obs/climate_variables/climate_variables_bi-weekly.csv"), by = "year") -> modeling_data
+
+
 
 ```
+
+```{r}
+
+modeling_data %>% 
+  arrange(year, doy) -> modeling_data
+
+modeling_data %>% 
+  group_by(species_common) %>% 
+  summarise(n = n()) %>% 
+  arrange()
+
+hist(modeling_data$doy[modeling_data$metric_type == "Greenup_doy"],
+     breaks = 50,
+     col = "steelblue")
+
+hist(modeling_data$impervious_90m[modeling_data$metric_type == "Greenup_doy"],
+     breaks = 50,
+     col = "steelblue")
+
+hist(modeling_data$temp_ma14[modeling_data$metric_type == "Greenup_doy"],
+     breaks = 20,
+     col = "steelblue")
+
+hist(modeling_data$cum_prcp[modeling_data$metric_type == "Greenup_doy"],
+     breaks = 20,
+     col = "steelblue")
+
+```
+
+```{r}
+
+
+model <- lm(doy ~ species_sci + impervious_90m, 
+                    data = modeling_data[modeling_data$metric_type == "Dormancy_doy", ])
+
+summary(model)
+
+```
+
+```{r}
+
+
+
+# 1.Failed, but fixed with error removal
+shapiro.test(residuals(model)[sample.int(nrow(modeling_data), 5000)])
+
+qqnorm(residuals(model)); qqline(residuals(model))
+
+# 2. Failed, Heteroskedasticity present 
+bptest(model)                 
+ncvTest(model)                 
+
+coeftest(model, vcov = vcovHC(model, type = "HC3"))
+
+# 3. Failed, Autocorrelation of residuals present
+dwtest(model)                 
+
+# 4. Passed, No Multicollinearity 
+vif(model)
+
+```
+
+```{r}
+
+modeling_data <- modeling_data |>
+  mutate(
+    temp_Apr_z = scale(temp_Apr) |> as.numeric(),
+    prcp_Apr_z = scale(cumulative_prcp_Apr) |> as.numeric()
+  )
+
+lmer(doy ~ species_sci + temp_ma14 + cum_prcp + temp_ma14*cum_prcp +  impervious_90m +  (1 |  UID),
+     data = modeling_data[modeling_data$metric_type == "Greenup_doy", ]) 
+
+
+```
+
+```{r}
+
+library(cvms)
+library(groupdata2)
+
+modeling_data[modeling_data$metric_type == "Greenup_doy", ] %>% 
+  mutate(UID = as.factor(UID)) -> CV_DATA
+
+df_folded <- fold(CV_DATA, k = 10, id_col = "UID")
+
+cross_validate(data = df_folded, 
+               formulas = "doy ~ species_sci + temp_ma14 + cum_prcp + temp_ma14*cum_prcp +  impervious_90m +  (1 |  UID) + (1 |  year)",
+               fold_cols = ".folds",
+               family = "gaussian",
+               REML = TRUE)
+
+```
+
+```{r}
+
+modeling_data %>% 
+  filter(metric_type == "Greenup_doy") %>% 
+  slice_sample(n=10000) %>% 
+  ggplot(aes( y = doy, x = prcp_diff_ave, color = species_common))+
+  geom_point()
+
+
+modeling_data %>% 
+  group_by(species_sci, botanic_common) %>% 
+  summarise(n = n())
+
+```
+
+```{r}
+
+modeling_data[modeling_data$metric_type == "Senescence_doy", ]
+
+```
+
+```{r}
+
+library(tidymodels)
+library(xgboost)
+
+# Setup
+set.seed(42)
+
+# Function to run XGBoost for each metric type
+run_xgb <- function(metric) {
+  
+  df <- modeling_data |>
+    filter(metric_type == metric) |>
+    select(doy, species_sci, temp_ma14, cum_prcp, impervious_90m) |>
+    drop_na() |>
+    mutate(species_sci = as.factor(species_sci))
+  
+  # Split
+  split <- initial_split(df, prop = 0.8)
+  train <- training(split)
+  test  <- testing(split)
+  
+  # Recipe
+  rec <- recipe(doy ~ ., data = train) |>
+    step_dummy(species_sci)
+  
+  # Model spec
+  spec <- boost_tree(
+    trees = 500,
+    tree_depth = 6,
+    learn_rate = 0.05,
+    loss_reduction = 0.01,
+    min_n = 10
+  ) |>
+    set_engine("xgboost") |>
+    set_mode("regression")
+  
+  # Workflow
+  wf <- workflow() |>
+    add_recipe(rec) |>
+    add_model(spec)
+  
+  # Fit
+  fit <- wf |> fit(data = train)
+  
+  # Evaluate
+  preds <- predict(fit, test) |>
+    bind_cols(test)
+  
+  metrics <- preds |>
+    metrics(truth = doy, estimate = .pred)
+  
+  list(fit = fit, metrics = metrics, predictions = preds)
+}
+
+# Run for each phenophase
+greenup_xgb    <- run_xgb("Greenup_doy")
+maturity_xgb   <- run_xgb("Maturity_doy")
+senescence_xgb <- run_xgb("Senescence_doy")
+dormancy_xgb   <- run_xgb("Dormancy_doy")
+
+# Check metrics
+greenup_xgb$metrics
+maturity_xgb$metrics
+senescence_xgb$metrics
+dormancy_xgb$metrics
+
+```
+
+
+
+
 
 

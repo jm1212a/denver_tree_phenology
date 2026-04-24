@@ -89,8 +89,7 @@ read_rds("./raw_extracts/lc_fracs_by_circle_FULL_90m_30m_donut.rds") %>%
 left_join(lc_90, lc_250, by = "UID") %>% 
   left_join(lc_30, by = "UID") %>% 
   left_join(lc_30_90, by = "UID") %>% 
+  mutate(UID = as.character(UID), by = "UID") %>% 
   write_rds("./cleaned_data/land_cover.rds")
 
 ```
-
-

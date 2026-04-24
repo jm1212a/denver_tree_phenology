@@ -18,6 +18,7 @@ source("./helper_functions/read_and_clean.R")
 ```
 
 ```{r}
+
 read_fwf("./raw_data_sets/ghcnd-stations.txt", 
          col_positions = fwf_widths(c(11, 10, 10, 10, 100))) %>% 
   rename(station_id = X1, latitude = X2, longitude = X3, elevation_state = X4, Name = X5) %>% 
@@ -28,16 +29,16 @@ read_fwf("./raw_data_sets/ghcnd-stations.txt",
     elevation == 999 | elevation == -999 ~ NA,  
     TRUE ~ elevation)) %>% 
   mutate(elevation = as.double(elevation)) %>%
-  select(-elevation_state) %>% 
-  right_join(read_and_clean("./raw_data_sets/USW00023062.dly"), 
-             by = "station_id")%>% 
-  mutate(year = year(date)) %>% 
-  filter(year >= 1990 & year <= 2025 ) %>% 
-  group_by(year, date, station_id) %>% 
+  dplyr::select(-elevation_state) %>% 
+  right_join(read_and_clean("./raw_data_sets/USW00023062.dly"),
+             by = "station_id")%>%
+  mutate(year = year(date)) %>%
+  filter(year >= 1990 & year <= 2025 ) %>%
+  group_by(year, date, station_id) %>%
   mutate(
     mean_temp = mean((TMAX + TMIN) / 2, na.rm = TRUE),
     month = month(date),
-    day = day(date)) %>% 
+    day = day(date)) %>%
   rename(tmax = TMAX,
          tmin = TMIN,
          prcp = PRCP,
@@ -80,7 +81,6 @@ seq(1, 12) %>%
 
 ```
 
-
 ```{r}
 
 season_metric_weeks <- function(data, weeks, nub_weeks, years, growing_days_threshold = 10){
@@ -117,7 +117,6 @@ seq(2,52, by = 2) %>%
   write_csv("./climate_variables/climate_variables_bi-weekly.csv")
 
 ```
-
 
 ```{r}
 
@@ -157,10 +156,10 @@ left_join(doy_climate, doy_climate_30ave) %>%
          temp_diff_21_ave = mean_temp - clim_temp_ma21,
          temp_diff_30_ave = mean_temp - clim_temp_ma30,
          prcp_diff_ave = cum_prcp - clim_cum_prcp) %>% 
+  select(-doy) %>% 
   write_csv("./climate_variables/climate_variables_doy.csv")
 
 ```
-
 
 ```{r}
 climate_data %>%
@@ -529,4 +528,3 @@ list(winter_metrics, late_winter_metrics, spring_metrics, early_spring_metrics,
 
 
 ```
-

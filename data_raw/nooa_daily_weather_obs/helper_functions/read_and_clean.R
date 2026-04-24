@@ -31,7 +31,7 @@ read_and_clean <- function(file_path) {
       value = na_if(value, -9999)
     ) %>%
     filter(!is.na(date)) %>%
-    select(-year, -month, -day_col, -day) %>% 
+    dplyr::select(-year, -month, -day_col, -day) %>% 
     pivot_wider( names_from = element, values_from = value) %>%
     mutate(TMAX = TMAX / 10,
            TMIN = TMIN / 10)
